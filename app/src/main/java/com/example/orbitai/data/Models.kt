@@ -2,7 +2,7 @@ package com.example.orbitai.data
 
 import java.util.UUID
 
-// ── LLM Model descriptor ──────────────────────────────────────────────────────
+// ── LLM Model descriptor ──────────────────────────────────────────────────
 
 data class LlmModel(
     val id: String,
