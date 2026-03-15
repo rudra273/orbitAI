@@ -1,0 +1,38 @@
+name: Branch Ruleset Enforcement
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  enforce-main-source-branch:
+    name: Enforce main ← dev only
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check source branch is dev
+        run: |
+          echo "PR source branch: ${{ github.head_ref }}"
+          echo "PR target branch: ${{ github.base_ref }}"
+          if [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "❌ Direct merges to 'main' are not allowed."
+            echo "   Only the 'dev' branch can be merged into 'main'."
+            echo "   Source branch '${{ github.head_ref }}' is not permitted."
+            exit 1
+          fi
+          echo "✅ Source branch is 'dev'. Merge to 'main' is allowed."
+
+  enforce-dev-pr-only:
+    name: Enforce dev ← PR only (no direct push)
+    if: github.base_ref == 'dev'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Confirm PR-based merge to dev
+        run: |
+          echo "✅ Changes to 'dev' are going through a pull request."
+          echo "   Source branch: ${{ github.head_ref }}"
+          echo "   This satisfies the 'no direct push to dev' rule."

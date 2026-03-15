@@ -1,0 +1,5 @@
+# CODEOWNERS — defines who must review PRs for specific paths.
+#
+# Global rule: @rudra273 must approve all pull requests.
+# This applies to every file in the repository.
+*       @rudra273
