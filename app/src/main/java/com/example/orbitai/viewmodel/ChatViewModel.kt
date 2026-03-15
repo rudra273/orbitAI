@@ -12,6 +12,7 @@ import com.example.orbitai.data.LlmRepository
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
 import com.example.orbitai.data.rag.RagRepository
+import com.example.orbitai.data.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -33,6 +34,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val llmRepo = LlmRepository(application)
     private val settingsStore = InferenceSettingsStore(application)
     private val ragRepo = RagRepository(application)
+    val memoryRepo = MemoryRepository(application)
 
     val chats: StateFlow<List<Chat>> = chatRepo.chats
 
@@ -74,6 +76,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 1. Add user message
             chatRepo.addMessage(chatId, Message(role = Role.USER, content = userText))
 
+            // 1b. Auto-detect and save memorable facts from user message
+            extractMemoryFacts(userText).forEach { fact ->
+                memoryRepo.addMemory(fact, source = "auto")
+            }
+
             // 2. Load model if settings or model changed
             if (!llmRepo.isModelLoaded(model.id, settings)) {
                 _uiState.update { it.copy(isModelLoading = true, loadError = null) }
@@ -88,11 +95,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(isModelLoading = false) }
             }
 
-            // 3. Build prompt from history + RAG context
+            // 3. Build prompt from history + RAG context + memories
             val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
-            val ragContext = ragRepo.searchChunks(userText, limit = 5)
-                .map { it.content }
-            val prompt = buildGemmaPrompt(history, ragContext)
+            val ragContext = ragRepo.searchChunks(userText, limit = 5).map { it.content }
+            val memories = memoryRepo.getAllMemories().map { it.content }
+            val prompt = buildGemmaPrompt(history, ragContext, memories)
 
             // 4. Add empty assistant message (streaming placeholder)
             val assistantMsg = Message(role = Role.ASSISTANT, content = "", isStreaming = true)
@@ -118,23 +125,68 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Format messages in Gemma instruction-tuned format, with optional RAG context. */
+    /**
+     * Pattern-based extraction of memorable personal facts from user messages.
+     * Returns a list of human-readable fact strings to persist in memory.
+     */
+    private fun extractMemoryFacts(text: String): List<String> {
+        val t = text.trim()
+        val facts = mutableListOf<String>()
+
+        val patterns = listOf(
+            Regex("(?i)my name is ([\\w\\s]+)", RegexOption.IGNORE_CASE)             to { m: MatchResult -> "User's name is ${m.groupValues[1].trim()}" },
+            Regex("(?i)i(?:'m| am) ([\\w\\s]+?) years old")                          to { m: MatchResult -> "User is ${m.groupValues[1].trim()} years old" },
+            Regex("(?i)i(?:'m| am) a ([\\w\\s]+)")                                   to { m: MatchResult -> "User is a ${m.groupValues[1].trim()}" },
+            Regex("(?i)i work (?:at|for|in) ([\\w\\s]+)")                            to { m: MatchResult -> "User works at ${m.groupValues[1].trim()}" },
+            Regex("(?i)i(?:'m| am) (?:based in|from|living in|located in) ([\\w\\s,]+)") to { m: MatchResult -> "User is from/lives in ${m.groupValues[1].trim()}" },
+            Regex("(?i)i live(?:s)? in ([\\w\\s,]+)")                                to { m: MatchResult -> "User lives in ${m.groupValues[1].trim()}" },
+            Regex("(?i)i (?:love|really like|enjoy|prefer) ([\\w\\s]+)")             to { m: MatchResult -> "User likes/loves ${m.groupValues[1].trim()}" },
+            Regex("(?i)i (?:hate|dislike|don't like|do not like) ([\\w\\s]+)")       to { m: MatchResult -> "User dislikes ${m.groupValues[1].trim()}" },
+            Regex("(?i)(?:remember(?: that)?|don'?t forget)[:\\s]+(.+)")             to { m: MatchResult -> m.groupValues[2].trim() },
+            Regex("(?i)(?:keep in mind)[:\\s]+(.+)")                                 to { m: MatchResult -> m.groupValues[1].trim() },
+            Regex("(?i)my (?:favourite|favorite) ([\\w\\s]+) is ([\\w\\s]+)")        to { m: MatchResult -> "User's favorite ${m.groupValues[1].trim()} is ${m.groupValues[2].trim()}" },
+        )
+
+        for ((regex, transform) in patterns) {
+            val match = regex.find(t)
+            if (match != null) {
+                val fact = transform(match)
+                if (fact.isNotBlank() && fact.length < 200) {
+                    facts += fact
+                }
+            }
+        }
+        return facts
+    }
+
+    /** Format messages in Gemma instruction-tuned format, with optional RAG context and memories. */
     private fun buildGemmaPrompt(
         messages: List<Message>,
         ragContext: List<String> = emptyList(),
+        memories: List<String> = emptyList(),
     ): String {
         val sb = StringBuilder()
 
-        // Inject RAG context as a system preamble in the first user turn
-        if (ragContext.isNotEmpty()) {
+        // Inject memories + RAG context as a system preamble in the first user turn
+        val hasContext = memories.isNotEmpty() || ragContext.isNotEmpty()
+        if (hasContext) {
             sb.append("<start_of_turn>user\n")
-            sb.append("Use the following reference documents to answer the question. ")
-            sb.append("If the answer is not in the documents, say so.\n\n")
-            ragContext.forEachIndexed { i, chunk ->
-                sb.append("[Document ${i + 1}]\n$chunk\n\n")
+            if (memories.isNotEmpty()) {
+                sb.append("The following is personal context you know about the user. Always use this when relevant:\n\n")
+                memories.forEachIndexed { i, fact ->
+                    sb.append("[Memory ${i + 1}] $fact\n")
+                }
+                sb.append("\n")
+            }
+            if (ragContext.isNotEmpty()) {
+                sb.append("Use the following reference documents to answer the question. ")
+                sb.append("If the answer is not in the documents, say so.\n\n")
+                ragContext.forEachIndexed { i, chunk ->
+                    sb.append("[Document ${i + 1}]\n$chunk\n\n")
+                }
             }
             sb.append("Now answer the user's questions using the above context.<end_of_turn>\n")
-            sb.append("<start_of_turn>model\nUnderstood. I'll use the provided documents to answer your questions.<end_of_turn>\n")
+            sb.append("<start_of_turn>model\nUnderstood. I'll use the provided context to answer your questions.<end_of_turn>\n")
         }
 
         messages.forEach { msg ->

@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -33,18 +33,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.example.orbitai.ui.screens.ChatScreen
 import com.example.orbitai.ui.screens.HomeScreen
-import com.example.orbitai.ui.screens.NotesScreen
+import com.example.orbitai.ui.screens.MemoryScreen
 import com.example.orbitai.ui.screens.RagScreen
 import com.example.orbitai.ui.screens.SettingsScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
+import com.example.orbitai.viewmodel.MemoryViewModel
 import com.example.orbitai.viewmodel.RagViewModel
 
 sealed class Screen(val route: String) {
     data object Home     : Screen("home")
     data object Rag      : Screen("rag")
-    data object Notes    : Screen("notes")
+    data object Memory   : Screen("memory")
     data object Settings : Screen("settings")
     data object Chat     : Screen("chat/{chatId}") {
         fun go(chatId: String) = "chat/$chatId"
@@ -54,7 +55,7 @@ sealed class Screen(val route: String) {
 private val TAB_ROUTES = setOf(
     Screen.Home.route,
     Screen.Rag.route,
-    Screen.Notes.route,
+    Screen.Memory.route,
     Screen.Settings.route,
 )
 
@@ -64,6 +65,7 @@ fun OrbitNavGraph(
     chatViewModel: ChatViewModel,
     downloadViewModel: DownloadViewModel,
     ragViewModel: RagViewModel,
+    memoryViewModel: MemoryViewModel,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
@@ -106,8 +108,8 @@ fun OrbitNavGraph(
                 RagScreen(viewModel = ragViewModel)
             }
 
-            composable(Screen.Notes.route) {
-                NotesScreen()
+            composable(Screen.Memory.route) {
+                MemoryScreen(viewModel = memoryViewModel)
             }
 
             composable(Screen.Settings.route) {
@@ -196,10 +198,10 @@ private fun OrbitBottomBar(
                 }
 
                 NavBarItem(
-                    icon     = Icons.Default.EditNote,
-                    label    = "Notes",
-                    selected = currentRoute == Screen.Notes.route,
-                    onClick  = { onNavigate(Screen.Notes.route) },
+                    icon     = Icons.Default.Memory,
+                    label    = "Memory",
+                    selected = currentRoute == Screen.Memory.route,
+                    onClick  = { onNavigate(Screen.Memory.route) },
                 )
 
                 NavBarItem(

@@ -81,3 +81,22 @@ interface RagDocumentDao {
     suspend fun getAllChunksWithEmbeddings(): List<RagChunkEntity>
 }
 
+@Dao
+interface MemoryDao {
+
+    @Query("SELECT * FROM memories ORDER BY createdAt DESC")
+    fun observeMemories(): Flow<List<MemoryEntity>>
+
+    @Query("SELECT * FROM memories ORDER BY createdAt DESC")
+    suspend fun getAllMemories(): List<MemoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMemory(memory: MemoryEntity)
+
+    @Query("DELETE FROM memories WHERE id = :id")
+    suspend fun deleteMemory(id: String)
+
+    @Query("DELETE FROM memories")
+    suspend fun clearAll()
+}
+
