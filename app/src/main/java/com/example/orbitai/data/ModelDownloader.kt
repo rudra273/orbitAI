@@ -26,8 +26,8 @@ data class DownloadProgress(
 enum class DownloadStatus { IDLE, DOWNLOADING, PAUSED, COMPLETED, FAILED }
 
 val MODEL_DOWNLOAD_URLS = mapOf(
-    "gemma3-1.5b" to "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true",
-    "gemma3-4b"   to "https://huggingface.co/litert-community/Gemma3-4B-IT/resolve/main/gemma3-4b-it-int4.task?download=true",
+    "gemma3-1b"   to "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true",
+    "gemma3-4b"   to "https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm?download=true",
     "gemma2-2b"   to "https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/gemma2-2b-it-cpu-int8.task?download=true",
 )
 

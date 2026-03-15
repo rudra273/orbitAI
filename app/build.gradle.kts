@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     implementation(libs.mediapipe.llm.inference)
+    implementation(libs.litertlm.android)
     implementation(libs.mediapipe.text)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

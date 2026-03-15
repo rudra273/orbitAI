@@ -10,30 +10,37 @@ data class LlmModel(
     val fileName: String,          // file name inside /data/local/tmp/llm/ or assets
     val description: String,
     val paramCount: String,        // e.g. "1.5B"
+    val format: ModelFormat = ModelFormat.TASK,
 )
+
+enum class ModelFormat {
+    TASK,
+    LITERTLM,
+}
 
 /** Models bundled / sideloaded via ADB or downloaded by the user. */
 val AVAILABLE_MODELS = listOf(
     LlmModel(
-        id = "gemma3-1.5b",
-        displayName = "Gemma 3 1.5B",
-        fileName = "gemma3-1.5b-it-int4.task",
+        id = "gemma3-1b",
+        displayName = "Gemma 3 1B",
+        fileName = "gemma3-1b-it-int4.task",
         description = "Fast, lightweight • best for quick tasks",
-        paramCount = "1.5B"
+        paramCount = "1B",
     ),
     LlmModel(
         id = "gemma3-4b",
-        displayName = "Gemma 3 4B",
-        fileName = "gemma3-4b-it-int4.task",
+        displayName = "Gemma 3n E4B",
+        fileName = "gemma-3n-E4B-it-int4.litertlm",
         description = "Balanced quality & speed",
-        paramCount = "4B"
+        paramCount = "4B",
+        format = ModelFormat.LITERTLM,
     ),
     LlmModel(
         id = "gemma2-2b",
         displayName = "Gemma 2 2B",
         fileName = "gemma2-2b-it-cpu-int8.task",
         description = "Stable CPU model • wide device support",
-        paramCount = "2B"
+        paramCount = "2B",
     ),
 )
 

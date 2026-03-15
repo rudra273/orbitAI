@@ -36,6 +36,7 @@ import com.example.orbitai.data.EmbeddingModelConfig
 import com.example.orbitai.data.InferenceSettings
 import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.LlmModel
+import com.example.orbitai.data.ModelFormat
 import com.example.orbitai.data.MODEL_DOWNLOAD_URLS
 import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.theme.*
@@ -151,12 +152,16 @@ fun SettingsScreen(
                 SectionLabel("Custom Model URL")
                 Spacer(Modifier.height(8.dp))
                 CustomUrlCard { url, fileName ->
+                    val normalizedFileName = normalizeModelFileName(fileName)
                     val custom = LlmModel(
                         id          = "custom-${System.currentTimeMillis()}",
-                        displayName = fileName.removeSuffix(".task"),
-                        fileName    = fileName,
+                        displayName = normalizedFileName
+                            .removeSuffix(".litertlm")
+                            .removeSuffix(".task"),
+                        fileName    = normalizedFileName,
                         description = "Custom model",
                         paramCount  = "?",
+                        format      = inferModelFormat(normalizedFileName),
                     )
                     downloadViewModel.startDownload(custom, url)
                 }
@@ -447,6 +452,20 @@ private fun ModelDownloadCard(
                         fontSize   = 12.sp,
                         fontWeight = FontWeight.Bold)
                 }
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Surface2)
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                ) {
+                    Text(
+                        model.format.badgeLabel(),
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(model.displayName, color = TextPrimary, fontSize = 15.sp,
@@ -704,15 +723,15 @@ private fun CustomUrlCard(onDownload: (url: String, fileName: String) -> Unit) {
         border   = BorderStroke(0.5.dp, Outline),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Any compatible .task file", color = TextPrimary, fontSize = 14.sp,
+            Text("Any compatible Task or LiteRT-LM file", color = TextPrimary, fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold)
-            Text("Paste any MediaPipe LLM .task model URL below.",
+            Text("Paste any MediaPipe LLM model URL (.task or .litertlm) below.",
                 color = TextMuted, fontSize = 12.sp)
 
             OutlinedTextField(
                 value         = url,
                 onValueChange = { url = it },
-                label         = { Text("https://…/model.task", color = TextMuted, fontSize = 12.sp) },
+                label         = { Text("https://…/model.task or model.litertlm", color = TextMuted, fontSize = 12.sp) },
                 modifier      = Modifier.fillMaxWidth(),
                 shape         = RoundedCornerShape(10.dp),
                 colors        = urlFieldColors(),
@@ -725,7 +744,7 @@ private fun CustomUrlCard(onDownload: (url: String, fileName: String) -> Unit) {
             OutlinedTextField(
                 value         = fileName,
                 onValueChange = { fileName = it },
-                label         = { Text("Save as (e.g. mymodel.task)", color = TextMuted,
+                label         = { Text("Save as (e.g. mymodel.task or mymodel.litertlm)", color = TextMuted,
                     fontSize = 12.sp) },
                 modifier      = Modifier.fillMaxWidth(),
                 shape         = RoundedCornerShape(10.dp),
@@ -736,9 +755,7 @@ private fun CustomUrlCard(onDownload: (url: String, fileName: String) -> Unit) {
 
             Button(
                 onClick  = {
-                    val name = fileName.trim().let {
-                        if (it.endsWith(".task")) it else "$it.task"
-                    }
+                    val name = normalizeModelFileName(fileName)
                     if (url.isNotBlank() && name.isNotBlank()) onDownload(url.trim(), name)
                 },
                 enabled  = url.isNotBlank() && fileName.isNotBlank(),
@@ -756,6 +773,25 @@ private fun CustomUrlCard(onDownload: (url: String, fileName: String) -> Unit) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+private fun ModelFormat.badgeLabel(): String = when (this) {
+    ModelFormat.TASK -> "Task"
+    ModelFormat.LITERTLM -> "LiteRT-LM"
+}
+
+private fun inferModelFormat(fileName: String): ModelFormat = when {
+    fileName.lowercase().endsWith(".litertlm") -> ModelFormat.LITERTLM
+    else -> ModelFormat.TASK
+}
+
+private fun normalizeModelFileName(fileName: String): String {
+    val trimmed = fileName.trim()
+    return when {
+        trimmed.isEmpty() -> trimmed
+        trimmed.lowercase().endsWith(".task") || trimmed.lowercase().endsWith(".litertlm") -> trimmed
+        else -> "$trimmed.task"
+    }
+}
 
 @Composable
 private fun SectionLabel(text: String) {
