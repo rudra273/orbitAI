@@ -9,6 +9,7 @@ import com.example.orbitai.data.ChatRepository
 import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.LlmRepository
+import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
 import com.example.orbitai.data.SpaceRepository
@@ -37,6 +38,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val llmRepo = LlmRepository(application)
     private val settingsStore = InferenceSettingsStore(application)
     private val spaceRepo = SpaceRepository(application)
+    private val memoryFeatureStore = MemoryFeatureStore(application)
     val memoryRepo = MemoryRepository(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
@@ -88,12 +90,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val settings = settingsStore.get()
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
+            val memoryEnabled = memoryFeatureStore.isEnabled
+
             // 1. Add user message
             chatRepo.addMessage(chatId, Message(role = Role.USER, content = userText))
 
             // 1b. Auto-detect and save memorable facts from user message
-            extractMemoryFacts(userText).forEach { fact ->
-                memoryRepo.addMemory(fact, source = "auto")
+            if (memoryEnabled) {
+                extractMemoryFacts(userText).forEach { fact ->
+                    memoryRepo.addMemory(fact, source = "auto")
+                }
             }
 
             // 2. Load model if settings or model changed
@@ -117,7 +123,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _activeSpaceIds.value.toList(),
                 limit = 5,
             ).map { it.content }
-            val memories = memoryRepo.getAllMemories().map { it.content }
+            val memories = if (memoryEnabled) {
+                memoryRepo.getAllMemories().map { it.content }
+            } else {
+                emptyList()
+            }
             val prompt = buildGemmaPrompt(history, ragContext, memories)
 
             // 4. Add empty assistant message (streaming placeholder)
@@ -161,7 +171,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             Regex("(?i)i live(?:s)? in ([\\w\\s,]+)")                                to { m: MatchResult -> "User lives in ${m.groupValues[1].trim()}" },
             Regex("(?i)i (?:love|really like|enjoy|prefer) ([\\w\\s]+)")             to { m: MatchResult -> "User likes/loves ${m.groupValues[1].trim()}" },
             Regex("(?i)i (?:hate|dislike|don't like|do not like) ([\\w\\s]+)")       to { m: MatchResult -> "User dislikes ${m.groupValues[1].trim()}" },
-            Regex("(?i)(?:remember(?: that)?|don'?t forget)[:\\s]+(.+)")             to { m: MatchResult -> m.groupValues[2].trim() },
+            Regex("(?i)(?:remember(?: that)?|don'?t forget)[:\\s]+(.+)")             to { m: MatchResult -> m.groupValues.getOrNull(1)?.trim().orEmpty() },
             Regex("(?i)(?:keep in mind)[:\\s]+(.+)")                                 to { m: MatchResult -> m.groupValues[1].trim() },
             Regex("(?i)my (?:favourite|favorite) ([\\w\\s]+) is ([\\w\\s]+)")        to { m: MatchResult -> "User's favorite ${m.groupValues[1].trim()} is ${m.groupValues[2].trim()}" },
         )
