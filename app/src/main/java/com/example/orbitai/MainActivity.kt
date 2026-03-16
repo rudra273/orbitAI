@@ -11,13 +11,13 @@ import com.example.orbitai.ui.theme.OrbitAITheme
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
-import com.example.orbitai.viewmodel.RagViewModel
+import com.example.orbitai.viewmodel.SpacesViewModel
 
 class MainActivity : ComponentActivity() {
 
     private val chatViewModel: ChatViewModel         by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
-    private val ragViewModel: RagViewModel           by viewModels()
+    private val spacesViewModel: SpacesViewModel     by viewModels()
     private val memoryViewModel: MemoryViewModel     by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
                     navController     = navController,
                     chatViewModel     = chatViewModel,
                     downloadViewModel = downloadViewModel,
-                    ragViewModel      = ragViewModel,
+                    spacesViewModel   = spacesViewModel,
                     memoryViewModel   = memoryViewModel,
                 )
             }

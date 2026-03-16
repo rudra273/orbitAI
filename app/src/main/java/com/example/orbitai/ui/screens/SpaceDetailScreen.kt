@@ -16,13 +16,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.TextSnippet
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,54 +34,60 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.data.db.RagDocument
 import com.example.orbitai.data.db.RagStatus
 import com.example.orbitai.ui.theme.*
-import com.example.orbitai.viewmodel.RagViewModel
+import com.example.orbitai.viewmodel.SpacesViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RagScreen(viewModel: RagViewModel) {
-    val docs by viewModel.documents.collectAsState()
+fun SpaceDetailScreen(
+    spaceId: String,
+    viewModel: SpacesViewModel,
+    onBack: () -> Unit,
+) {
+    val spaces by viewModel.spaces.collectAsState()
+    val space  = spaces.find { it.id == spaceId }
+    val docs   by viewModel.observeDocumentsInSpace(spaceId).collectAsState(initial = emptyList())
 
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let { viewModel.addDocument(it) }
+        uri?.let { viewModel.addDocumentToSpace(it, spaceId) }
     }
 
     Scaffold(
         containerColor = Void,
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = TextMuted,
+                        )
+                    }
+                },
                 title = {
                     Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(AiAccent)
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                "Knowledge Base",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                            )
-                        }
+                        Text(
+                            space?.name ?: "Space",
+                            fontSize   = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = TextPrimary,
+                        )
                         Text(
                             "${docs.size} document${if (docs.size != 1) "s" else ""}",
                             fontSize = 12.sp,
-                            color = TextMuted,
-                            modifier = Modifier.padding(start = 18.dp),
+                            color    = TextMuted,
                         )
                     }
                 },
@@ -109,7 +116,7 @@ fun RagScreen(viewModel: RagViewModel) {
         },
     ) { padding ->
         if (docs.isEmpty()) {
-            RagEmptyState(
+            SpaceDetailEmptyState(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
@@ -130,9 +137,9 @@ fun RagScreen(viewModel: RagViewModel) {
                 itemsIndexed(docs) { _, doc ->
                     AnimatedVisibility(
                         visible = true,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+                        enter   = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
                     ) {
-                        RagDocumentCard(
+                        SpaceDocumentCard(
                             doc      = doc,
                             onDelete = { viewModel.deleteDocument(doc.id) },
                         )
@@ -144,7 +151,7 @@ fun RagScreen(viewModel: RagViewModel) {
 }
 
 @Composable
-private fun RagDocumentCard(doc: RagDocument, onDelete: () -> Unit) {
+private fun SpaceDocumentCard(doc: RagDocument, onDelete: () -> Unit) {
     val dateStr = remember(doc.addedAt) {
         SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(doc.addedAt))
     }
@@ -162,10 +169,9 @@ private fun RagDocumentCard(doc: RagDocument, onDelete: () -> Unit) {
         color    = Surface1,
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier          = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Doc type icon badge
             Box(
                 modifier = Modifier
                     .size(46.dp)
@@ -176,9 +182,9 @@ private fun RagDocumentCard(doc: RagDocument, onDelete: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = when {
-                    doc.mimeType == "application/pdf"    -> Icons.Default.PictureAsPdf
-                    doc.mimeType.startsWith("text/")     -> Icons.Default.TextSnippet
-                    else                                  -> Icons.Default.Article
+                    doc.mimeType == "application/pdf" -> Icons.Default.PictureAsPdf
+                    doc.mimeType.startsWith("text/")  -> Icons.AutoMirrored.Filled.TextSnippet
+                    else                               -> Icons.AutoMirrored.Filled.Article
                 }
                 Icon(icon, contentDescription = null, tint = AiAccent, modifier = Modifier.size(22.dp))
             }
@@ -188,30 +194,30 @@ private fun RagDocumentCard(doc: RagDocument, onDelete: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     doc.name,
-                    color = TextPrimary,
-                    fontSize = 14.sp,
+                    color      = TextPrimary,
+                    fontSize   = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines   = 1,
+                    overflow   = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment      = Alignment.CenterVertically,
+                    horizontalArrangement  = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(sizeStr, color = TextMuted, fontSize = 12.sp)
                     Text("·", color = TextMuted, fontSize = 12.sp)
                     Text(dateStr, color = TextMuted, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(6.dp))
-                StatusChip(doc.status, doc.chunkCount)
+                SpaceDocStatusChip(doc.status, doc.chunkCount)
             }
 
             IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = TextMuted,
+                    tint     = TextMuted,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -220,35 +226,32 @@ private fun RagDocumentCard(doc: RagDocument, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun StatusChip(status: RagStatus, chunkCount: Int) {
+private fun SpaceDocStatusChip(status: RagStatus, chunkCount: Int) {
     val infiniteTransition = rememberInfiniteTransition(label = "spin")
     val angle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue  = 360f,
+        initialValue  = 0f,
+        targetValue   = 360f,
         animationSpec = infiniteRepeatable(tween(1200)),
-        label = "spin",
+        label         = "spin",
     )
 
     val (icon, label, bgColor, textColor) = when (status) {
-        RagStatus.PENDING    -> Quadruple(Icons.Default.HourglassEmpty, "Pending",    Color(0xFF2A2200), Color(0xFFFFCC00))
-        RagStatus.PROCESSING -> Quadruple(Icons.Default.HourglassEmpty, "Processing", Color(0xFF00203A), CyanCore)
-        RagStatus.DONE       -> Quadruple(Icons.Default.Verified,       if (chunkCount > 0) "$chunkCount chunks" else "Indexed", Color(0xFF00200E), AiAccent)
-        RagStatus.ERROR      -> Quadruple(Icons.Default.ErrorOutline,   "Error",      Color(0xFF280000), Color(0xFFFF5252))
+        RagStatus.PENDING    -> StatusStyle(Icons.Default.HourglassEmpty, "Pending",    Color(0xFF2A2200), Color(0xFFFFCC00))
+        RagStatus.PROCESSING -> StatusStyle(Icons.Default.HourglassEmpty, "Processing", Color(0xFF00203A), CyanCore)
+        RagStatus.DONE       -> StatusStyle(Icons.Default.Verified, if (chunkCount > 0) "$chunkCount chunks" else "Indexed", Color(0xFF00200E), AiAccent)
+        RagStatus.ERROR      -> StatusStyle(Icons.Default.ErrorOutline, "Error",        Color(0xFF280000), Color(0xFFFF5252))
     }
 
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = bgColor,
-    ) {
+    Surface(shape = RoundedCornerShape(6.dp), color = bgColor) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier              = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(
                 icon,
                 contentDescription = null,
-                tint = textColor,
+                tint     = textColor,
                 modifier = Modifier
                     .size(12.dp)
                     .then(if (status == RagStatus.PROCESSING) Modifier.rotate(angle) else Modifier),
@@ -259,9 +262,9 @@ private fun StatusChip(status: RagStatus, chunkCount: Int) {
 }
 
 @Composable
-private fun RagEmptyState(modifier: Modifier = Modifier, onPickDocument: () -> Unit) {
+private fun SpaceDetailEmptyState(modifier: Modifier = Modifier, onPickDocument: () -> Unit) {
     Column(
-        modifier = modifier,
+        modifier            = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -273,9 +276,9 @@ private fun RagEmptyState(modifier: Modifier = Modifier, onPickDocument: () -> U
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.Article,
+                Icons.AutoMirrored.Filled.Article,
                 contentDescription = null,
-                tint = AiAccent.copy(0.6f),
+                tint     = AiAccent.copy(0.6f),
                 modifier = Modifier.size(36.dp),
             )
         }
@@ -283,16 +286,16 @@ private fun RagEmptyState(modifier: Modifier = Modifier, onPickDocument: () -> U
         Text("No documents yet", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Add PDFs or text files to build your\nknowledge base for context-aware responses",
-            color = TextMuted,
-            fontSize = 14.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            "Add PDFs or text files to this space\nfor context-aware responses",
+            color     = TextMuted,
+            fontSize  = 14.sp,
+            textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(32.dp))
         Button(
-            onClick = onPickDocument,
-            colors = ButtonDefaults.buttonColors(containerColor = AiAccent, contentColor = Void),
-            shape  = RoundedCornerShape(12.dp),
+            onClick        = onPickDocument,
+            colors         = ButtonDefaults.buttonColors(containerColor = AiAccent, contentColor = Void),
+            shape          = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
         ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -303,4 +306,4 @@ private fun RagEmptyState(modifier: Modifier = Modifier, onPickDocument: () -> U
 }
 
 // Tiny helper to avoid multiple destructuring declarations
-private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+private data class StatusStyle<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

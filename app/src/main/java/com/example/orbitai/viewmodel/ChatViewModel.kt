@@ -11,7 +11,8 @@ import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.LlmRepository
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
-import com.example.orbitai.data.rag.RagRepository
+import com.example.orbitai.data.SpaceRepository
+import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 data class ChatUiState(
     val isModelLoading: Boolean = false,
@@ -33,8 +36,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val chatRepo = ChatRepository(application)
     private val llmRepo = LlmRepository(application)
     private val settingsStore = InferenceSettingsStore(application)
-    private val ragRepo = RagRepository(application)
+    private val spaceRepo = SpaceRepository(application)
     val memoryRepo = MemoryRepository(application)
+
+    /** All available spaces — observed by the chat screen for the space selector. */
+    val spaces: StateFlow<List<Space>> = spaceRepo.spaces
+
+    private val _activeSpaceIds = MutableStateFlow<Set<String>>(emptySet())
+    val activeSpaceIds: StateFlow<Set<String>> = _activeSpaceIds.asStateFlow()
+
+    fun toggleSpace(id: String) {
+        _activeSpaceIds.update { current ->
+            if (id in current) current - id else current + id
+        }
+    }
 
     val chats: StateFlow<List<Chat>> = chatRepo.chats
 
@@ -97,7 +112,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 3. Build prompt from history + RAG context + memories
             val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
-            val ragContext = ragRepo.searchChunks(userText, limit = 5).map { it.content }
+            val ragContext = spaceRepo.searchChunksInSpaces(
+                userText,
+                _activeSpaceIds.value.toList(),
+                limit = 5,
+            ).map { it.content }
             val memories = memoryRepo.getAllMemories().map { it.content }
             val prompt = buildGemmaPrompt(history, ragContext, memories)
 
