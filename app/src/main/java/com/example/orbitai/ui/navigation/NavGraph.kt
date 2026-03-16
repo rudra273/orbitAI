@@ -11,8 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,27 +34,31 @@ import androidx.navigation.navArgument
 import com.example.orbitai.ui.screens.ChatScreen
 import com.example.orbitai.ui.screens.HomeScreen
 import com.example.orbitai.ui.screens.MemoryScreen
-import com.example.orbitai.ui.screens.RagScreen
+import com.example.orbitai.ui.screens.SpaceDetailScreen
+import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
-import com.example.orbitai.viewmodel.RagViewModel
+import com.example.orbitai.viewmodel.SpacesViewModel
 
 sealed class Screen(val route: String) {
     data object Home     : Screen("home")
-    data object Rag      : Screen("rag")
+    data object Spaces   : Screen("spaces")
     data object Memory   : Screen("memory")
     data object Settings : Screen("settings")
     data object Chat     : Screen("chat/{chatId}") {
         fun go(chatId: String) = "chat/$chatId"
     }
+    data object SpaceDetail : Screen("space_detail/{spaceId}") {
+        fun go(spaceId: String) = "space_detail/$spaceId"
+    }
 }
 
 private val TAB_ROUTES = setOf(
     Screen.Home.route,
-    Screen.Rag.route,
+    Screen.Spaces.route,
     Screen.Memory.route,
     Screen.Settings.route,
 )
@@ -64,7 +68,7 @@ fun OrbitNavGraph(
     navController: NavHostController,
     chatViewModel: ChatViewModel,
     downloadViewModel: DownloadViewModel,
-    ragViewModel: RagViewModel,
+    spacesViewModel: SpacesViewModel,
     memoryViewModel: MemoryViewModel,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -104,8 +108,11 @@ fun OrbitNavGraph(
                 )
             }
 
-            composable(Screen.Rag.route) {
-                RagScreen(viewModel = ragViewModel)
+            composable(Screen.Spaces.route) {
+                SpacesScreen(
+                    viewModel    = spacesViewModel,
+                    onOpenSpace  = { navController.navigate(Screen.SpaceDetail.go(it)) },
+                )
             }
 
             composable(Screen.Memory.route) {
@@ -127,6 +134,18 @@ fun OrbitNavGraph(
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
+                    onBack    = { navController.popBackStack() },
+                )
+            }
+
+            composable(
+                route     = Screen.SpaceDetail.route,
+                arguments = listOf(navArgument("spaceId") { type = NavType.StringType })
+            ) { back ->
+                val spaceId = back.arguments?.getString("spaceId") ?: return@composable
+                SpaceDetailScreen(
+                    spaceId   = spaceId,
+                    viewModel = spacesViewModel,
                     onBack    = { navController.popBackStack() },
                 )
             }
@@ -168,10 +187,10 @@ private fun OrbitBottomBar(
                 )
 
                 NavBarItem(
-                    icon     = Icons.Default.MenuBook,
-                    label    = "RAG",
-                    selected = currentRoute == Screen.Rag.route,
-                    onClick  = { onNavigate(Screen.Rag.route) },
+                    icon     = Icons.Default.Folder,
+                    label    = "Spaces",
+                    selected = currentRoute == Screen.Spaces.route,
+                    onClick  = { onNavigate(Screen.Spaces.route) },
                 )
 
                 // Centre + button

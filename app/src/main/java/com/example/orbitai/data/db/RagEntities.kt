@@ -17,6 +17,7 @@ data class RagDocument(
     val status: RagStatus,
     val chunkCount: Int,
     val addedAt: Long,
+    val spaceId: String? = null,
 )
 
 @Entity(tableName = "rag_documents")
@@ -29,6 +30,7 @@ data class RagDocumentEntity(
     val status: String,
     val chunkCount: Int,
     val addedAt: Long,
+    val spaceId: String? = null,
 )
 
 @Entity(
@@ -61,4 +63,5 @@ fun RagDocumentEntity.toDomain() = RagDocument(
     status     = RagStatus.valueOf(status),
     chunkCount = chunkCount,
     addedAt    = addedAt,
+    spaceId    = spaceId,
 )

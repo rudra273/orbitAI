@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +32,7 @@ import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.Chat
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
+import com.example.orbitai.data.db.Space
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
@@ -45,6 +47,8 @@ fun ChatScreen(
     val chats by viewModel.chats.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val chat = chats.find { it.id == chatId }
+    val spaces by viewModel.spaces.collectAsState()
+    val activeSpaceIds by viewModel.activeSpaceIds.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -90,6 +94,14 @@ fun ChatScreen(
                         onModelSelected = { model ->
                             viewModel.selectModel(chatId, model)
                         }
+                    )
+                }
+                // Space selector row (only shown when spaces exist)
+                if (spaces.isNotEmpty()) {
+                    SpaceSelectorRow(
+                        spaces         = spaces,
+                        activeSpaceIds = activeSpaceIds,
+                        onToggleSpace  = { viewModel.toggleSpace(it) },
                     )
                 }
                 HorizontalDivider(color = Outline, thickness = 0.5.dp)
@@ -421,5 +433,56 @@ private fun StatusBanner(text: String, color: Color) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Space Selector ────────────────────────────────────────────────────────────
+
+@Composable
+private fun SpaceSelectorRow(
+    spaces: List<Space>,
+    activeSpaceIds: Set<String>,
+    onToggleSpace: (String) -> Unit,
+) {
+    Row(
+        modifier          = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Spaces:",
+            color    = TextMuted,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(end = 8.dp),
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(spaces, key = { it.id }) { space ->
+                val selected = space.id in activeSpaceIds
+                FilterChip(
+                    selected = selected,
+                    onClick  = { onToggleSpace(space.id) },
+                    label    = {
+                        Text(space.name, fontSize = 11.sp)
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = CyanCore.copy(alpha = 0.15f),
+                        selectedLabelColor     = CyanCore,
+                        containerColor         = Surface2,
+                        labelColor             = TextMuted,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        selected            = selected,
+                        enabled             = true,
+                        selectedBorderColor = CyanCore.copy(alpha = 0.5f),
+                        borderColor         = Outline,
+                    ),
+                    shape  = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(28.dp),
+                )
+            }
+        }
     }
 }

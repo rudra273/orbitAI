@@ -100,3 +100,51 @@ interface MemoryDao {
     suspend fun clearAll()
 }
 
+@Dao
+interface SpaceDao {
+
+    @Query("SELECT * FROM spaces ORDER BY createdAt ASC")
+    fun observeSpaces(): Flow<List<SpaceEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSpace(space: SpaceEntity)
+
+    @Query("DELETE FROM spaces WHERE id = :id")
+    suspend fun deleteSpace(id: String)
+
+    /** Observe documents belonging to a specific space. */
+    @Query("SELECT * FROM rag_documents WHERE spaceId = :spaceId ORDER BY addedAt DESC")
+    fun observeDocumentsInSpace(spaceId: String): Flow<List<RagDocumentEntity>>
+
+    /** Delete all rag_documents for a space (chunks cascade via FK). */
+    @Query("DELETE FROM rag_documents WHERE spaceId = :spaceId")
+    suspend fun deleteDocumentsBySpaceId(spaceId: String)
+
+    /** All embedded chunks whose parent document belongs to one of the given spaces. */
+    @Query("""
+        SELECT c.* FROM rag_chunks c
+        INNER JOIN rag_documents d ON c.docId = d.id
+        WHERE d.spaceId IN (:spaceIds) AND c.embedding IS NOT NULL
+    """)
+    suspend fun getAllChunksWithEmbeddingsForSpaces(spaceIds: List<String>): List<RagChunkEntity>
+
+    /** Keyword search in chunks across the given spaces. */
+    @Query("""
+        SELECT c.* FROM rag_chunks c
+        INNER JOIN rag_documents d ON c.docId = d.id
+        WHERE d.spaceId IN (:spaceIds) AND c.content LIKE '%' || :query || '%'
+        LIMIT :limit
+    """)
+    suspend fun searchChunksInSpaces(spaceIds: List<String>, query: String, limit: Int = 20): List<RagChunkEntity>
+
+    /** Keyword search by document name across the given spaces. */
+    @Query("""
+        SELECT c.* FROM rag_chunks c
+        INNER JOIN rag_documents d ON c.docId = d.id
+        WHERE d.spaceId IN (:spaceIds) AND d.name LIKE '%' || :query || '%'
+        ORDER BY c.chunkIndex ASC
+        LIMIT :limit
+    """)
+    suspend fun searchChunksByDocNameInSpaces(spaceIds: List<String>, query: String, limit: Int = 20): List<RagChunkEntity>
+}
+
