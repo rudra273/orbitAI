@@ -101,6 +101,25 @@ interface MemoryDao {
 }
 
 @Dao
+interface AgentDao {
+
+    @Query("SELECT * FROM agents ORDER BY isDefault DESC, createdAt ASC")
+    fun observeAgents(): Flow<List<AgentEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAgent(agent: AgentEntity)
+
+    @Query("UPDATE agents SET name = :name, systemPrompt = :prompt WHERE id = :id")
+    suspend fun updateAgent(id: String, name: String, prompt: String)
+
+    @Query("DELETE FROM agents WHERE id = :id AND isDefault = 0")
+    suspend fun deleteAgent(id: String)
+
+    @Query("SELECT * FROM agents WHERE id = :id LIMIT 1")
+    suspend fun getAgentById(id: String): AgentEntity?
+}
+
+@Dao
 interface SpaceDao {
 
     @Query("SELECT * FROM spaces ORDER BY createdAt ASC")

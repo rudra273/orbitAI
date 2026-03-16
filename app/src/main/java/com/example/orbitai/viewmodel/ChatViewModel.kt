@@ -12,7 +12,10 @@ import com.example.orbitai.data.LlmRepository
 import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
+import com.example.orbitai.data.AgentRepository
 import com.example.orbitai.data.SpaceRepository
+import com.example.orbitai.data.db.Agent
+import com.example.orbitai.data.db.ORBIT_AGENT_ID
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
@@ -38,19 +41,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val llmRepo = LlmRepository(application)
     private val settingsStore = InferenceSettingsStore(application)
     private val spaceRepo = SpaceRepository(application)
+    private val agentRepo = AgentRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
     val memoryRepo = MemoryRepository(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
 
+    /** All available agents — observed by the chat screen for the agent selector. */
+    val agents: StateFlow<List<Agent>> = agentRepo.agents
+
     private val _activeSpaceIds = MutableStateFlow<Set<String>>(emptySet())
     val activeSpaceIds: StateFlow<Set<String>> = _activeSpaceIds.asStateFlow()
+
+    /** ID of the currently active agent; defaults to Orbit. */
+    private val _activeAgentId = MutableStateFlow(ORBIT_AGENT_ID)
+    val activeAgentId: StateFlow<String> = _activeAgentId.asStateFlow()
 
     fun toggleSpace(id: String) {
         _activeSpaceIds.update { current ->
             if (id in current) current - id else current + id
         }
+    }
+
+    fun selectAgent(id: String) {
+        _activeAgentId.value = id
     }
 
     val chats: StateFlow<List<Chat>> = chatRepo.chats
@@ -128,7 +143,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 emptyList()
             }
-            val prompt = buildGemmaPrompt(history, ragContext, memories)
+            val systemPrompt = agentRepo.agents.value
+                .find { it.id == _activeAgentId.value }
+                ?.systemPrompt
+                ?: agentRepo.agents.value.find { it.isDefault }?.systemPrompt
+            val prompt = buildGemmaPrompt(history, ragContext, memories, systemPrompt)
 
             // 4. Add empty assistant message (streaming placeholder)
             val assistantMsg = Message(role = Role.ASSISTANT, content = "", isStreaming = true)
@@ -188,15 +207,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return facts
     }
 
-    /** Format messages in Gemma instruction-tuned format, with optional RAG context and memories. */
+    /** Format messages in Gemma instruction-tuned format, with optional system prompt, RAG context and memories. */
     private fun buildGemmaPrompt(
         messages: List<Message>,
         ragContext: List<String> = emptyList(),
         memories: List<String> = emptyList(),
+        systemPrompt: String? = null,
     ): String {
         val sb = StringBuilder()
 
-        // Inject memories + RAG context as a system preamble in the first user turn
+        // System prompt turn (agent persona)
+        if (!systemPrompt.isNullOrBlank()) {
+            sb.append("<start_of_turn>user\n")
+            sb.append("System instructions: $systemPrompt\n")
+            sb.append("<end_of_turn>\n")
+            sb.append("<start_of_turn>model\nUnderstood.<end_of_turn>\n")
+        }
+
+        // Inject memories + RAG context as a preamble turn
         val hasContext = memories.isNotEmpty() || ragContext.isNotEmpty()
         if (hasContext) {
             sb.append("<start_of_turn>user\n")
@@ -220,7 +248,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         messages.forEach { msg ->
             when (msg.role) {
-                Role.USER -> sb.append("<start_of_turn>user\n${msg.content}<end_of_turn>\n")
+                Role.USER      -> sb.append("<start_of_turn>user\n${msg.content}<end_of_turn>\n")
                 Role.ASSISTANT -> sb.append("<start_of_turn>model\n${msg.content}<end_of_turn>\n")
             }
         }

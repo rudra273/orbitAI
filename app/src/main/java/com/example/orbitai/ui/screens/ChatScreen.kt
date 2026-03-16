@@ -32,6 +32,7 @@ import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.Chat
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
+import com.example.orbitai.data.db.Agent
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatViewModel
@@ -49,6 +50,8 @@ fun ChatScreen(
     val chat = chats.find { it.id == chatId }
     val spaces by viewModel.spaces.collectAsState()
     val activeSpaceIds by viewModel.activeSpaceIds.collectAsState()
+    val agents by viewModel.agents.collectAsState()
+    val activeAgentId by viewModel.activeAgentId.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -94,6 +97,14 @@ fun ChatScreen(
                         onModelSelected = { model ->
                             viewModel.selectModel(chatId, model)
                         }
+                    )
+                }
+                // Agent selector row
+                if (agents.isNotEmpty()) {
+                    AgentSelectorRow(
+                        agents        = agents,
+                        activeAgentId = activeAgentId,
+                        onSelectAgent = { viewModel.selectAgent(it) },
                     )
                 }
                 // Space selector row (only shown when spaces exist)
@@ -433,6 +444,97 @@ private fun StatusBanner(text: String, color: Color) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Agent Selector ────────────────────────────────────────────────────────────
+
+@Composable
+private fun AgentSelectorRow(
+    agents: List<Agent>,
+    activeAgentId: String,
+    onSelectAgent: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val active = agents.find { it.id == activeAgentId } ?: agents.firstOrNull() ?: return
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+    ) {
+        TextButton(
+            onClick        = { expanded = true },
+            colors         = ButtonDefaults.textButtonColors(contentColor = AiAccent),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            modifier       = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(AiAccent.copy(alpha = 0.08f)),
+        ) {
+            Text(
+                "✦  ${active.name}",
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.3.sp,
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.Default.ExpandMore,
+                contentDescription = "Select agent",
+                modifier = Modifier.size(16.dp),
+            )
+        }
+
+        DropdownMenu(
+            expanded         = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor   = Surface1,
+        ) {
+            agents.forEach { agent ->
+                val isSelected = agent.id == activeAgentId
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    agent.name,
+                                    color      = if (isSelected) AiAccent else TextPrimary,
+                                    fontSize   = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                                if (agent.isDefault) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "default",
+                                        color    = TextMuted,
+                                        fontSize = 10.sp,
+                                    )
+                                }
+                            }
+                            Text(
+                                agent.systemPrompt,
+                                color    = TextMuted,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+                    },
+                    onClick = {
+                        onSelectAgent(agent.id)
+                        expanded = false
+                    },
+                    trailingIcon = if (isSelected) ({
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(AiAccent)
+                        )
+                    }) else null,
+                )
+            }
+        }
     }
 }
 
