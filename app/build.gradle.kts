@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
 
     implementation(libs.mediapipe.llm.inference)
     implementation(libs.litertlm.android)

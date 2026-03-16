@@ -1,8 +1,6 @@
 package com.example.orbitai.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,15 +11,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,83 +36,105 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// Spaces accent — warm amber to differentiate from Chat's violet
+private val SpacesAccent  = Color(0xFFFBBF24)
+private val SpacesAccentDim = Color(0xFFF59E0B)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SPACES SCREEN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpacesScreen(
-    viewModel: SpacesViewModel,
-    onOpenSpace: (spaceId: String) -> Unit,
+    viewModel:    SpacesViewModel,
+    onOpenSpace:  (spaceId: String) -> Unit,
 ) {
-    val spaces by viewModel.spaces.collectAsState()
-    var showCreateDialog by remember { mutableStateOf(false) }
+    val spaces             by viewModel.spaces.collectAsState()
+    var showCreateDialog   by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = Void,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(CyanCore),
-                            )
-                            Spacer(Modifier.width(10.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SpaceDeep),
+    ) {
+        // Ambient amber glow — top
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.radialGradient(
+                        colorStops = arrayOf(
+                            0.0f to SpacesAccent.copy(alpha = 0.04f),
+                            1.0f to Color.Transparent,
+                        ),
+                        radius = 700f,
+                    )
+                )
+        )
+
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
                                 "Spaces",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.headlineLarge,
                                 color = TextPrimary,
                             )
+                            Text(
+                                "${spaces.size} space${if (spaces.size != 1) "s" else ""}",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color        = SpacesAccent,
+                                    letterSpacing = 1.sp,
+                                    fontWeight   = FontWeight.SemiBold,
+                                ),
+                            )
                         }
-                        Text(
-                            "${spaces.size} space${if (spaces.size != 1) "s" else ""}",
-                            fontSize = 12.sp,
-                            color = TextMuted,
-                            modifier = Modifier.padding(start = 18.dp),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Void),
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                containerColor = CyanCore,
-                contentColor   = Void,
-                shape          = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Create Space")
-            }
-        },
-    ) { padding ->
-        if (spaces.isEmpty()) {
-            SpacesEmptyState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                onCreate = { showCreateDialog = true },
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                itemsIndexed(spaces) { _, space ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
-                    ) {
-                        SpaceCard(
-                            space     = space,
-                            onClick   = { onOpenSpace(space.id) },
-                            onDelete  = { viewModel.deleteSpace(space.id) },
-                        )
+                    },
+                    colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    modifier = Modifier.statusBarsPadding(),
+                )
+            },
+            floatingActionButton = {
+                SpacesFAB(onClick = { showCreateDialog = true })
+            },
+        ) { padding ->
+            if (spaces.isEmpty()) {
+                SpacesEmptyState(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    onCreate = { showCreateDialog = true },
+                )
+            } else {
+                LazyColumn(
+                    modifier        = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding  = PaddingValues(
+                        start  = 16.dp,
+                        end    = 16.dp,
+                        top    = 8.dp,
+                        bottom = 100.dp,   // clear FAB
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    itemsIndexed(
+                        items = spaces,
+                        key   = { _, space -> space.id },
+                    ) { index, space ->
+                        StaggeredFadeSlide(index = index) {
+                            SpaceCard(
+                                space    = space,
+                                onClick  = { onOpenSpace(space.id) },
+                                onDelete = { viewModel.deleteSpace(space.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -127,41 +152,135 @@ fun SpacesScreen(
     }
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FAB
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 @Composable
-private fun SpaceCard(space: Space, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun SpacesFAB(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .drawBehind {
+                drawIntoCanvas { canvas ->
+                    val paint = Paint().apply {
+                        asFrameworkPaint().apply {
+                            isAntiAlias = true
+                            color       = android.graphics.Color.TRANSPARENT
+                            setShadowLayer(
+                                24f, 0f, 4f,
+                                SpacesAccent.copy(alpha = 0.4f).toArgb(),
+                            )
+                        }
+                    }
+                    canvas.drawRoundRect(
+                        0f, 0f, size.width, size.height,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
+                    )
+                }
+            }
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim))
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                onClick           = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Default.Add,
+            contentDescription = "Create Space",
+            tint     = SpaceDeep,
+            modifier = Modifier.size(26.dp),
+        )
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SPACE CARD
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@Composable
+private fun SpaceCard(
+    space:    Space,
+    onClick:  () -> Unit,
+    onDelete: () -> Unit,
+) {
     val dateStr = remember(space.createdAt) {
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(space.createdAt))
     }
 
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .drawBehind {
+                drawIntoCanvas { canvas ->
+                    val paint = Paint().apply {
+                        asFrameworkPaint().apply {
+                            isAntiAlias = true
+                            color       = android.graphics.Color.TRANSPARENT
+                            setShadowLayer(
+                                20f, 0f, 2f,
+                                SpacesAccent.copy(alpha = 0.08f).toArgb(),
+                            )
+                        }
+                    }
+                    canvas.drawRoundRect(
+                        0f, 0f, size.width, size.height,
+                        16.dp.toPx(), 16.dp.toPx(), paint,
+                    )
+                }
+            }
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassWhite8)
+            .background(
+                brush = Brush.linearGradient(
+                    listOf(GlassBorder, GlassBorder.copy(0.03f))
+                ),
+                shape = RoundedCornerShape(16.dp),
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
+                indication        = null,
+                onClick           = onClick,
             ),
-        shape = RoundedCornerShape(14.dp),
-        color = Surface1,
     ) {
+        // Left accent stripe — amber
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .width(3.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(SpacesAccent.copy(0.7f), SpacesAccentDim.copy(0.3f))
+                    )
+                )
+        )
+
         Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier             = Modifier
+                .fillMaxWidth()
+                .padding(start = 18.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+            verticalAlignment    = Alignment.CenterVertically,
         ) {
+            // Icon badge
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        Brush.linearGradient(listOf(CyanCore.copy(0.15f), CyanCore.copy(0.05f)))
-                    ),
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(SpacesAccent.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Default.Folder,
+                    Icons.Default.FolderOpen,
                     contentDescription = null,
-                    tint     = CyanCore,
-                    modifier = Modifier.size(24.dp),
+                    tint     = SpacesAccent,
+                    modifier = Modifier.size(22.dp),
                 )
             }
 
@@ -169,88 +288,173 @@ private fun SpaceCard(space: Space, onClick: () -> Unit, onDelete: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    space.name,
-                    color      = TextPrimary,
-                    fontSize   = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text      = space.name,
+                    style     = MaterialTheme.typography.titleMedium,
+                    color     = TextPrimary,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(
-                    "Created $dateStr",
-                    color    = TextMuted,
-                    fontSize = 12.sp,
+                    text  = "Created $dateStr",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted,
                 )
             }
 
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+            // Delete — muted, small
+            IconButton(
+                onClick  = onDelete,
+                modifier = Modifier.size(36.dp),
+            ) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete space",
-                    tint     = TextMuted,
-                    modifier = Modifier.size(18.dp),
+                    tint     = TextMuted.copy(0.45f),
+                    modifier = Modifier.size(17.dp),
                 )
             }
 
             Icon(
-                Icons.Default.ChevronRight,
+                Icons.AutoMirrored.Filled.ArrowForwardIos,
                 contentDescription = null,
-                tint     = TextMuted,
-                modifier = Modifier.size(20.dp),
+                tint     = TextMuted.copy(0.4f),
+                modifier = Modifier.size(13.dp),
             )
+
+            Spacer(Modifier.width(4.dp))
         }
     }
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CREATE DIALOG — glassy bottom-sheet style alert dialog
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 @Composable
-private fun CreateSpaceDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+private fun CreateSpaceDialog(
+    onDismiss: () -> Unit,
+    onCreate:  (String) -> Unit,
+) {
     var name by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor   = Surface1,
+        containerColor   = SpaceNebula,
+        tonalElevation   = 0.dp,
+        shape            = RoundedCornerShape(22.dp),
         title = {
-            Text("New Space", color = TextPrimary, fontWeight = FontWeight.Bold)
-        },
-        text = {
-            OutlinedTextField(
-                value         = name,
-                onValueChange = { name = it },
-                placeholder   = { Text("e.g. Research, Work, Books…", color = TextMuted) },
-                singleLine    = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor   = Surface2,
-                    unfocusedContainerColor = Surface2,
-                    focusedBorderColor      = CyanCore.copy(0.6f),
-                    unfocusedBorderColor    = Outline,
-                    focusedTextColor        = TextPrimary,
-                    unfocusedTextColor      = TextPrimary,
-                    cursorColor             = CyanCore,
-                ),
-                shape = RoundedCornerShape(10.dp),
+            Text(
+                "New Space",
+                style = MaterialTheme.typography.headlineSmall,
+                color = TextPrimary,
             )
         },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Give your space a name to organise documents.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextMuted,
+                )
+                Spacer(Modifier.height(8.dp))
+                TextField(
+                    value         = name,
+                    onValueChange = { name = it },
+                    modifier      = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(GlassWhite8),
+                    placeholder   = {
+                        Text(
+                            "e.g. Research, Work, Books…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted,
+                        )
+                    },
+                    colors        = TextFieldDefaults.colors(
+                        focusedContainerColor   = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor   = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor        = TextPrimary,
+                        unfocusedTextColor      = TextPrimary,
+                        cursorColor             = SpacesAccent,
+                    ),
+                    textStyle  = MaterialTheme.typography.bodyLarge,
+                    singleLine = true,
+                )
+            }
+        },
         confirmButton = {
-            TextButton(
-                onClick  = { if (name.isNotBlank()) onCreate(name) },
-                enabled  = name.isNotBlank(),
-                colors   = ButtonDefaults.textButtonColors(contentColor = CyanCore),
+            Box(
+                modifier = Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (name.isNotBlank())
+                            Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim))
+                        else
+                            Brush.linearGradient(listOf(GlassWhite8, GlassWhite8))
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication        = null,
+                        enabled           = name.isNotBlank(),
+                    ) { if (name.isNotBlank()) onCreate(name) }
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("Create", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Create",
+                    style      = MaterialTheme.typography.labelLarge,
+                    color      = if (name.isNotBlank()) SpaceDeep else TextMuted,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors  = ButtonDefaults.textButtonColors(contentColor = TextMuted),
+            Box(
+                modifier = Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(GlassWhite4)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication        = null,
+                        onClick           = onDismiss,
+                    )
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("Cancel")
+                Text(
+                    "Cancel",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TextMuted,
+                )
             }
         },
     )
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EMPTY STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 @Composable
-private fun SpacesEmptyState(modifier: Modifier = Modifier, onCreate: () -> Unit) {
+private fun SpacesEmptyState(
+    modifier: Modifier = Modifier,
+    onCreate: () -> Unit,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "spaces_pulse")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue  = 0.1f,
+        targetValue   = 0.3f,
+        animationSpec = infiniteRepeatable(
+            tween(2200, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse,
+        ),
+        label = "glow_alpha",
+    )
+
     Column(
         modifier            = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -259,36 +463,84 @@ private fun SpacesEmptyState(modifier: Modifier = Modifier, onCreate: () -> Unit
         Box(
             modifier = Modifier
                 .size(80.dp)
-                .clip(CircleShape)
-                .background(Brush.radialGradient(listOf(CyanCore.copy(0.12f), Void))),
+                .drawBehind {
+                    drawIntoCanvas { canvas ->
+                        val paint = Paint().apply {
+                            asFrameworkPaint().apply {
+                                isAntiAlias = true
+                                color       = android.graphics.Color.TRANSPARENT
+                                setShadowLayer(
+                                    40f, 0f, 0f,
+                                    SpacesAccent.copy(alpha = glowAlpha).toArgb(),
+                                )
+                            }
+                        }
+                        canvas.drawCircle(
+                            androidx.compose.ui.geometry.Offset(
+                                size.width / 2f, size.height / 2f
+                            ),
+                            size.minDimension / 2f, paint,
+                        )
+                    }
+                }
+                .clip(RoundedCornerShape(24.dp))
+                .background(SpacesAccent.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.Folder,
+                Icons.Default.FolderOpen,
                 contentDescription = null,
-                tint     = CyanCore.copy(0.6f),
+                tint     = SpacesAccent,
                 modifier = Modifier.size(36.dp),
             )
         }
-        Spacer(Modifier.height(20.dp))
-        Text("No spaces yet", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+
+        Spacer(Modifier.height(28.dp))
+
+        Text(
+            "No spaces yet",
+            style = MaterialTheme.typography.headlineMedium,
+            color = TextPrimary,
+        )
+
         Spacer(Modifier.height(8.dp))
+
         Text(
             "Create a space to organise your\ndocuments for context-aware chats",
+            style     = MaterialTheme.typography.bodyMedium,
             color     = TextMuted,
-            fontSize  = 14.sp,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(32.dp))
-        Button(
-            onClick        = onCreate,
-            colors         = ButtonDefaults.buttonColors(containerColor = CyanCore, contentColor = Void),
-            shape          = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+
+        Spacer(Modifier.height(36.dp))
+
+        Box(
+            modifier = Modifier
+                .height(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(
+                    Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim))
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication        = null,
+                    onClick           = onCreate,
+                )
+                .padding(horizontal = 28.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Create Space", fontWeight = FontWeight.SemiBold)
+            Row(
+                verticalAlignment    = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(Icons.Default.Add, null, tint = SpaceDeep, modifier = Modifier.size(18.dp))
+                Text(
+                    "Create Space",
+                    style      = MaterialTheme.typography.titleMedium,
+                    color      = SpaceDeep,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }
