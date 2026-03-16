@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Memory
@@ -31,6 +32,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.example.orbitai.ui.screens.AgentsScreen
 import com.example.orbitai.ui.screens.ChatScreen
 import com.example.orbitai.ui.screens.HomeScreen
 import com.example.orbitai.ui.screens.MemoryScreen
@@ -38,17 +40,19 @@ import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
 import com.example.orbitai.ui.theme.*
+import com.example.orbitai.viewmodel.AgentsViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
 import com.example.orbitai.viewmodel.SpacesViewModel
 
 sealed class Screen(val route: String) {
-    data object Home     : Screen("home")
-    data object Spaces   : Screen("spaces")
-    data object Memory   : Screen("memory")
-    data object Settings : Screen("settings")
-    data object Chat     : Screen("chat/{chatId}") {
+    data object Home        : Screen("home")
+    data object Spaces      : Screen("spaces")
+    data object Agents      : Screen("agents")
+    data object Memory      : Screen("memory")
+    data object Settings    : Screen("settings")
+    data object Chat        : Screen("chat/{chatId}") {
         fun go(chatId: String) = "chat/$chatId"
     }
     data object SpaceDetail : Screen("space_detail/{spaceId}") {
@@ -59,6 +63,7 @@ sealed class Screen(val route: String) {
 private val TAB_ROUTES = setOf(
     Screen.Home.route,
     Screen.Spaces.route,
+    Screen.Agents.route,
     Screen.Memory.route,
     Screen.Settings.route,
 )
@@ -69,6 +74,7 @@ fun OrbitNavGraph(
     chatViewModel: ChatViewModel,
     downloadViewModel: DownloadViewModel,
     spacesViewModel: SpacesViewModel,
+    agentsViewModel: AgentsViewModel,
     memoryViewModel: MemoryViewModel,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -113,6 +119,10 @@ fun OrbitNavGraph(
                     viewModel    = spacesViewModel,
                     onOpenSpace  = { navController.navigate(Screen.SpaceDetail.go(it)) },
                 )
+            }
+
+            composable(Screen.Agents.route) {
+                AgentsScreen(viewModel = agentsViewModel)
             }
 
             composable(Screen.Memory.route) {
@@ -191,6 +201,13 @@ private fun OrbitBottomBar(
                     label    = "Spaces",
                     selected = currentRoute == Screen.Spaces.route,
                     onClick  = { onNavigate(Screen.Spaces.route) },
+                )
+
+                NavBarItem(
+                    icon     = Icons.Default.Android,
+                    label    = "Agents",
+                    selected = currentRoute == Screen.Agents.route,
+                    onClick  = { onNavigate(Screen.Agents.route) },
                 )
 
                 // Centre + button
