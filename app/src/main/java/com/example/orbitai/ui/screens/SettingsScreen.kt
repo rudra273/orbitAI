@@ -38,6 +38,7 @@ import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.ModelFormat
 import com.example.orbitai.data.MODEL_DOWNLOAD_URLS
+import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.DownloadViewModel
@@ -53,6 +54,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val tokenStore = remember { TokenStore(context) }
     val inferenceStore = remember { InferenceSettingsStore(context) }
+    val memoryFeatureStore = remember { MemoryFeatureStore(context) }
 
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
 
@@ -99,6 +101,19 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 InferenceSettingsCard(inferenceStore)
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // ── Memory ────────────────────────────────────────────────────────
+            item {
+                SectionLabel("Memory")
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Enable or disable AI memory. When off, OrbitAI will not save new memories or use stored memory in chat.",
+                    color = TextMuted, fontSize = 13.sp, lineHeight = 18.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                MemoryFeatureCard(memoryFeatureStore)
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -174,6 +189,48 @@ fun SettingsScreen(
                         color = TextMuted.copy(0.4f), fontSize = 12.sp)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MemoryFeatureCard(store: MemoryFeatureStore) {
+    var enabled by remember { mutableStateOf(store.isEnabled) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Surface1,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(0.5.dp, if (enabled) AiAccent.copy(0.4f) else Outline),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Use Memory",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (enabled) "Memory is ON" else "Memory is OFF",
+                    color = if (enabled) AiAccent else TextMuted,
+                    fontSize = 12.sp,
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = {
+                    enabled = it
+                    store.isEnabled = it
+                },
+            )
         }
     }
 }
