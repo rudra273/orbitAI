@@ -1,6 +1,7 @@
 package com.example.orbitai.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
@@ -213,14 +215,37 @@ private fun ThemeModeCard(
     isDarkTheme: Boolean,
     onThemeChanged: (Boolean) -> Unit,
 ) {
+    val isDark = IsOrbitDarkTheme
+    val cardShape = RoundedCornerShape(18.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassWhite8)
+            .clip(cardShape)
             .background(
-                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
-                shape = RoundedCornerShape(16.dp),
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else Color(0xFFF0ECFF).copy(alpha = 0.82f)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
+                brush = Brush.linearGradient(
+                    colorStops = arrayOf(
+                        0.0f to (if (isDark) Color.White else VioletCore)
+                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
+                        0.5f to VioletCore.copy(alpha = if (isDark) 0.10f else 0.15f),
+                        1.0f to (if (isDark) Color.White else VioletCore)
+                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
+                    ),
+                ),
+                shape = cardShape,
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
@@ -238,7 +263,12 @@ private fun ThemeModeCard(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(VioletCore.copy(alpha = 0.14f)),
+                        .background(VioletCore.copy(alpha = 0.14f))
+                        .border(
+                            width = 0.5.dp,
+                            color = VioletCore.copy(alpha = if (isDark) 0.22f else 0.25f),
+                            shape = RoundedCornerShape(12.dp),
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -280,6 +310,20 @@ private fun SettingsCategoryCard(
     category: SettingsCategory,
     onClick: () -> Unit,
 ) {
+    val isDark = IsOrbitDarkTheme
+    val cardShape = RoundedCornerShape(18.dp)
+    val accent = category.accentColor
+
+    // Light mode: tinted glass per accent
+    val lightGlassTint = when {
+        accent == VioletCore                       -> Color(0xFFF0ECFF)
+        accent == Color(0xFF60A5FA)                -> Color(0xFFEBF2FF)
+        accent == Color(0xFF34D399)                -> Color(0xFFE8FFF5)
+        accent == Color(0xFFFBBF24)                -> Color(0xFFFFF8E7)
+        accent == Color(0xFFF472B6)                -> Color(0xFFFFF0F7)
+        else                                       -> Color(0xFFF5F5FF)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -290,29 +334,48 @@ private fun SettingsCategoryCard(
                             isAntiAlias = true
                             color = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                20f,
-                                0f,
-                                2f,
-                                category.accentColor.copy(alpha = 0.12f).toArgb(),
+                                if (isDark) 24f else 16f,
+                                0f, 4f,
+                                (if (isDark) Color.Black else accent)
+                                    .copy(alpha = if (isDark) 0.25f else 0.08f)
+                                    .toArgb(),
                             )
                         }
                     }
                     canvas.drawRoundRect(
-                        0f,
-                        0f,
-                        size.width,
-                        size.height,
-                        16.dp.toPx(),
-                        16.dp.toPx(),
-                        paint,
+                        0f, 0f, size.width, size.height,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
                     )
                 }
             }
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassWhite8)
+            .clip(cardShape)
             .background(
-                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
-                shape = RoundedCornerShape(16.dp),
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else lightGlassTint.copy(alpha = 0.82f)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
+                brush = Brush.linearGradient(
+                    colorStops = arrayOf(
+                        0.0f to (if (isDark) Color.White else accent)
+                                     .copy(alpha = if (isDark) 0.18f else 0.40f),
+                        0.5f to accent.copy(alpha = if (isDark) 0.12f else 0.18f),
+                        1.0f to (if (isDark) Color.White else accent)
+                                     .copy(alpha = if (isDark) 0.05f else 0.08f),
+                    ),
+                    start = Offset.Zero,
+                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                ),
+                shape = cardShape,
             )
             .clickable(
                 interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() },
@@ -331,13 +394,18 @@ private fun SettingsCategoryCard(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(category.accentColor.copy(alpha = 0.12f)),
+                    .background(accent.copy(alpha = 0.12f))
+                    .border(
+                        width = 0.5.dp,
+                        color = accent.copy(alpha = if (isDark) 0.22f else 0.28f),
+                        shape = RoundedCornerShape(14.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = category.icon,
                     contentDescription = null,
-                    tint = category.accentColor,
+                    tint = accent,
                     modifier = Modifier.size(22.dp),
                 )
             }

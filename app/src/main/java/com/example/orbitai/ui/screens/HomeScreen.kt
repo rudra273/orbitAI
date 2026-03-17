@@ -2,6 +2,7 @@ package com.example.orbitai.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -212,6 +213,7 @@ private fun ChatListCard(
         SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(chat.createdAt))
     }
     val preview = lastMsg?.content?.take(72) ?: "No messages yet"
+    val isDark = IsOrbitDarkTheme
 
     // Press animation
     var pressed by remember { mutableStateOf(false) }
@@ -221,10 +223,11 @@ private fun ChatListCard(
         label         = "card_press",
     )
 
+    val cardShape = RoundedCornerShape(18.dp)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            // Outer glow — only visible on hover/active; keep subtle at rest
             .drawBehind {
                 drawIntoCanvas { canvas ->
                     val paint = Paint().apply {
@@ -232,30 +235,51 @@ private fun ChatListCard(
                             isAntiAlias = true
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                24f, 0f, 2f,
-                                VioletGlow.copy(alpha = 0.18f).toArgb()
+                                if (isDark) 24f else 16f,
+                                0f, 4f,
+                                (if (isDark) Color.Black else VioletCore)
+                                    .copy(alpha = if (isDark) 0.30f else 0.08f)
+                                    .toArgb()
                             )
                         }
                     }
                     canvas.drawRoundRect(
                         0f, 0f, size.width, size.height,
-                        16.dp.toPx(), 16.dp.toPx(), paint,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
                     )
                 }
             }
-            .clip(RoundedCornerShape(16.dp))
+            .clip(cardShape)
             // Glass fill
-            .background(GlassWhite8)
-            // Glass border
             .background(
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else Color(0xFFF0ECFF).copy(alpha = 0.82f) // violet-tinted frost for light
+            )
+            // Top sheen
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            // Glass border
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
                 brush = Brush.linearGradient(
                     colorStops = arrayOf(
-                        0.0f to GlassBorder,
-                        0.5f to GlassBorder.copy(alpha = 0.04f),
-                        1.0f to GlassBorder,
-                    )
+                        0.0f to (if (isDark) Color.White else VioletCore)
+                                     .copy(alpha = if (isDark) 0.18f else 0.40f),
+                        0.5f to VioletCore.copy(alpha = if (isDark) 0.12f else 0.18f),
+                        1.0f to (if (isDark) Color.White else VioletCore)
+                                     .copy(alpha = if (isDark) 0.05f else 0.08f),
+                    ),
+                    start = Offset.Zero,
+                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = cardShape,
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -266,32 +290,23 @@ private fun ChatListCard(
                 pressed = false
             },
     ) {
-        // Subtle left-edge violet accent stripe
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(3.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(VioletCore.copy(alpha = 0.7f), VioletDim.copy(alpha = 0.3f))
-                    )
-                )
-        )
-
         Row(
             modifier             = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+                .padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment    = Alignment.CenterVertically,
         ) {
-            // Icon badge
+            // Icon badge — glass
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(13.dp))
-                    .background(VioletFrost),
+                    .background(VioletFrost)
+                    .border(
+                        width = 0.5.dp,
+                        color = VioletCore.copy(alpha = if (isDark) 0.20f else 0.25f),
+                        shape = RoundedCornerShape(13.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -370,6 +385,8 @@ private fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        val isDark = IsOrbitDarkTheme
+        val iconShape = RoundedCornerShape(24.dp)
         // Glowing icon container
         Box(
             modifier         = Modifier
@@ -393,8 +410,29 @@ private fun EmptyState(
                         )
                     }
                 }
-                .clip(RoundedCornerShape(24.dp))
-                .background(VioletFrost),
+                .clip(iconShape)
+                .background(
+                    if (isDark) VioletFrost
+                    else Color.White.copy(alpha = 0.80f)
+                )
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = if (isDark) 0.08f else 0.40f),
+                            0.5f to Color.Transparent,
+                        ),
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to VioletCore.copy(alpha = if (isDark) 0.35f else 0.40f),
+                            1.0f to VioletCore.copy(alpha = if (isDark) 0.08f else 0.12f),
+                        ),
+                    ),
+                    shape = iconShape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

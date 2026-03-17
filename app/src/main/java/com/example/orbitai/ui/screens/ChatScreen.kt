@@ -2,6 +2,7 @@ package com.example.orbitai.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
@@ -293,14 +295,26 @@ private fun ModelPill(
     val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId } ?: AVAILABLE_MODELS.first()
 
     Box {
+        val isDark = IsOrbitDarkTheme
+        val pillShape = RoundedCornerShape(15.dp)
         Box(
             modifier = Modifier
                 .height(30.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(GlassWhite8)
+                .clip(pillShape)
                 .background(
-                    brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.02f))),
-                    shape = RoundedCornerShape(15.dp),
+                    if (isDark) Color.White.copy(alpha = 0.05f)
+                    else Color(0xFFF0ECFF).copy(alpha = 0.78f)
+                )
+                .border(
+                    width = if (isDark) 0.5.dp else 1.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to (if (isDark) Color.White else VioletCore)
+                                         .copy(alpha = if (isDark) 0.15f else 0.30f),
+                            1.0f to VioletCore.copy(alpha = if (isDark) 0.05f else 0.08f),
+                        ),
+                    ),
+                    shape = pillShape,
                 )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -558,7 +572,12 @@ private fun MessageBubble(msg: Message) {
                         }
                     }
                     .clip(CircleShape)
-                    .background(VioletFrost),
+                    .background(VioletFrost)
+                    .border(
+                        width = 0.5.dp,
+                        color = VioletCore.copy(alpha = 0.30f),
+                        shape = CircleShape,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("✦", fontSize = 12.sp, color = VioletBright)
@@ -735,10 +754,18 @@ private fun ChatInputBar(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(22.dp))
-                    .background(SpaceDust.copy(alpha = 0.85f))
                     .background(
+                        if (IsOrbitDarkTheme) SpaceDust.copy(alpha = 0.85f)
+                        else Color(0xFFF0ECFF).copy(alpha = 0.82f)
+                    )
+                    .border(
+                        width = if (IsOrbitDarkTheme) 0.5.dp else 1.dp,
                         brush = Brush.linearGradient(
-                            listOf(GlassBorder, GlassBorder.copy(0.04f))
+                            colorStops = arrayOf(
+                                0.0f to (if (IsOrbitDarkTheme) Color.White else VioletCore)
+                                             .copy(alpha = if (IsOrbitDarkTheme) 0.12f else 0.25f),
+                                1.0f to VioletCore.copy(alpha = if (IsOrbitDarkTheme) 0.04f else 0.08f),
+                            ),
                         ),
                         shape = RoundedCornerShape(22.dp),
                     ),
@@ -877,10 +904,18 @@ private fun StopButton(onClick: () -> Unit) {
 
 @Composable
 private fun GlassStatusBanner(text: String, color: Color) {
+    val isDark = IsOrbitDarkTheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color.copy(alpha = 0.1f))
+            .background(color.copy(alpha = if (isDark) 0.10f else 0.08f))
+            .border(
+                width = 0.5.dp,
+                brush = Brush.horizontalGradient(
+                    listOf(color.copy(alpha = 0.25f), color.copy(alpha = 0.05f))
+                ),
+                shape = RoundedCornerShape(0.dp),
+            )
             .padding(horizontal = 20.dp, vertical = 9.dp),
         verticalAlignment    = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

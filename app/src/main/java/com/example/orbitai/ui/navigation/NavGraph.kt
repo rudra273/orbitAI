@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -276,16 +277,13 @@ private fun OrbitBottomBar(
         contentAlignment = Alignment.BottomCenter,
     ) {
         // Glassy pill
+        val isDark = IsOrbitDarkTheme
+        val pillShape = RoundedCornerShape(24.dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
-                // Glass fill
-                .background(
-                    color = SpaceDust.copy(alpha = 0.75f),
-                    shape = RoundedCornerShape(24.dp),
-                )
-                // Violet glow halo underneath
+                // Outer glow
                 .drawBehind {
                     drawIntoCanvas { canvas ->
                         val paint = Paint().apply {
@@ -293,9 +291,10 @@ private fun OrbitBottomBar(
                                 isAntiAlias = true
                                 color       = android.graphics.Color.TRANSPARENT
                                 setShadowLayer(
-                                    32f, 0f, 4f,
-                                    VioletGlow
-                                        .copy(alpha = 0.35f)
+                                    if (isDark) 32f else 20f,
+                                    0f, 4f,
+                                    (if (isDark) VioletGlow else Color.Black)
+                                        .copy(alpha = if (isDark) 0.35f else 0.08f)
                                         .toArgb(),
                                 )
                             }
@@ -308,44 +307,50 @@ private fun OrbitBottomBar(
                         )
                     }
                 }
-                // Glass border
-                .then(
-                    Modifier.background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                GlassBorder,
-                                GlassBorder.copy(alpha = 0.06f),
-                            )
+                .clip(pillShape)
+                // Glass fill
+                .background(
+                    if (isDark) Color.White.copy(alpha = 0.05f)
+                    else Color.White.copy(alpha = 0.72f)
+                )
+                // Top sheen
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                            0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                            0.5f  to Color.Transparent,
                         ),
-                        shape = RoundedCornerShape(24.dp),
                     )
+                )
+                // Glass border
+                .border(
+                    width = if (isDark) 1.dp else 1.5.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to (if (isDark) Color.White else VioletCore)
+                                         .copy(alpha = if (isDark) 0.18f else 0.30f),
+                            0.5f to (if (isDark) VioletCore else VioletCore)
+                                         .copy(alpha = if (isDark) 0.10f else 0.12f),
+                            1.0f to (if (isDark) Color.White else VioletCore)
+                                         .copy(alpha = if (isDark) 0.05f else 0.06f),
+                        ),
+                    ),
+                    shape = pillShape,
                 ),
         ) {
-            // Stroke ring — drawn as a 1dp border inside the pill
-            Surface(
-                modifier        = Modifier.fillMaxSize(),
-                shape           = RoundedCornerShape(24.dp),
-                color           = Color.Transparent,
-                border          = androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    brush = Brush.linearGradient(
-                        listOf(GlassBorder, GlassBorder.copy(0.04f), GlassBorder)
-                    ),
-                ),
+            Row(
+                modifier              = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                Row(
-                    modifier              = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    TABS.forEach { tab ->
-                        val selected = currentRoute == tab.route
-                        TabButton(
-                            tab      = tab,
-                            selected = selected,
-                            onClick  = { onNavigate(tab.route) },
-                        )
-                    }
+                TABS.forEach { tab ->
+                    val selected = currentRoute == tab.route
+                    TabButton(
+                        tab      = tab,
+                        selected = selected,
+                        onClick  = { onNavigate(tab.route) },
+                    )
                 }
             }
         }
