@@ -12,7 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -41,12 +43,16 @@ import com.example.orbitai.viewmodel.DownloadViewModel
 @Composable
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
+    isDarkTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
 
     SettingsHub(
+        isDarkTheme = isDarkTheme,
+        onThemeChanged = onThemeChanged,
         onOpenSection = onNavigate,
         onBack = onBack,
     )
@@ -63,6 +69,8 @@ private data class SettingsCategory(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsHub(
+    isDarkTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
     onOpenSection: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -207,37 +215,14 @@ private fun ThemeModeCard(
     isDarkTheme: Boolean,
     onThemeChanged: (Boolean) -> Unit,
 ) {
-    val isDark = IsOrbitDarkTheme
-    val cardShape = RoundedCornerShape(18.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(cardShape)
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassWhite8)
             .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else Color(0xFFF0ECFF).copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
-            .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else VioletCore)
-                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
-                        0.5f to VioletCore.copy(alpha = if (isDark) 0.10f else 0.15f),
-                        1.0f to (if (isDark) Color.White else VioletCore)
-                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
-                    ),
-                ),
-                shape = cardShape,
+                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
+                shape = RoundedCornerShape(16.dp),
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
@@ -255,12 +240,7 @@ private fun ThemeModeCard(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(VioletCore.copy(alpha = 0.14f))
-                        .border(
-                            width = 0.5.dp,
-                            color = VioletCore.copy(alpha = if (isDark) 0.22f else 0.25f),
-                            shape = RoundedCornerShape(12.dp),
-                        ),
+                        .background(VioletCore.copy(alpha = 0.14f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

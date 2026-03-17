@@ -132,9 +132,6 @@ fun setOrbitThemeMode(isDarkTheme: Boolean) {
     currentPalette = if (isDarkTheme) DarkPalette else LightPalette
 }
 
-/** true when the current Orbit palette is the dark variant */
-val IsOrbitDarkTheme: Boolean get() = currentPalette == DarkPalette
-
 // Backgrounds — layered depth
 val SpaceVoid: Color get() = currentPalette.spaceVoid
 val SpaceDeep: Color get() = currentPalette.spaceDeep
