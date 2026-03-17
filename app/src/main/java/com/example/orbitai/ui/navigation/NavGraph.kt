@@ -109,6 +109,8 @@ fun OrbitNavGraph(
     spacesViewModel:   SpacesViewModel,
     agentsViewModel:   AgentsViewModel,
     memoryViewModel:   MemoryViewModel,
+    isDarkTheme:       Boolean,
+    onThemeChanged:    (Boolean) -> Unit,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
@@ -160,6 +162,8 @@ fun OrbitNavGraph(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    isDarkTheme       = isDarkTheme,
+                    onThemeChanged    = onThemeChanged,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },
                 )

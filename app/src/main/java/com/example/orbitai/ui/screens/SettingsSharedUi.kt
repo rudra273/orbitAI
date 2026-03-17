@@ -41,6 +41,7 @@ fun SettingsSubScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -72,7 +73,7 @@ fun SettingsSubScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
         ) { padding ->

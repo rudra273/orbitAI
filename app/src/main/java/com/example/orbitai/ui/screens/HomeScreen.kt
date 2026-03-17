@@ -136,6 +136,7 @@ fun HomeScreen(
 @Composable
 private fun ChatListTopBar(onNewChat: () -> Unit) {
     TopAppBar(
+        windowInsets = WindowInsets(0, 0, 0, 0),
         title = {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(
@@ -192,7 +193,7 @@ private fun ChatListTopBar(onNewChat: () -> Unit) {
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
         ),
-        modifier = Modifier.statusBarsPadding(),
+        modifier = Modifier.padding(top = 4.dp),
     )
 }
 

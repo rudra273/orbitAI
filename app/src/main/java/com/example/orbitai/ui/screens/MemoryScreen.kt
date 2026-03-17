@@ -100,6 +100,7 @@ fun MemoryScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -201,7 +202,7 @@ fun MemoryScreen(
                         }
                     },
                     colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
         ) { padding ->

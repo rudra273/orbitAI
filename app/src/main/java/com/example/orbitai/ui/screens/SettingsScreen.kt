@@ -11,7 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -39,12 +41,16 @@ import com.example.orbitai.viewmodel.DownloadViewModel
 @Composable
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
+    isDarkTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
 
     SettingsHub(
+        isDarkTheme = isDarkTheme,
+        onThemeChanged = onThemeChanged,
         onOpenSection = onNavigate,
         onBack = onBack,
     )
@@ -61,6 +67,8 @@ private data class SettingsCategory(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsHub(
+    isDarkTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
     onOpenSection: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -127,6 +135,7 @@ private fun SettingsHub(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -154,7 +163,7 @@ private fun SettingsHub(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
         ) { padding ->
@@ -165,6 +174,13 @@ private fun SettingsHub(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                item {
+                    ThemeModeCard(
+                        isDarkTheme = isDarkTheme,
+                        onThemeChanged = onThemeChanged,
+                    )
+                }
+
                 items(categories.indices.toList()) { index ->
                     StaggeredFadeSlide(index = index) {
                         SettingsCategoryCard(
@@ -188,6 +204,73 @@ private fun SettingsHub(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ThemeModeCard(
+    isDarkTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassWhite8)
+            .background(
+                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
+                shape = RoundedCornerShape(16.dp),
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(VioletCore.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (isDarkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
+                        contentDescription = null,
+                        tint = VioletBright,
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Theme",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                    )
+                    Text(
+                        text = if (isDarkTheme) "Dark mode" else "Light mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                    )
+                }
+            }
+
+            Switch(
+                checked = isDarkTheme,
+                onCheckedChange = onThemeChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = VioletCore,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = GlassWhite20,
+                ),
+            )
         }
     }
 }

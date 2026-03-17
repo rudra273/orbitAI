@@ -190,6 +190,7 @@ private fun ChatTopBar(
     ) {
         // ── Row 1: back + title + model pill ──────────────────────────────
         TopAppBar(
+            windowInsets = WindowInsets(0, 0, 0, 0),
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
@@ -227,6 +228,7 @@ private fun ChatTopBar(
                 Spacer(Modifier.width(8.dp))
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            modifier = Modifier.padding(top = 4.dp),
         )
 
         // ── Row 2: agent + space selectors ───────────────────────────────

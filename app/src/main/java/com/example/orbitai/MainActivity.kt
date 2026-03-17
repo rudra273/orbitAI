@@ -6,14 +6,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
+import com.example.orbitai.data.ThemeSettingsStore
 import com.example.orbitai.ui.navigation.OrbitNavGraph
 import com.example.orbitai.ui.theme.OrbitAITheme
-import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.viewmodel.AgentsViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
@@ -37,7 +41,10 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            OrbitAITheme {
+            val themeStore = remember { ThemeSettingsStore(this) }
+            var isDarkTheme by remember { mutableStateOf(themeStore.isDarkTheme) }
+
+            OrbitAITheme(isDarkTheme = isDarkTheme) {
 
                 // ── System bar colours ─────────────────────────────────────
                 // Make status bar and nav bar fully transparent so our deep
@@ -46,7 +53,7 @@ class MainActivity : ComponentActivity() {
                 SideEffect {
                     systemUiController.setSystemBarsColor(
                         color         = Color.Transparent,
-                        darkIcons     = false,   // white icons on dark bg
+                        darkIcons     = !isDarkTheme,
                         isNavigationBarContrastEnforced = false,
                     )
                 }
@@ -60,6 +67,11 @@ class MainActivity : ComponentActivity() {
                     spacesViewModel   = spacesViewModel,
                     agentsViewModel   = agentsViewModel,
                     memoryViewModel   = memoryViewModel,
+                    isDarkTheme       = isDarkTheme,
+                    onThemeChanged    = { enabled ->
+                        isDarkTheme = enabled
+                        themeStore.isDarkTheme = enabled
+                    },
                 )
             }
         }

@@ -163,6 +163,7 @@ private fun SpaceDetailTopBar(
     onAddDoc:  () -> Unit,
 ) {
     TopAppBar(
+        windowInsets = WindowInsets(0, 0, 0, 0),
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(
@@ -191,7 +192,7 @@ private fun SpaceDetailTopBar(
             }
         },
         colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-        modifier = Modifier.statusBarsPadding(),
+        modifier = Modifier.padding(top = 4.dp),
     )
 }
 
