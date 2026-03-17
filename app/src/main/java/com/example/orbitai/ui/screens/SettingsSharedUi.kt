@@ -1,7 +1,6 @@
 package com.example.orbitai.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -15,13 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,7 +41,6 @@ fun SettingsSubScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -66,12 +59,7 @@ fun SettingsSubScreen(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(accent.copy(alpha = 0.12f))
-                                    .border(
-                                        width = 0.5.dp,
-                                        color = accent.copy(alpha = if (IsOrbitDarkTheme) 0.22f else 0.25f),
-                                        shape = RoundedCornerShape(10.dp),
-                                    ),
+                                    .background(accent.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(icon, null, tint = accent, modifier = Modifier.size(17.dp))
@@ -84,7 +72,7 @@ fun SettingsSubScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.statusBarsPadding(),
                 )
             },
         ) { padding ->
@@ -111,74 +99,15 @@ fun SettingsSubScreen(
 }
 
 @Composable
-fun GlassCard(
-    accent: Color = VioletCore,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val isDark = IsOrbitDarkTheme
-    val cardShape = RoundedCornerShape(18.dp)
-
-    val lightGlassTint = when {
-        accent == VioletCore        -> Color(0xFFF0ECFF)
-        accent == Color(0xFF60A5FA) -> Color(0xFFEBF2FF)
-        accent == Color(0xFF34D399) -> Color(0xFFE8FFF5)
-        accent == Color(0xFFFBBF24) -> Color(0xFFFFF8E7)
-        accent == Color(0xFFF472B6) -> Color(0xFFFFF0F7)
-        else                        -> Color(0xFFF5F5FF)
-    }
-
+fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(
-                                if (isDark) 20f else 14f,
-                                0f, 4f,
-                                (if (isDark) Color.Black else accent)
-                                    .copy(alpha = if (isDark) 0.22f else 0.07f)
-                                    .toArgb(),
-                            )
-                        }
-                    }
-                    canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
-                    )
-                }
-            }
-            .clip(cardShape)
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassWhite8)
             .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else lightGlassTint.copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
-            .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else accent)
-                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
-                        0.5f to accent.copy(alpha = if (isDark) 0.10f else 0.15f),
-                        1.0f to (if (isDark) Color.White else accent)
-                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
-                    ),
-                    start = Offset.Zero,
-                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                ),
-                shape = cardShape,
+                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
+                shape = RoundedCornerShape(16.dp),
             )
             .padding(16.dp),
     ) {

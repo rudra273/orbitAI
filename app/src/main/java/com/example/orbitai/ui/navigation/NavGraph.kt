@@ -165,8 +165,6 @@ fun OrbitNavGraph(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
-                    isDarkTheme       = isDarkTheme,
-                    onThemeChanged    = onThemeChanged,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },
                 )
