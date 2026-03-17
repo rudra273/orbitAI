@@ -31,7 +31,7 @@ fun InferenceSettingsScreen(
     ) {
         SettingsDescription("Controls how the AI generates responses. Changes take effect on the next message.")
 
-        GlassCard(accent = Color(0xFF60A5FA)) {
+        GlassCard {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 OrbitSlider(
                     label = "Temperature",

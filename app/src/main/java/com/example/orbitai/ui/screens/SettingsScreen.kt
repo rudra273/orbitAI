@@ -12,9 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeveloperBoard
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -43,16 +41,12 @@ import com.example.orbitai.viewmodel.DownloadViewModel
 @Composable
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
-    isDarkTheme: Boolean,
-    onThemeChanged: (Boolean) -> Unit,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
 
     SettingsHub(
-        isDarkTheme = isDarkTheme,
-        onThemeChanged = onThemeChanged,
         onOpenSection = onNavigate,
         onBack = onBack,
     )
@@ -69,8 +63,6 @@ private data class SettingsCategory(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsHub(
-    isDarkTheme: Boolean,
-    onThemeChanged: (Boolean) -> Unit,
     onOpenSection: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -334,48 +326,28 @@ private fun SettingsCategoryCard(
                             isAntiAlias = true
                             color = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                if (isDark) 24f else 16f,
-                                0f, 4f,
-                                (if (isDark) Color.Black else accent)
-                                    .copy(alpha = if (isDark) 0.25f else 0.08f)
-                                    .toArgb(),
+                                20f,
+                                0f,
+                                2f,
+                                category.accentColor.copy(alpha = 0.12f).toArgb(),
                             )
                         }
                     }
                     canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
+                        0f,
+                        0f,
+                        size.width,
+                        size.height,
+                        16.dp.toPx(),
+                        16.dp.toPx(),
+                        paint,
                     )
                 }
             }
             .clip(cardShape)
             .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else lightGlassTint.copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
-            .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else accent)
-                                     .copy(alpha = if (isDark) 0.18f else 0.40f),
-                        0.5f to accent.copy(alpha = if (isDark) 0.12f else 0.18f),
-                        1.0f to (if (isDark) Color.White else accent)
-                                     .copy(alpha = if (isDark) 0.05f else 0.08f),
-                    ),
-                    start = Offset.Zero,
-                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                ),
-                shape = cardShape,
+                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
+                shape = RoundedCornerShape(16.dp),
             )
             .clickable(
                 interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() },
@@ -405,7 +377,7 @@ private fun SettingsCategoryCard(
                 Icon(
                     imageVector = category.icon,
                     contentDescription = null,
-                    tint = accent,
+                    tint = category.accentColor,
                     modifier = Modifier.size(22.dp),
                 )
             }

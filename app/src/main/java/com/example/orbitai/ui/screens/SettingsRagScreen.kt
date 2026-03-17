@@ -68,7 +68,7 @@ private fun EmbeddingModelDownloadCard(
     val isActive = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
     val accent = Color(0xFFFBBF24)
 
-    GlassCard(accent = accent) {
+    GlassCard {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
