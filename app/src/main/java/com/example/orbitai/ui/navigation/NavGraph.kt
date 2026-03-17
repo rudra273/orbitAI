@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -41,9 +42,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.example.orbitai.data.InferenceSettingsStore
+import com.example.orbitai.data.MemoryFeatureStore
+import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.screens.AgentsScreen
 import com.example.orbitai.ui.screens.ChatScreen
+import com.example.orbitai.ui.screens.DeveloperSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
+import com.example.orbitai.ui.screens.InferenceSettingsScreen
+import com.example.orbitai.ui.screens.MemorySettingsScreen
+import com.example.orbitai.ui.screens.ModelSettingsScreen
+import com.example.orbitai.ui.screens.RagSettingsScreen
 import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
@@ -151,7 +160,6 @@ fun OrbitNavGraph(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
-                    memoryViewModel   = memoryViewModel,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },
                 )
@@ -183,24 +191,43 @@ fun OrbitNavGraph(
                 )
             }
 
-            // ── Settings sub-screens ───────────────────────────────────────
-            // Each sub-screen is a separate composable — wire them here as you build them out.
-            // Example pattern shown; replace with your actual composable calls:
-
             composable(Screen.SettingsModel.route) {
-                // ModelSettingsScreen(viewModel = downloadViewModel, onBack = { navController.popBackStack() })
+                ModelSettingsScreen(
+                    downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsInference.route) {
-                // InferenceSettingsScreen(onBack = { navController.popBackStack() })
+                val context = LocalContext.current
+                val inferenceStore = remember { InferenceSettingsStore(context) }
+                InferenceSettingsScreen(
+                    inferenceStore = inferenceStore,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsMemory.route) {
-                // MemorySettingsScreen(viewModel = memoryViewModel, onBack = { navController.popBackStack() })
+                val context = LocalContext.current
+                val memoryStore = remember { MemoryFeatureStore(context) }
+                MemorySettingsScreen(
+                    memoryViewModel = memoryViewModel,
+                    memoryStore = memoryStore,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsRag.route) {
-                // RagSettingsScreen(onBack = { navController.popBackStack() })
+                RagSettingsScreen(
+                    downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsDeveloper.route) {
-                // DeveloperSettingsScreen(onBack = { navController.popBackStack() })
+                val context = LocalContext.current
+                val tokenStore = remember { TokenStore(context) }
+                DeveloperSettingsScreen(
+                    tokenStore = tokenStore,
+                    downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }

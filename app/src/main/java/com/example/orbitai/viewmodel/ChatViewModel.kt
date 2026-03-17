@@ -13,6 +13,7 @@ import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
 import com.example.orbitai.data.AgentRepository
+import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.SpaceRepository
 import com.example.orbitai.data.db.Agent
 import com.example.orbitai.data.db.ORBIT_AGENT_ID
@@ -39,6 +40,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     val chatRepo = ChatRepository(application)
     private val llmRepo = LlmRepository(application)
+    private val modelDownloader = ModelDownloader(application)
     private val settingsStore = InferenceSettingsStore(application)
     private val spaceRepo = SpaceRepository(application)
     private val agentRepo = AgentRepository(application)
@@ -100,11 +102,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(chatId: String, userText: String) {
         val chat = chatRepo.chats.value.find { it.id == chatId } ?: return
-        val model = AVAILABLE_MODELS.find { it.id == chat.modelId }
-            ?: AVAILABLE_MODELS.first()
+        val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId }
+        val model = when {
+            selectedModel != null && modelDownloader.isDownloaded(selectedModel) -> selectedModel
+            else -> AVAILABLE_MODELS.firstOrNull { modelDownloader.isDownloaded(it) }
+        } ?: run {
+            _uiState.update {
+                it.copy(loadError = "No downloaded model found. Go to Settings > Model and download one.")
+            }
+            return
+        }
         val settings = settingsStore.get()
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(loadError = null) }
+
+            if (chat.modelId != model.id) {
+                chatRepo.updateChatModel(chatId, model.id)
+            }
+
             val memoryEnabled = memoryFeatureStore.isEnabled
 
             // 1. Add user message
