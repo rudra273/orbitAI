@@ -68,7 +68,7 @@ private fun ModelDownloadCard(
 
     val accent = if (isDownloaded) Color(0xFF34D399) else VioletCore
 
-    GlassCard {
+    GlassCard(accent = accent) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),

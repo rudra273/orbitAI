@@ -66,7 +66,7 @@ private fun HuggingFaceTokenCard(tokenStore: TokenStore) {
     var showToken by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(tokenStore.hasToken()) }
 
-    GlassCard {
+    GlassCard(accent = Color(0xFFF472B6)) {
         Row(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -170,7 +170,7 @@ private fun CustomUrlCard(onDownload: (url: String, fileName: String) -> Unit) {
     var url by remember { mutableStateOf("") }
     var fileName by remember { mutableStateOf("") }
 
-    GlassCard {
+    GlassCard(accent = Color(0xFFF472B6)) {
         Text(
             "Any compatible Task or LiteRT-LM file",
             style = MaterialTheme.typography.titleMedium,
