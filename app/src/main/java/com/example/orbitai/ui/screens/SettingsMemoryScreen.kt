@@ -37,7 +37,7 @@ fun MemorySettingsScreen(
     ) {
         SettingsDescription("When enabled, OrbitAI saves and uses memories from your conversations.")
 
-        GlassCard(accent = Color(0xFF34D399)) {
+        GlassCard {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -78,7 +78,7 @@ fun MemorySettingsScreen(
                 )
             }
         } else if (enabled) {
-            GlassCard(accent = Color(0xFF34D399)) {
+            GlassCard {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
