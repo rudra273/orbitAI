@@ -34,6 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.orbitai.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -348,12 +351,20 @@ private fun ModeCard(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text       = if (mode.isDefault) "✦" else mode.name.take(1).uppercase(),
-                    fontSize   = if (mode.isDefault) 20.sp else 18.sp,
-                    color      = cardAccent,
-                    fontWeight = FontWeight.Bold,
-                )
+                if (mode.isDefault) {
+                    Image(
+                        painter = painterResource(R.drawable.vector_logo),
+                        contentDescription = "OrbitAI",
+                        modifier = Modifier.size(28.dp),
+                    )
+                } else {
+                    Text(
+                        text       = mode.name.take(1).uppercase(),
+                        fontSize   = 18.sp,
+                        color      = cardAccent,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             Spacer(Modifier.width(14.dp))
