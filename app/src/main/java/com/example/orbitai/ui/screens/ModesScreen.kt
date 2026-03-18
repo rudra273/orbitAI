@@ -13,7 +13,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -82,7 +84,6 @@ fun ModesScreen(viewModel: ModesViewModel) {
             is ModesDestination.List -> ModeListScreen(
                 modes      = modes,
                 onEditMode = { destination = ModesDestination.Edit(it) },
-                onDelete   = { viewModel.deleteMode(it) },
                 onCreateNew = { destination = ModesDestination.Edit(null) },
             )
             is ModesDestination.Edit -> ModeEditScreen(
@@ -114,7 +115,6 @@ fun ModesScreen(viewModel: ModesViewModel) {
 private fun ModeListScreen(
     modes:      List<Mode>,
     onEditMode: (Mode) -> Unit,
-    onDelete:    (String) -> Unit,
     onCreateNew: () -> Unit,
 ) {
     Box(
@@ -177,7 +177,8 @@ private fun ModeListScreen(
                     onCreate = onCreateNew,
                 )
             } else {
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 156.dp),
                     modifier        = Modifier
                         .fillMaxSize()
                         .padding(padding),
@@ -188,6 +189,7 @@ private fun ModeListScreen(
                         bottom = 100.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     itemsIndexed(
                         items = modes,
@@ -197,7 +199,6 @@ private fun ModeListScreen(
                             ModeCard(
                                 mode     = mode,
                                 onClick  = { onEditMode(mode) },
-                                onDelete = { onDelete(mode.id) },
                             )
                         }
                     }
@@ -262,7 +263,6 @@ private fun ModesFAB(onClick: () -> Unit) {
 private fun ModeCard(
     mode:     Mode,
     onClick:  () -> Unit,
-    onDelete: () -> Unit,
 ) {
     // Default mode gets violet, custom modes get teal
     val cardAccent = if (mode.isDefault) VioletCore else ModesAccent
@@ -276,6 +276,7 @@ private fun ModeCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .aspectRatio(1f)
             .drawBehind {
                 drawIntoCanvas { canvas ->
                     val paint = Paint().apply {
@@ -332,103 +333,87 @@ private fun ModeCard(
                 onClick           = onClick,
             ),
     ) {
-        Row(
+        Column(
             modifier             = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
-            verticalAlignment    = Alignment.CenterVertically,
+                .fillMaxSize()
+                .padding(14.dp),
         ) {
-            // Avatar — glass badge
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(cardFrost)
-                    .border(
-                        width = 0.5.dp,
-                        color = cardAccent.copy(alpha = if (isDark) 0.22f else 0.28f),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (mode.isDefault) {
-                    Image(
-                        painter = painterResource(R.drawable.vector_logo),
-                        contentDescription = "OrbitAI",
-                        modifier = Modifier.size(28.dp),
-                    )
-                } else {
-                    Text(
-                        text       = mode.name.take(1).uppercase(),
-                        fontSize   = 18.sp,
-                        color      = cardAccent,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            Spacer(Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment    = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(cardFrost)
+                        .border(
+                            width = 0.5.dp,
+                            color = cardAccent.copy(alpha = if (isDark) 0.22f else 0.28f),
+                            shape = RoundedCornerShape(14.dp),
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        mode.name,
-                        style     = MaterialTheme.typography.titleMedium,
-                        color     = TextPrimary,
-                    )
                     if (mode.isDefault) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(VioletGlow)
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        ) {
-                            Text(
-                                "default",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = VioletBright,
-                            )
-                        }
+                        Image(
+                            painter = painterResource(R.drawable.vector_logo),
+                            contentDescription = "OrbitAI",
+                            modifier = Modifier.size(26.dp),
+                        )
+                    } else {
+                        Text(
+                            text       = mode.name.take(1).uppercase(),
+                            fontSize   = 18.sp,
+                            color      = cardAccent,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    mode.systemPrompt,
-                    style    = MaterialTheme.typography.bodySmall,
-                    color    = TextMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    tint     = TextMuted.copy(0.35f),
+                    modifier = Modifier.size(12.dp),
                 )
             }
 
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Delete — only for non-default modes, very subtle
-            if (!mode.isDefault) {
-                IconButton(
-                    onClick  = onDelete,
-                    modifier = Modifier.size(34.dp),
+            Text(
+                mode.name,
+                style     = MaterialTheme.typography.titleMedium,
+                color     = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            if (mode.isDefault) {
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(VioletGlow)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete mode",
-                        tint     = TextMuted.copy(0.4f),
-                        modifier = Modifier.size(16.dp),
+                    Text(
+                        "default",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VioletBright,
                     )
                 }
             }
 
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = null,
-                tint     = TextMuted.copy(0.35f),
-                modifier = Modifier.size(12.dp),
-            )
+            Spacer(Modifier.height(8.dp))
 
-            Spacer(Modifier.width(4.dp))
+            Text(
+                mode.systemPrompt,
+                style    = MaterialTheme.typography.bodySmall,
+                color    = TextMuted,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -449,6 +434,7 @@ private fun ModeEditScreen(
     var prompt by remember { mutableStateOf(mode?.systemPrompt ?: "") }
     val isNew  = mode == null
     val isDefault = mode?.isDefault == true
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val canSave = name.isNotBlank() && prompt.isNotBlank()
 
@@ -677,7 +663,7 @@ private fun ModeEditScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication        = null,
-                                    onClick           = onDelete,
+                                    onClick           = { showDeleteConfirm = true },
                                 ),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -703,6 +689,41 @@ private fun ModeEditScreen(
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = {
+                Text(
+                    text = "Delete mode?",
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            },
+            text = {
+                Text(
+                    text = "This will permanently remove this mode.",
+                    color = TextMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete()
+                    },
+                ) {
+                    Text("Delete", color = Destructive)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = TextMuted)
+                }
+            },
+        )
     }
 }
 

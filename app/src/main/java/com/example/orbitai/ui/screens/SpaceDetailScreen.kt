@@ -60,6 +60,7 @@ fun SpaceDetailScreen(
     val spaces by viewModel.spaces.collectAsState()
     val space  = spaces.find { it.id == spaceId }
     val docs   by viewModel.observeDocumentsInSpace(spaceId).collectAsState(initial = emptyList())
+    var showDeleteSpaceConfirm by remember { mutableStateOf(false) }
 
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -109,6 +110,11 @@ fun SpaceDetailScreen(
                     docCount   = docs.size,
                     onBack     = onBack,
                     onAddDoc   = launchPicker,
+                    onDeleteSpace = {
+                        if (space != null) {
+                            showDeleteSpaceConfirm = true
+                        }
+                    },
                 )
             },
             floatingActionButton = {
@@ -150,6 +156,42 @@ fun SpaceDetailScreen(
             }
         }
     }
+
+    if (showDeleteSpaceConfirm && space != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSpaceConfirm = false },
+            title = {
+                Text(
+                    text = "Delete space?",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                )
+            },
+            text = {
+                Text(
+                    text = "This will permanently remove this space and all of its documents.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextMuted,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteSpaceConfirm = false
+                        viewModel.deleteSpace(space.id)
+                        onBack()
+                    },
+                ) {
+                    Text("Delete", color = Destructive)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteSpaceConfirm = false }) {
+                    Text("Cancel", color = TextMuted)
+                }
+            },
+        )
+    }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -163,6 +205,7 @@ private fun SpaceDetailTopBar(
     docCount:  Int,
     onBack:    () -> Unit,
     onAddDoc:  () -> Unit,
+    onDeleteSpace: () -> Unit,
 ) {
     TopAppBar(
         windowInsets = WindowInsets(0, 0, 0, 0),
@@ -190,6 +233,22 @@ private fun SpaceDetailTopBar(
                         color      = SpacesAccent,
                         fontWeight = FontWeight.Medium,
                     ),
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onDeleteSpace) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete space",
+                    tint = TextMuted.copy(alpha = 0.75f),
+                )
+            }
+            IconButton(onClick = onAddDoc) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Add document",
+                    tint = TextSecondary,
                 )
             }
         },
