@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,6 +32,13 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -545,109 +553,73 @@ private fun MessageBubble(msg: Message) {
         modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
-        // AI avatar
-        if (!isUser) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 6.dp, end = 10.dp)
-                    .size(30.dp)
-                    .drawBehind {
-                        drawIntoCanvas { canvas ->
-                            val paint = Paint().apply {
-                                asFrameworkPaint().apply {
-                                    isAntiAlias = true
-                                    color       = android.graphics.Color.TRANSPARENT
-                                    setShadowLayer(
-                                        12f, 0f, 0f,
-                                        VioletCore.copy(0.35f).toArgb(),
-                                    )
-                                }
-                            }
-                            canvas.drawCircle(
-                                androidx.compose.ui.geometry.Offset(
-                                    size.width / 2f, size.height / 2f
-                                ),
-                                size.minDimension / 2f, paint,
-                            )
-                        }
-                    }
-                    .clip(CircleShape)
-                    .background(VioletFrost)
-                    .border(
-                        width = 0.5.dp,
-                        color = VioletCore.copy(alpha = 0.30f),
-                        shape = CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("✦", fontSize = 12.sp, color = VioletBright)
-            }
-        }
-
         Column(
-            modifier            = Modifier.widthIn(max = 296.dp),
+            modifier = if (isUser) {
+                Modifier.widthIn(max = 296.dp)
+            } else {
+                Modifier.fillMaxWidth()
+            },
             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
         ) {
             // Bubble
             Box(
                 modifier = Modifier
-                    .drawBehind {
+                    .then(
                         if (isUser) {
-                            // User bubble: soft violet glow
-                            drawIntoCanvas { canvas ->
-                                val paint = Paint().apply {
-                                    asFrameworkPaint().apply {
-                                        isAntiAlias = true
-                                        color       = android.graphics.Color.TRANSPARENT
-                                        setShadowLayer(
-                                            16f, 0f, 2f,
-                                            VioletCore.copy(0.2f).toArgb(),
+                            Modifier
+                                .drawBehind {
+                                    // User bubble: soft violet glow
+                                    drawIntoCanvas { canvas ->
+                                        val paint = Paint().apply {
+                                            asFrameworkPaint().apply {
+                                                isAntiAlias = true
+                                                color       = android.graphics.Color.TRANSPARENT
+                                                setShadowLayer(
+                                                    16f, 0f, 2f,
+                                                    VioletCore.copy(0.2f).toArgb(),
+                                                )
+                                            }
+                                        }
+                                        canvas.drawRoundRect(
+                                            0f, 0f, size.width, size.height,
+                                            18.dp.toPx(), 18.dp.toPx(), paint,
                                         )
                                     }
                                 }
-                                canvas.drawRoundRect(
-                                    0f, 0f, size.width, size.height,
-                                    18.dp.toPx(), 18.dp.toPx(), paint,
+                                .clip(
+                                    RoundedCornerShape(
+                                        topStart    = 18.dp,
+                                        topEnd      = 4.dp,
+                                        bottomStart = 18.dp,
+                                        bottomEnd   = 18.dp,
+                                    )
                                 )
-                            }
+                                .background(OrbitGradients.userBubble)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        listOf(UserBubbleBorder, UserBubbleBorder.copy(0.15f))
+                                    ),
+                                    shape = RoundedCornerShape(
+                                        topStart    = 18.dp,
+                                        topEnd      = 4.dp,
+                                        bottomStart = 18.dp,
+                                        bottomEnd   = 18.dp,
+                                    ),
+                                )
+                                .padding(horizontal = 14.dp, vertical = 11.dp)
+                        } else {
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 2.dp, vertical = 2.dp)
                         }
-                    }
-                    .clip(
-                        RoundedCornerShape(
-                            topStart    = if (isUser) 18.dp else 4.dp,
-                            topEnd      = if (isUser) 4.dp else 18.dp,
-                            bottomStart = 18.dp,
-                            bottomEnd   = 18.dp,
-                        )
-                    )
-                    .background(
-                        if (isUser) OrbitGradients.userBubble
-                        else Brush.linearGradient(listOf(AiBubbleFill, AiBubbleFill))
-                    )
-                    // Border
-                    .background(
-                        brush = Brush.linearGradient(
-                            if (isUser) listOf(UserBubbleBorder, UserBubbleBorder.copy(0.15f))
-                            else listOf(AiBubbleBorder, AiBubbleBorder.copy(0.05f))
-                        ),
-                        shape = RoundedCornerShape(
-                            topStart    = if (isUser) 18.dp else 4.dp,
-                            topEnd      = if (isUser) 4.dp else 18.dp,
-                            bottomStart = 18.dp,
-                            bottomEnd   = 18.dp,
-                        ),
-                    )
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                    ),
             ) {
                 if (msg.isStreaming && msg.content.isEmpty()) {
                     TypingIndicator()
                 } else {
-                    Text(
-                        text       = msg.content,
-                        style      = MaterialTheme.typography.bodyLarge,
-                        color      = TextPrimary,
-                        lineHeight = 23.sp,
-                    )
+                    SelectionContainer {
+                        MarkdownMessageText(msg.content)
+                    }
                     if (msg.isStreaming) {
                         Spacer(Modifier.height(4.dp))
                         StreamingCursor()
@@ -655,6 +627,262 @@ private fun MessageBubble(msg: Message) {
                 }
             }
         }
+    }
+}
+
+private sealed interface MarkdownBlock {
+    data class Heading(val level: Int, val text: String) : MarkdownBlock
+    data class Bullet(val text: String) : MarkdownBlock
+    data class Paragraph(val text: String) : MarkdownBlock
+    data class CodeBlock(val language: String, val code: String) : MarkdownBlock
+}
+
+@Composable
+private fun MarkdownMessageText(content: String) {
+    val blocks = remember(content) { parseMarkdownBlocks(content) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        blocks.forEach { block ->
+            when (block) {
+                is MarkdownBlock.Heading -> {
+                    val headingStyle = when (block.level) {
+                        1 -> MaterialTheme.typography.titleLarge
+                        2 -> MaterialTheme.typography.titleMedium
+                        else -> MaterialTheme.typography.titleSmall
+                    }
+                    Text(
+                        text = parseInlineMarkdown(block.text),
+                        style = headingStyle,
+                        color = TextPrimary,
+                        lineHeight = (headingStyle.fontSize.value + 8).sp,
+                    )
+                }
+
+                is MarkdownBlock.Bullet -> {
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextPrimary,
+                            lineHeight = 23.sp,
+                        )
+                        Text(
+                            text = parseInlineMarkdown(block.text),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextPrimary,
+                            lineHeight = 23.sp,
+                        )
+                    }
+                }
+
+                is MarkdownBlock.Paragraph -> {
+                    Text(
+                        text = parseInlineMarkdown(block.text),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextPrimary,
+                        lineHeight = 23.sp,
+                    )
+                }
+
+                is MarkdownBlock.CodeBlock -> {
+                    CodeBlockView(language = block.language, code = block.code)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CodeBlockView(language: String, code: String) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF1A1A2E))
+            .border(
+                width = 0.5.dp,
+                color = Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp),
+            ),
+    ) {
+        // Header bar: language label + copy button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0D0D1A))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = language.ifBlank { "code" },
+                style = MaterialTheme.typography.labelSmall,
+                color = TextMuted,
+                fontFamily = FontFamily.Monospace,
+            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (copied) Color(0xFF10B981).copy(0.15f) else Color.White.copy(0.06f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        clipboard.setText(AnnotatedString(code))
+                        copied = true
+                    }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (copied) "Copied!" else "Copy",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (copied) Color(0xFF10B981) else TextMuted,
+                )
+            }
+        }
+
+        // Code content
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            SelectionContainer {
+                Text(
+                    text = code,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight  = 20.sp,
+                    ),
+                    color = Color(0xFFE2E8F0),
+                    softWrap = false,
+                )
+            }
+        }
+    }
+
+    // Auto-reset "Copied!" label after 2 s
+    LaunchedEffect(copied) {
+        if (copied) {
+            kotlinx.coroutines.delay(2000)
+            copied = false
+        }
+    }
+}
+
+private fun parseMarkdownBlocks(content: String): List<MarkdownBlock> {
+    val blocks = mutableListOf<MarkdownBlock>()
+    val paragraphBuffer = mutableListOf<String>()
+    val lines = content.lines()
+    var i = 0
+
+    fun flushParagraph() {
+        if (paragraphBuffer.isNotEmpty()) {
+            blocks += MarkdownBlock.Paragraph(paragraphBuffer.joinToString("\n").trim())
+            paragraphBuffer.clear()
+        }
+    }
+
+    while (i < lines.size) {
+        val line = lines[i]
+
+        // Fenced code block: opening ```[lang]
+        if (line.trimStart().startsWith("```")) {
+            flushParagraph()
+            val lang = line.trimStart().removePrefix("```").trim()
+            val codeLines = mutableListOf<String>()
+            i++
+            while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
+                codeLines += lines[i]
+                i++
+            }
+            // skip closing ```
+            if (i < lines.size) i++
+            blocks += MarkdownBlock.CodeBlock(language = lang, code = codeLines.joinToString("\n"))
+            continue
+        }
+
+        val headingMatch = Regex("^(#{1,6})\\s+(.+)$").find(line)
+        val bulletMatch  = Regex("^\\s*[-*+]\\s+(.+)$").find(line)
+        val orderedMatch = Regex("^\\s*\\d+\\.\\s+(.+)$").find(line)
+
+        when {
+            headingMatch != null -> {
+                flushParagraph()
+                blocks += MarkdownBlock.Heading(
+                    level = headingMatch.groupValues[1].length,
+                    text  = headingMatch.groupValues[2],
+                )
+            }
+            bulletMatch != null -> {
+                flushParagraph()
+                blocks += MarkdownBlock.Bullet(text = bulletMatch.groupValues[1])
+            }
+            orderedMatch != null -> {
+                flushParagraph()
+                blocks += MarkdownBlock.Bullet(text = orderedMatch.groupValues[1])
+            }
+            line.isBlank() -> flushParagraph()
+            else -> paragraphBuffer += line
+        }
+        i++
+    }
+
+    flushParagraph()
+    return if (blocks.isEmpty()) listOf(MarkdownBlock.Paragraph(content)) else blocks
+}
+
+private fun parseInlineMarkdown(input: String): AnnotatedString = buildAnnotatedString {
+    // Matches in priority order: **bold**, *emphasis*, `code`
+    val pattern = Regex("""\*\*(.+?)\*\*|\*(.+?)\*|`+(.+?)`+""")
+    var lastIndex = 0
+
+    pattern.findAll(input).forEach { match ->
+        if (match.range.first > lastIndex) {
+            append(input.substring(lastIndex, match.range.first))
+        }
+
+        val boldText = match.groups[1]?.value
+        val emphText = match.groups[2]?.value
+        val codeText = match.groups[3]?.value
+
+        when {
+            boldText != null -> {
+                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                append(boldText)
+                pop()
+            }
+            emphText != null -> {
+                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                append(emphText)
+                pop()
+            }
+            codeText != null -> {
+                pushStyle(
+                    SpanStyle(
+                        fontFamily = FontFamily.Monospace,
+                        background = GlassWhite8,
+                        color = VioletBright,
+                    )
+                )
+                append(codeText)
+                pop()
+            }
+        }
+
+        lastIndex = match.range.last + 1
+    }
+
+    if (lastIndex < input.length) {
+        append(input.substring(lastIndex))
     }
 }
 
