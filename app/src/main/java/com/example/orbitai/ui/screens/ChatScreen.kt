@@ -44,8 +44,11 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.res.painterResource
+import com.example.orbitai.R
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -185,25 +188,11 @@ fun ChatScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .clip(RoundedCornerShape(22.dp))
-                                    .background(VioletFrost)
-                                    .border(
-                                        width = 1.dp,
-                                        color = VioletCore.copy(alpha = 0.35f),
-                                        shape = RoundedCornerShape(22.dp),
-                                    ),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = "✦",
-                                    fontSize = 30.sp,
-                                    color = VioletBright,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
+                            Image(
+                                painter = painterResource(R.drawable.vector_logo),
+                                contentDescription = "OrbitAI",
+                                modifier = Modifier.size(72.dp),
+                            )
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 text = "How can I help you today?",
@@ -276,13 +265,23 @@ private fun ChatTopBar(
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (activeMode != null) {
-                        Text(
-                            text  = "✦  ${activeMode.name}",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color      = VioletBright,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.vector_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                            )
+                            Text(
+                                text  = activeMode.name,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color      = VioletBright,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                            )
+                        }
                     }
                 }
             },
@@ -472,10 +471,10 @@ private fun ModeDropdownChip(
                 verticalAlignment    = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(
-                    "✦",
-                    fontSize = 9.sp,
-                    color    = VioletBright,
+                Image(
+                    painter = painterResource(R.drawable.vector_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
                 )
                 Text(
                     activeMode.name,
