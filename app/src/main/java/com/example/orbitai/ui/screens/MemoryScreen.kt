@@ -2,6 +2,7 @@ package com.example.orbitai.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -100,6 +101,7 @@ fun MemoryScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -118,7 +120,12 @@ fun MemoryScreen(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(MemoryFrost),
+                                    .background(MemoryFrost)
+                                    .border(
+                                        width = 0.5.dp,
+                                        color = MemoryAccent.copy(alpha = if (IsOrbitDarkTheme) 0.22f else 0.25f),
+                                        shape = RoundedCornerShape(10.dp),
+                                    ),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -201,7 +208,7 @@ fun MemoryScreen(
                         }
                     },
                     colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
         ) { padding ->
@@ -274,19 +281,44 @@ private fun MemoryToggleCard(
     enabled:  Boolean,
     onChange: (Boolean) -> Unit,
 ) {
+    val isDark = IsOrbitDarkTheme
+    val cardShape = RoundedCornerShape(18.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassWhite8)
+            .clip(cardShape)
             .background(
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else Color(0xFFE8FFF5).copy(alpha = 0.82f)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            .then(
+                if (enabled) Modifier.background(
+                    Brush.linearGradient(
+                        listOf(MemoryAccent.copy(0.10f), MemoryAccent.copy(0.02f))
+                    )
+                ) else Modifier
+            )
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
                 brush = Brush.linearGradient(
-                    if (enabled)
-                        listOf(MemoryAccent.copy(0.2f), MemoryAccent.copy(0.04f))
-                    else
-                        listOf(GlassBorder, GlassBorder.copy(0.03f))
+                    colorStops = arrayOf(
+                        0.0f to (if (isDark) Color.White else MemoryAccent)
+                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
+                        0.5f to MemoryAccent.copy(alpha = if (isDark) 0.10f else 0.15f),
+                        1.0f to (if (isDark) Color.White else MemoryAccent)
+                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
+                    ),
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = cardShape,
             ),
     ) {
         Row(
@@ -382,34 +414,46 @@ private fun MemoryCard(
         SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault()).format(Date(createdAt))
     }
 
+    val isDark = IsOrbitDarkTheme
+    val cardShape = RoundedCornerShape(16.dp)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(GlassWhite4)
+            .clip(cardShape)
             .background(
-                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.02f))),
-                shape = RoundedCornerShape(14.dp),
+                if (isDark) Color.White.copy(alpha = 0.04f)
+                else Color(0xFFE8FFF5).copy(alpha = 0.78f)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.06f else 0.40f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.08f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            .border(
+                width = if (isDark) 0.5.dp else 1.dp,
+                brush = Brush.linearGradient(
+                    colorStops = arrayOf(
+                        0.0f to (if (isDark) Color.White else MemoryAccent)
+                                     .copy(alpha = if (isDark) 0.12f else 0.25f),
+                        0.5f to MemoryAccent.copy(alpha = if (isDark) 0.06f else 0.10f),
+                        1.0f to (if (isDark) Color.White else MemoryAccent)
+                                     .copy(alpha = if (isDark) 0.02f else 0.04f),
+                    ),
+                    start = Offset.Zero,
+                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                ),
+                shape = cardShape,
             ),
     ) {
-        // Left teal stripe
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(2.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MemoryAccent.copy(0.6f), MemoryAccentDim.copy(0.2f))
-                    )
-                )
-        )
-
         Row(
             modifier          = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
+                .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.Top,
         ) {
             // Icon
@@ -418,7 +462,12 @@ private fun MemoryCard(
                     .padding(top = 1.dp)
                     .size(32.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(MemoryFrost),
+                    .background(MemoryFrost)
+                    .border(
+                        width = 0.5.dp,
+                        color = MemoryAccent.copy(alpha = if (isDark) 0.22f else 0.25f),
+                        shape = RoundedCornerShape(10.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -528,7 +577,17 @@ private fun MemoryEmptyState(enabled: Boolean) {
                     }
                 }
                 .clip(RoundedCornerShape(24.dp))
-                .background(MemoryFrost),
+                .background(MemoryFrost)
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to MemoryAccent.copy(alpha = 0.25f),
+                            1.0f to MemoryAccent.copy(alpha = 0.05f),
+                        ),
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

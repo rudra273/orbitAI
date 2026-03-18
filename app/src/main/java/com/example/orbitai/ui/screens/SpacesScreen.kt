@@ -2,12 +2,12 @@ package com.example.orbitai.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
@@ -58,19 +59,20 @@ fun SpacesScreen(
             .fillMaxSize()
             .background(SpaceDeep),
     ) {
-        // Ambient amber glow — top
+        // Ambient amber glow — top (enhanced for glass feel)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(300.dp)
+                .height(340.dp)
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.radialGradient(
                         colorStops = arrayOf(
-                            0.0f to SpacesAccent.copy(alpha = 0.04f),
+                            0.0f to SpacesAccent.copy(alpha = 0.07f),
+                            0.5f to SpacesAccent.copy(alpha = 0.02f),
                             1.0f to Color.Transparent,
                         ),
-                        radius = 700f,
+                        radius = 800f,
                     )
                 )
         )
@@ -79,6 +81,7 @@ fun SpacesScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
@@ -97,7 +100,7 @@ fun SpacesScreen(
                         }
                     },
                     colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
             floatingActionButton = {
@@ -200,7 +203,7 @@ private fun SpacesFAB(onClick: () -> Unit) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SPACE CARD
+// SPACE CARD — pure glassmorphism
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
@@ -209,13 +212,40 @@ private fun SpaceCard(
     onClick:  () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val isDark = IsOrbitDarkTheme
     val dateStr = remember(space.createdAt) {
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(space.createdAt))
+    }
+
+    val cardShape = RoundedCornerShape(18.dp)
+
+    // Glass border — amber edge glow
+    val borderBrush = if (isDark) {
+        Brush.linearGradient(
+            colorStops = arrayOf(
+                0.0f to Color.White.copy(alpha = 0.18f),
+                0.4f to SpacesAccent.copy(alpha = 0.14f),
+                1.0f to Color.White.copy(alpha = 0.05f),
+            ),
+            start = Offset.Zero,
+            end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+        )
+    } else {
+        Brush.linearGradient(
+            colorStops = arrayOf(
+                0.0f to SpacesAccent.copy(alpha = 0.45f),
+                0.5f to SpacesAccent.copy(alpha = 0.20f),
+                1.0f to SpacesAccent.copy(alpha = 0.10f),
+            ),
+            start = Offset.Zero,
+            end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+        )
     }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            // Soft outer glow
             .drawBehind {
                 drawIntoCanvas { canvas ->
                     val paint = Paint().apply {
@@ -223,24 +253,41 @@ private fun SpaceCard(
                             isAntiAlias = true
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                20f, 0f, 2f,
-                                SpacesAccent.copy(alpha = 0.08f).toArgb(),
+                                if (isDark) 24f else 16f,
+                                0f, 4f,
+                                (if (isDark) Color.Black else SpacesAccent)
+                                    .copy(alpha = if (isDark) 0.30f else 0.08f)
+                                    .toArgb(),
                             )
                         }
                     }
                     canvas.drawRoundRect(
                         0f, 0f, size.width, size.height,
-                        16.dp.toPx(), 16.dp.toPx(), paint,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
                     )
                 }
             }
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassWhite8)
+            .clip(cardShape)
+            // Layer 1 — base glass fill: pure frost in dark, amber-tinted frost in light
             .background(
-                brush = Brush.linearGradient(
-                    listOf(GlassBorder, GlassBorder.copy(0.03f))
-                ),
-                shape = RoundedCornerShape(16.dp),
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else Color(0xFFFFF8E7).copy(alpha = 0.82f)
+            )
+            // Layer 2 — top-edge sheen (glass light reflection)
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.55f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.15f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            // Glass border
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
+                brush = borderBrush,
+                shape = cardShape,
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -248,32 +295,23 @@ private fun SpaceCard(
                 onClick           = onClick,
             ),
     ) {
-        // Left accent stripe — amber
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(3.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(SpacesAccent.copy(0.7f), SpacesAccentDim.copy(0.3f))
-                    )
-                )
-        )
-
         Row(
-            modifier             = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
-            verticalAlignment    = Alignment.CenterVertically,
+                .padding(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Icon badge
+            // Icon badge — glass pill
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(SpacesAccent.copy(alpha = 0.1f)),
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.10f))
+                    .border(
+                        width = 0.5.dp,
+                        color = SpacesAccent.copy(alpha = if (isDark) 0.22f else 0.30f),
+                        shape = RoundedCornerShape(14.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -288,9 +326,9 @@ private fun SpaceCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text      = space.name,
-                    style     = MaterialTheme.typography.titleMedium,
-                    color     = TextPrimary,
+                    text  = space.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
@@ -326,8 +364,8 @@ private fun SpaceCard(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CREATE DIALOG — glassy bottom-sheet style alert dialog
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CREATE DIALOG — glassmorphism alert dialog
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
 private fun CreateSpaceDialog(
@@ -335,12 +373,28 @@ private fun CreateSpaceDialog(
     onCreate:  (String) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    val isDark = IsOrbitDarkTheme
+
+    val dialogShape = RoundedCornerShape(22.dp)
+    val inputShape  = RoundedCornerShape(14.dp)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor   = SpaceNebula,
+        containerColor   = if (isDark) SpaceNebula else Color.White.copy(alpha = 0.92f),
         tonalElevation   = 0.dp,
-        shape            = RoundedCornerShape(22.dp),
+        shape            = dialogShape,
+        modifier = Modifier.border(
+            width = if (isDark) 1.dp else 1.5.dp,
+            brush = Brush.linearGradient(
+                colorStops = arrayOf(
+                    0.0f to SpacesAccent.copy(alpha = if (isDark) 0.30f else 0.40f),
+                    0.6f to SpacesAccent.copy(alpha = if (isDark) 0.08f else 0.15f),
+                    1.0f to (if (isDark) Color.White else SpacesAccent)
+                                 .copy(alpha = if (isDark) 0.04f else 0.08f),
+                ),
+            ),
+            shape = dialogShape,
+        ),
         title = {
             Text(
                 "New Space",
@@ -361,8 +415,16 @@ private fun CreateSpaceDialog(
                     onValueChange = { name = it },
                     modifier      = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(GlassWhite8),
+                        .clip(inputShape)
+                        .background(
+                            if (isDark) GlassWhite8
+                            else Color.White.copy(alpha = 0.70f)
+                        )
+                        .border(
+                            width = 0.5.dp,
+                            color = SpacesAccent.copy(alpha = if (isDark) 0.15f else 0.25f),
+                            shape = inputShape,
+                        ),
                     placeholder   = {
                         Text(
                             "e.g. Research, Work, Books…",
@@ -412,11 +474,20 @@ private fun CreateSpaceDialog(
             }
         },
         dismissButton = {
+            val cancelShape = RoundedCornerShape(12.dp)
             Box(
                 modifier = Modifier
                     .height(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(GlassWhite4)
+                    .clip(cancelShape)
+                    .background(
+                        if (isDark) GlassWhite4
+                        else Color.White.copy(alpha = 0.60f)
+                    )
+                    .border(
+                        width = 0.5.dp,
+                        color = GlassBorder,
+                        shape = cancelShape,
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication        = null,
@@ -444,10 +515,11 @@ private fun SpacesEmptyState(
     modifier: Modifier = Modifier,
     onCreate: () -> Unit,
 ) {
+    val isDark = IsOrbitDarkTheme
     val infiniteTransition = rememberInfiniteTransition(label = "spaces_pulse")
     val glowAlpha by infiniteTransition.animateFloat(
-        initialValue  = 0.1f,
-        targetValue   = 0.3f,
+        initialValue  = 0.12f,
+        targetValue   = 0.35f,
         animationSpec = infiniteRepeatable(
             tween(2200, easing = FastOutSlowInEasing),
             RepeatMode.Reverse,
@@ -455,11 +527,14 @@ private fun SpacesEmptyState(
         label = "glow_alpha",
     )
 
+    val iconShape = RoundedCornerShape(24.dp)
+
     Column(
         modifier            = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // Glass icon container with pulsing glow
         Box(
             modifier = Modifier
                 .size(80.dp)
@@ -470,21 +545,40 @@ private fun SpacesEmptyState(
                                 isAntiAlias = true
                                 color       = android.graphics.Color.TRANSPARENT
                                 setShadowLayer(
-                                    40f, 0f, 0f,
+                                    44f, 0f, 0f,
                                     SpacesAccent.copy(alpha = glowAlpha).toArgb(),
                                 )
                             }
                         }
                         canvas.drawCircle(
-                            androidx.compose.ui.geometry.Offset(
-                                size.width / 2f, size.height / 2f
-                            ),
+                            Offset(size.width / 2f, size.height / 2f),
                             size.minDimension / 2f, paint,
                         )
                     }
                 }
-                .clip(RoundedCornerShape(24.dp))
-                .background(SpacesAccent.copy(alpha = 0.1f)),
+                .clip(iconShape)
+                .background(
+                    if (isDark) SpacesAccent.copy(alpha = 0.10f)
+                    else Color.White.copy(alpha = 0.80f)
+                )
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = if (isDark) 0.08f else 0.40f),
+                            0.5f to Color.Transparent,
+                        ),
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to SpacesAccent.copy(alpha = if (isDark) 0.35f else 0.45f),
+                            1.0f to SpacesAccent.copy(alpha = if (isDark) 0.08f else 0.15f),
+                        ),
+                    ),
+                    shape = iconShape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

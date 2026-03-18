@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
@@ -163,6 +165,7 @@ private fun SpaceDetailTopBar(
     onAddDoc:  () -> Unit,
 ) {
     TopAppBar(
+        windowInsets = WindowInsets(0, 0, 0, 0),
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(
@@ -191,7 +194,7 @@ private fun SpaceDetailTopBar(
             }
         },
         colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-        modifier = Modifier.statusBarsPadding(),
+        modifier = Modifier.padding(top = 4.dp),
     )
 }
 
@@ -269,6 +272,15 @@ private fun SpaceDocumentCard(
         else                                   -> SpacesAccent
     }
 
+    val isDark = IsOrbitDarkTheme
+    val cardShape = RoundedCornerShape(18.dp)
+
+    val lightGlassTint = when {
+        fileAccent == Color(0xFFEF4444) -> Color(0xFFFFF0F0)
+        fileAccent == Color(0xFF60A5FA) -> Color(0xFFEBF2FF)
+        else                           -> Color(0xFFFFF8E7)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -279,42 +291,56 @@ private fun SpaceDocumentCard(
                             isAntiAlias = true
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                16f, 0f, 2f,
-                                fileAccent.copy(alpha = 0.06f).toArgb(),
+                                if (isDark) 20f else 14f,
+                                0f, 4f,
+                                (if (isDark) Color.Black else fileAccent)
+                                    .copy(alpha = if (isDark) 0.22f else 0.07f)
+                                    .toArgb(),
                             )
                         }
                     }
                     canvas.drawRoundRect(
                         0f, 0f, size.width, size.height,
-                        16.dp.toPx(), 16.dp.toPx(), paint,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
                     )
                 }
             }
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassWhite8)
+            .clip(cardShape)
             .background(
-                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
-                shape = RoundedCornerShape(16.dp),
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else lightGlassTint.copy(alpha = 0.82f)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
+                brush = Brush.linearGradient(
+                    colorStops = arrayOf(
+                        0.0f to (if (isDark) Color.White else fileAccent)
+                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
+                        0.5f to fileAccent.copy(alpha = if (isDark) 0.10f else 0.15f),
+                        1.0f to (if (isDark) Color.White else fileAccent)
+                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
+                    ),
+                    start = Offset.Zero,
+                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                ),
+                shape = cardShape,
             ),
     ) {
-        // Left stripe in file-type colour
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(3.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(fileAccent.copy(0.7f), fileAccent.copy(0.2f))
-                    )
-                )
-        )
+        // Left stripe removed — glass border replaces it
 
         Row(
             modifier             = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment    = Alignment.CenterVertically,
         ) {
             // File type icon badge
@@ -322,7 +348,12 @@ private fun SpaceDocumentCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(13.dp))
-                    .background(fileAccent.copy(alpha = 0.1f)),
+                    .background(fileAccent.copy(alpha = 0.1f))
+                    .border(
+                        width = 0.5.dp,
+                        color = fileAccent.copy(alpha = if (isDark) 0.22f else 0.25f),
+                        shape = RoundedCornerShape(13.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = when {
@@ -510,7 +541,17 @@ private fun SpaceDetailEmptyState(
                     }
                 }
                 .clip(RoundedCornerShape(24.dp))
-                .background(SpacesAccent.copy(alpha = 0.08f)),
+                .background(SpacesAccent.copy(alpha = 0.08f))
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to SpacesAccent.copy(alpha = 0.25f),
+                            1.0f to SpacesAccent.copy(alpha = 0.05f),
+                        ),
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

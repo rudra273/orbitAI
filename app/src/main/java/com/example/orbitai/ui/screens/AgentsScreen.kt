@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
@@ -138,6 +140,7 @@ private fun AgentListScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
@@ -156,7 +159,7 @@ private fun AgentListScreen(
                         }
                     },
                     colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
             floatingActionButton = {
@@ -261,6 +264,11 @@ private fun AgentCard(
     // Default agent gets violet, custom agents get teal
     val cardAccent = if (agent.isDefault) VioletCore else AgentsAccent
     val cardFrost  = if (agent.isDefault) VioletFrost else AgentsFrost
+    val isDark = IsOrbitDarkTheme
+    val cardShape = RoundedCornerShape(18.dp)
+
+    // Light mode tinted glass color per accent
+    val lightGlassTint = if (agent.isDefault) Color(0xFFF0ECFF) else Color(0xFFE8FFF5)
 
     Box(
         modifier = Modifier
@@ -272,22 +280,48 @@ private fun AgentCard(
                             isAntiAlias = true
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                20f, 0f, 2f,
-                                cardAccent.copy(alpha = 0.1f).toArgb(),
+                                if (isDark) 24f else 16f,
+                                0f, 4f,
+                                (if (isDark) Color.Black else cardAccent)
+                                    .copy(alpha = if (isDark) 0.30f else 0.08f)
+                                    .toArgb(),
                             )
                         }
                     }
                     canvas.drawRoundRect(
                         0f, 0f, size.width, size.height,
-                        16.dp.toPx(), 16.dp.toPx(), paint,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
                     )
                 }
             }
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassWhite8)
+            .clip(cardShape)
             .background(
-                brush = Brush.linearGradient(listOf(GlassBorder, GlassBorder.copy(0.03f))),
-                shape = RoundedCornerShape(16.dp),
+                if (isDark) Color.White.copy(alpha = 0.05f)
+                else lightGlassTint.copy(alpha = 0.82f)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.5f  to Color.Transparent,
+                    ),
+                )
+            )
+            .border(
+                width = if (isDark) 1.dp else 1.5.dp,
+                brush = Brush.linearGradient(
+                    colorStops = arrayOf(
+                        0.0f to (if (isDark) Color.White else cardAccent)
+                                     .copy(alpha = if (isDark) 0.18f else 0.40f),
+                        0.5f to cardAccent.copy(alpha = if (isDark) 0.12f else 0.18f),
+                        1.0f to (if (isDark) Color.White else cardAccent)
+                                     .copy(alpha = if (isDark) 0.05f else 0.08f),
+                    ),
+                    start = Offset.Zero,
+                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                ),
+                shape = cardShape,
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -295,32 +329,23 @@ private fun AgentCard(
                 onClick           = onClick,
             ),
     ) {
-        // Left accent stripe
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(3.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(cardAccent.copy(0.7f), cardAccent.copy(0.2f))
-                    )
-                )
-        )
-
         Row(
             modifier             = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+                .padding(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment    = Alignment.CenterVertically,
         ) {
-            // Avatar — initial letter or ✦ for default
+            // Avatar — glass badge
             Box(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(cardFrost),
+                    .background(cardFrost)
+                    .border(
+                        width = 0.5.dp,
+                        color = cardAccent.copy(alpha = if (isDark) 0.22f else 0.28f),
+                        shape = RoundedCornerShape(14.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -442,6 +467,7 @@ private fun AgentEditScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -507,7 +533,7 @@ private fun AgentEditScreen(
                         }
                     },
                     colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.statusBarsPadding(),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             },
         ) { padding ->
@@ -695,6 +721,8 @@ private fun AgentsEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        val isDark = IsOrbitDarkTheme
+        val iconShape = RoundedCornerShape(24.dp)
         Box(
             modifier = Modifier
                 .size(80.dp)
@@ -716,8 +744,29 @@ private fun AgentsEmptyState(
                         )
                     }
                 }
-                .clip(RoundedCornerShape(24.dp))
-                .background(AgentsFrost),
+                .clip(iconShape)
+                .background(
+                    if (isDark) AgentsFrost
+                    else Color.White.copy(alpha = 0.80f)
+                )
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = if (isDark) 0.08f else 0.40f),
+                            0.5f to Color.Transparent,
+                        ),
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to AgentsAccent.copy(alpha = if (isDark) 0.35f else 0.45f),
+                            1.0f to AgentsAccent.copy(alpha = if (isDark) 0.08f else 0.12f),
+                        ),
+                    ),
+                    shape = iconShape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

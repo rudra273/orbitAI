@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -41,9 +43,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.example.orbitai.data.InferenceSettingsStore
+import com.example.orbitai.data.MemoryFeatureStore
+import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.screens.AgentsScreen
 import com.example.orbitai.ui.screens.ChatScreen
+import com.example.orbitai.ui.screens.DeveloperSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
+import com.example.orbitai.ui.screens.InferenceSettingsScreen
+import com.example.orbitai.ui.screens.MemorySettingsScreen
+import com.example.orbitai.ui.screens.ModelSettingsScreen
+import com.example.orbitai.ui.screens.RagSettingsScreen
 import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
@@ -100,6 +110,8 @@ fun OrbitNavGraph(
     spacesViewModel:   SpacesViewModel,
     agentsViewModel:   AgentsViewModel,
     memoryViewModel:   MemoryViewModel,
+    isDarkTheme:       Boolean,
+    onThemeChanged:    (Boolean) -> Unit,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
@@ -151,7 +163,8 @@ fun OrbitNavGraph(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
-                    memoryViewModel   = memoryViewModel,
+                    isDarkTheme       = isDarkTheme,
+                    onThemeChanged    = onThemeChanged,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },
                 )
@@ -183,24 +196,43 @@ fun OrbitNavGraph(
                 )
             }
 
-            // ── Settings sub-screens ───────────────────────────────────────
-            // Each sub-screen is a separate composable — wire them here as you build them out.
-            // Example pattern shown; replace with your actual composable calls:
-
             composable(Screen.SettingsModel.route) {
-                // ModelSettingsScreen(viewModel = downloadViewModel, onBack = { navController.popBackStack() })
+                ModelSettingsScreen(
+                    downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsInference.route) {
-                // InferenceSettingsScreen(onBack = { navController.popBackStack() })
+                val context = LocalContext.current
+                val inferenceStore = remember { InferenceSettingsStore(context) }
+                InferenceSettingsScreen(
+                    inferenceStore = inferenceStore,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsMemory.route) {
-                // MemorySettingsScreen(viewModel = memoryViewModel, onBack = { navController.popBackStack() })
+                val context = LocalContext.current
+                val memoryStore = remember { MemoryFeatureStore(context) }
+                MemorySettingsScreen(
+                    memoryViewModel = memoryViewModel,
+                    memoryStore = memoryStore,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsRag.route) {
-                // RagSettingsScreen(onBack = { navController.popBackStack() })
+                RagSettingsScreen(
+                    downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsDeveloper.route) {
-                // DeveloperSettingsScreen(onBack = { navController.popBackStack() })
+                val context = LocalContext.current
+                val tokenStore = remember { TokenStore(context) }
+                DeveloperSettingsScreen(
+                    tokenStore = tokenStore,
+                    downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }
@@ -245,16 +277,13 @@ private fun OrbitBottomBar(
         contentAlignment = Alignment.BottomCenter,
     ) {
         // Glassy pill
+        val isDark = IsOrbitDarkTheme
+        val pillShape = RoundedCornerShape(24.dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
-                // Glass fill
-                .background(
-                    color = SpaceDust.copy(alpha = 0.75f),
-                    shape = RoundedCornerShape(24.dp),
-                )
-                // Violet glow halo underneath
+                // Outer glow
                 .drawBehind {
                     drawIntoCanvas { canvas ->
                         val paint = Paint().apply {
@@ -262,9 +291,10 @@ private fun OrbitBottomBar(
                                 isAntiAlias = true
                                 color       = android.graphics.Color.TRANSPARENT
                                 setShadowLayer(
-                                    32f, 0f, 4f,
-                                    VioletGlow
-                                        .copy(alpha = 0.35f)
+                                    if (isDark) 32f else 20f,
+                                    0f, 4f,
+                                    (if (isDark) VioletGlow else Color.Black)
+                                        .copy(alpha = if (isDark) 0.35f else 0.08f)
                                         .toArgb(),
                                 )
                             }
@@ -277,44 +307,50 @@ private fun OrbitBottomBar(
                         )
                     }
                 }
-                // Glass border
-                .then(
-                    Modifier.background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                GlassBorder,
-                                GlassBorder.copy(alpha = 0.06f),
-                            )
+                .clip(pillShape)
+                // Glass fill
+                .background(
+                    if (isDark) Color.White.copy(alpha = 0.05f)
+                    else Color.White.copy(alpha = 0.72f)
+                )
+                // Top sheen
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
+                            0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                            0.5f  to Color.Transparent,
                         ),
-                        shape = RoundedCornerShape(24.dp),
                     )
+                )
+                // Glass border
+                .border(
+                    width = if (isDark) 1.dp else 1.5.dp,
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to (if (isDark) Color.White else VioletCore)
+                                         .copy(alpha = if (isDark) 0.18f else 0.30f),
+                            0.5f to (if (isDark) VioletCore else VioletCore)
+                                         .copy(alpha = if (isDark) 0.10f else 0.12f),
+                            1.0f to (if (isDark) Color.White else VioletCore)
+                                         .copy(alpha = if (isDark) 0.05f else 0.06f),
+                        ),
+                    ),
+                    shape = pillShape,
                 ),
         ) {
-            // Stroke ring — drawn as a 1dp border inside the pill
-            Surface(
-                modifier        = Modifier.fillMaxSize(),
-                shape           = RoundedCornerShape(24.dp),
-                color           = Color.Transparent,
-                border          = androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    brush = Brush.linearGradient(
-                        listOf(GlassBorder, GlassBorder.copy(0.04f), GlassBorder)
-                    ),
-                ),
+            Row(
+                modifier              = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                Row(
-                    modifier              = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    TABS.forEach { tab ->
-                        val selected = currentRoute == tab.route
-                        TabButton(
-                            tab      = tab,
-                            selected = selected,
-                            onClick  = { onNavigate(tab.route) },
-                        )
-                    }
+                TABS.forEach { tab ->
+                    val selected = currentRoute == tab.route
+                    TabButton(
+                        tab      = tab,
+                        selected = selected,
+                        onClick  = { onNavigate(tab.route) },
+                    )
                 }
             }
         }

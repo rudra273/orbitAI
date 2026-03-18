@@ -18,6 +18,7 @@ class ChatRepository(context: Context) {
     private val db         = AppDatabase.getInstance(context)
     private val chatDao    = db.chatDao()
     private val messageDao = db.messageDao()
+    private val modelDownloader = ModelDownloader(context)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -29,9 +30,13 @@ class ChatRepository(context: Context) {
         .map { list -> list.map { it.toDomain() } }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    suspend fun createChat(modelId: String = AVAILABLE_MODELS.first().id): Chat =
+    suspend fun createChat(modelId: String? = null): Chat =
         withContext(Dispatchers.IO) {
-            val chat = Chat(modelId = modelId)
+            val resolvedModelId = modelId
+                ?: AVAILABLE_MODELS.firstOrNull { modelDownloader.isDownloaded(it) }?.id
+                ?: AVAILABLE_MODELS.first().id
+
+            val chat = Chat(modelId = resolvedModelId)
             chatDao.insertChat(chat.toEntity())
             chat
         }
