@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ede9fe"/>
+    </radialGradient>
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.35"/>
+      <stop offset="40%" stop-color="#7c3aed" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="ringGlowPurple" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="blur1"/>
+      <feGaussianBlur stdDeviation="3" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/><feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ringGlowGreen" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur1"/>
+      <feGaussianBlur stdDeviation="2.5" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/><feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ringGlowYellow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur1"/>
+      <feGaussianBlur stdDeviation="2.5" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/><feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="dotGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="coreFilter" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sphereGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="squareClip">
+      <rect x="0" y="0" width="512" height="512"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="512" height="512" fill="url(#bgGrad)"/>
+
+  <!-- Subtle accent dots -->
+  <g opacity="0.35">
+    <circle cx="100" cy="160" r="1.5" fill="#a855f7" opacity="0.4"/>
+    <circle cx="420" cy="140" r="1.2" fill="#a855f7" opacity="0.3"/>
+    <circle cx="470" cy="310" r="1.2" fill="#16a34a" opacity="0.3"/>
+    <circle cx="50"  cy="280" r="1.5" fill="#d97706" opacity="0.3"/>
+    <circle cx="400" cy="400" r="1"   fill="#a855f7" opacity="0.3"/>
+    <circle cx="80"  cy="390" r="1"   fill="#16a34a" opacity="0.3"/>
+  </g>
+
+  <!-- OUTER RING — purple -->
+  <g filter="url(#ringGlowPurple)">
+    <ellipse cx="256" cy="256" rx="210" ry="72" fill="none"
+      stroke="#9333ea" stroke-width="5"
+      transform="rotate(-28 256 256)" opacity="0.4"/>
+  </g>
+  <ellipse cx="256" cy="256" rx="210" ry="72" fill="none"
+    stroke="#7c3aed" stroke-width="4"
+    transform="rotate(-28 256 256)"/>
+
+  <!-- MIDDLE RING — green -->
+  <g filter="url(#ringGlowGreen)">
+    <ellipse cx="256" cy="256" rx="170" ry="56" fill="none"
+      stroke="#15803d" stroke-width="4.5"
+      transform="rotate(42 256 256)" opacity="0.4"/>
+  </g>
+  <ellipse cx="256" cy="256" rx="170" ry="56" fill="none"
+    stroke="#16a34a" stroke-width="3.5"
+    transform="rotate(42 256 256)"/>
+
+  <!-- INNER RING — amber/yellow -->
+  <g filter="url(#ringGlowYellow)">
+    <ellipse cx="256" cy="256" rx="128" ry="42" fill="none"
+      stroke="#d97706" stroke-width="4"
+      transform="rotate(10 256 256)" opacity="0.4"/>
+  </g>
+  <ellipse cx="256" cy="256" rx="128" ry="42" fill="none"
+    stroke="#b45309" stroke-width="3"
+    transform="rotate(10 256 256)"/>
+
+  <!-- Orbiting dot — purple -->
+  <g filter="url(#dotGlow)">
+    <circle cx="384" cy="210" r="13" fill="#9333ea" opacity="0.25"/>
+  </g>
+  <circle cx="384" cy="210" r="8" fill="#7c3aed"/>
+
+  <!-- Orbiting dot — green -->
+  <g filter="url(#dotGlow)">
+    <circle cx="142" cy="308" r="10" fill="#16a34a" opacity="0.25"/>
+  </g>
+  <circle cx="142" cy="308" r="6" fill="#15803d"/>
+
+  <!-- Orbiting dot — amber -->
+  <g filter="url(#dotGlow)">
+    <circle cx="318" cy="302" r="9" fill="#d97706" opacity="0.25"/>
+  </g>
+  <circle cx="318" cy="302" r="5.5" fill="#b45309"/>
+
+  <!-- Core ambient glow -->
+  <circle cx="256" cy="256" r="70" fill="url(#coreGlow)" filter="url(#coreFilter)" opacity="0.5"/>
+
+  <!-- Inner sphere -->
+  <circle cx="256" cy="256" r="44" fill="#faf5ff"/>
+  <circle cx="256" cy="256" r="44" fill="none" stroke="#7c3aed" stroke-width="3.5" filter="url(#sphereGlow)" opacity="0.75"/>
+
+  <!-- Circuit lines -->
+  <g clip-path="url(#squareClip)" opacity="0.7">
+    <line x1="220" y1="256" x2="292" y2="256" stroke="#7c3aed" stroke-width="1.2"/>
+    <line x1="256" y1="220" x2="256" y2="292" stroke="#7c3aed" stroke-width="1.2"/>
+    <line x1="228" y1="228" x2="284" y2="284" stroke="#15803d" stroke-width="1" opacity="0.8"/>
+    <line x1="284" y1="228" x2="228" y2="284" stroke="#b45309" stroke-width="1" opacity="0.8"/>
+    <circle cx="256" cy="256" r="5"   fill="#7c3aed"/>
+    <circle cx="232" cy="256" r="3"   fill="#9333ea" opacity="0.85"/>
+    <circle cx="280" cy="256" r="3"   fill="#9333ea" opacity="0.85"/>
+    <circle cx="256" cy="232" r="3"   fill="#15803d" opacity="0.85"/>
+    <circle cx="256" cy="280" r="3"   fill="#b45309" opacity="0.85"/>
+  </g>
+
+</svg>

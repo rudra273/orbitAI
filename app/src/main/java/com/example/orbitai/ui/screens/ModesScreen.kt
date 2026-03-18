@@ -122,8 +122,7 @@ private fun ModeListScreen(
         // Ambient teal glow
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
+                .fillMaxSize()
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.radialGradient(
@@ -450,8 +449,7 @@ private fun ModeEditScreen(
         // Ambient teal glow
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(260.dp)
+                .fillMaxSize()
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.radialGradient(

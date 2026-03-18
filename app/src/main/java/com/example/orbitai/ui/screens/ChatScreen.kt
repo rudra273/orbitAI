@@ -92,8 +92,7 @@ fun ChatScreen(
         // Ambient glow — top
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
+                .fillMaxSize()
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.radialGradient(
@@ -154,14 +153,59 @@ fun ChatScreen(
                     GlassStatusBanner(it, Destructive)
                 }
 
-                LazyColumn(
-                    state               = listState,
-                    modifier            = Modifier.fillMaxSize(),
-                    contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(messages, key = { it.id }) { msg ->
-                        MessageBubble(msg)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state               = listState,
+                        modifier            = Modifier.fillMaxSize(),
+                        contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(messages, key = { it.id }) { msg ->
+                            MessageBubble(msg)
+                        }
+                    }
+
+                    if (messages.isEmpty() && !uiState.isGenerating && !uiState.isModelLoading) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(horizontal = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .background(VioletFrost)
+                                    .border(
+                                        width = 1.dp,
+                                        color = VioletCore.copy(alpha = 0.35f),
+                                        shape = RoundedCornerShape(22.dp),
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "✦",
+                                    fontSize = 30.sp,
+                                    color = VioletBright,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "How can I help you today?",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = TextPrimary.copy(alpha = 0.92f),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = "Ask anything, generate code, or explore ideas.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextMuted,
+                            )
+                        }
                     }
                 }
             }
