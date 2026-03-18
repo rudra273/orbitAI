@@ -3,9 +3,9 @@ package com.example.orbitai.data.db
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-const val ORBIT_AGENT_ID = "orbit_default"
+const val ORBIT_MODE_ID = "orbit_default"
 
-data class Agent(
+data class Mode(
     val id: String,
     val name: String,
     val systemPrompt: String,
@@ -13,8 +13,8 @@ data class Agent(
     val createdAt: Long,
 )
 
-@Entity(tableName = "agents")
-data class AgentEntity(
+@Entity(tableName = "modes")
+data class ModeEntity(
     @PrimaryKey val id: String,
     val name: String,
     val systemPrompt: String,
@@ -22,7 +22,7 @@ data class AgentEntity(
     val createdAt: Long,
 )
 
-fun AgentEntity.toDomain() = Agent(
+fun ModeEntity.toDomain() = Mode(
     id           = id,
     name         = name,
     systemPrompt = systemPrompt,

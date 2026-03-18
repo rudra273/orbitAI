@@ -12,11 +12,11 @@ import com.example.orbitai.data.LlmRepository
 import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
-import com.example.orbitai.data.AgentRepository
+import com.example.orbitai.data.ModeRepository
 import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.SpaceRepository
-import com.example.orbitai.data.db.Agent
-import com.example.orbitai.data.db.ORBIT_AGENT_ID
+import com.example.orbitai.data.db.Mode
+import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
@@ -43,22 +43,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val modelDownloader = ModelDownloader(application)
     private val settingsStore = InferenceSettingsStore(application)
     private val spaceRepo = SpaceRepository(application)
-    private val agentRepo = AgentRepository(application)
+    private val modeRepo = ModeRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
     val memoryRepo = MemoryRepository(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
 
-    /** All available agents — observed by the chat screen for the agent selector. */
-    val agents: StateFlow<List<Agent>> = agentRepo.agents
+    /** All available modes — observed by the chat screen for the mode selector. */
+    val modes: StateFlow<List<Mode>> = modeRepo.modes
 
     private val _activeSpaceIds = MutableStateFlow<Set<String>>(emptySet())
     val activeSpaceIds: StateFlow<Set<String>> = _activeSpaceIds.asStateFlow()
 
-    /** ID of the currently active agent; defaults to Orbit. */
-    private val _activeAgentId = MutableStateFlow(ORBIT_AGENT_ID)
-    val activeAgentId: StateFlow<String> = _activeAgentId.asStateFlow()
+    /** ID of the currently active mode; defaults to Orbit. */
+    private val _activeModeId = MutableStateFlow(ORBIT_MODE_ID)
+    val activeModeId: StateFlow<String> = _activeModeId.asStateFlow()
 
     fun toggleSpace(id: String) {
         _activeSpaceIds.update { current ->
@@ -66,8 +66,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun selectAgent(id: String) {
-        _activeAgentId.value = id
+    fun selectMode(id: String) {
+        _activeModeId.value = id
     }
 
     val chats: StateFlow<List<Chat>> = chatRepo.chats
@@ -159,10 +159,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 emptyList()
             }
-            val systemPrompt = agentRepo.agents.value
-                .find { it.id == _activeAgentId.value }
+            val systemPrompt = modeRepo.modes.value
+                .find { it.id == _activeModeId.value }
                 ?.systemPrompt
-                ?: agentRepo.agents.value.find { it.isDefault }?.systemPrompt
+                ?: modeRepo.modes.value.find { it.isDefault }?.systemPrompt
             val prompt = buildGemmaPrompt(history, ragContext, memories, systemPrompt)
 
             // 4. Add empty assistant message (streaming placeholder)
@@ -232,7 +232,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     ): String {
         val sb = StringBuilder()
 
-        // System prompt turn (agent persona)
+        // System prompt turn (mode persona)
         if (!systemPrompt.isNullOrBlank()) {
             sb.append("<start_of_turn>user\n")
             sb.append("System instructions: $systemPrompt\n")

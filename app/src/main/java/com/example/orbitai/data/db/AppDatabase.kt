@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, AgentEntity::class],
-    version   = 6,
+    entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class],
+    version   = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -18,7 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ragDocumentDao(): RagDocumentDao
     abstract fun memoryDao(): MemoryDao
     abstract fun spaceDao(): SpaceDao
-    abstract fun agentDao(): AgentDao
+    abstract fun modeDao(): ModeDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -89,7 +89,7 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `agents` (
+                    CREATE TABLE IF NOT EXISTS `modes` (
                         `id` TEXT NOT NULL,
                         `name` TEXT NOT NULL,
                         `systemPrompt` TEXT NOT NULL,
@@ -98,11 +98,17 @@ abstract class AppDatabase : RoomDatabase() {
                         PRIMARY KEY(`id`)
                     )
                 """.trimIndent())
-                // Seed the default Orbit agent
+                // Seed the default Orbit mode
                 db.execSQL("""
-                    INSERT OR IGNORE INTO agents (id, name, systemPrompt, isDefault, createdAt)
+                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, createdAt)
                     VALUES ('orbit_default', 'Orbit', 'You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.', 1, ${System.currentTimeMillis()})
                 """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // No-op in development mode: schema already uses `modes`.
             }
         }
 
@@ -112,7 +118,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "orbitai.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
             }
     }
 }

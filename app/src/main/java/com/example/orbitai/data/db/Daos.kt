@@ -101,22 +101,22 @@ interface MemoryDao {
 }
 
 @Dao
-interface AgentDao {
+interface ModeDao {
 
-    @Query("SELECT * FROM agents ORDER BY isDefault DESC, createdAt ASC")
-    fun observeAgents(): Flow<List<AgentEntity>>
+    @Query("SELECT * FROM modes ORDER BY isDefault DESC, createdAt ASC")
+    fun observeModes(): Flow<List<ModeEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAgent(agent: AgentEntity)
+    suspend fun insertMode(mode: ModeEntity)
 
-    @Query("UPDATE agents SET name = :name, systemPrompt = :prompt WHERE id = :id")
-    suspend fun updateAgent(id: String, name: String, prompt: String)
+    @Query("UPDATE modes SET name = :name, systemPrompt = :prompt WHERE id = :id")
+    suspend fun updateMode(id: String, name: String, prompt: String)
 
-    @Query("DELETE FROM agents WHERE id = :id AND isDefault = 0")
-    suspend fun deleteAgent(id: String)
+    @Query("DELETE FROM modes WHERE id = :id AND isDefault = 0")
+    suspend fun deleteMode(id: String)
 
-    @Query("SELECT * FROM agents WHERE id = :id LIMIT 1")
-    suspend fun getAgentById(id: String): AgentEntity?
+    @Query("SELECT * FROM modes WHERE id = :id LIMIT 1")
+    suspend fun getModeById(id: String): ModeEntity?
 }
 
 @Dao

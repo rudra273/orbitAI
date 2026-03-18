@@ -18,7 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.orbitai.data.ThemeSettingsStore
 import com.example.orbitai.ui.navigation.OrbitNavGraph
 import com.example.orbitai.ui.theme.OrbitAITheme
-import com.example.orbitai.viewmodel.AgentsViewModel
+import com.example.orbitai.viewmodel.ModesViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
     private val chatViewModel:     ChatViewModel     by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
     private val spacesViewModel:   SpacesViewModel   by viewModels()
-    private val agentsViewModel:   AgentsViewModel   by viewModels()
+    private val modesViewModel:    ModesViewModel    by viewModels()
     private val memoryViewModel:   MemoryViewModel   by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
                     chatViewModel     = chatViewModel,
                     downloadViewModel = downloadViewModel,
                     spacesViewModel   = spacesViewModel,
-                    agentsViewModel   = agentsViewModel,
+                    modesViewModel    = modesViewModel,
                     memoryViewModel   = memoryViewModel,
                     isDarkTheme       = isDarkTheme,
                     onThemeChanged    = { enabled ->

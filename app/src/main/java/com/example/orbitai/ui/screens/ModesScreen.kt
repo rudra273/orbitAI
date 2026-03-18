@@ -39,33 +39,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.db.Agent
+import com.example.orbitai.data.db.Mode
 import com.example.orbitai.ui.theme.*
-import com.example.orbitai.viewmodel.AgentsViewModel
+import com.example.orbitai.viewmodel.ModesViewModel
 
-// Agents accent — teal/emerald
-private val AgentsAccent    = Color(0xFF10B981)
-private val AgentsAccentDim = Color(0xFF059669)
-private val AgentsFrost     = Color(0x1A10B981)   // 10% teal glass fill
+// Modes accent — teal/emerald
+private val ModesAccent    = Color(0xFF10B981)
+private val ModesAccentDim = Color(0xFF059669)
+private val ModesFrost     = Color(0x1A10B981)   // 10% teal glass fill
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// AGENTS SCREEN — list + inline edit destination
+// MODES SCREEN — list + inline edit destination
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-private sealed interface AgentsDestination {
-    data object List : AgentsDestination
-    data class Edit(val agent: Agent?)  : AgentsDestination   // null = create new
+private sealed interface ModesDestination {
+    data object List : ModesDestination
+    data class Edit(val mode: Mode?)  : ModesDestination   // null = create new
 }
 
 @Composable
-fun AgentsScreen(viewModel: AgentsViewModel) {
-    val agents by viewModel.agents.collectAsState()
-    var destination by remember { mutableStateOf<AgentsDestination>(AgentsDestination.List) }
+fun ModesScreen(viewModel: ModesViewModel) {
+    val modes by viewModel.modes.collectAsState()
+    var destination by remember { mutableStateOf<ModesDestination>(ModesDestination.List) }
 
     AnimatedContent(
         targetState   = destination,
         transitionSpec = {
-            if (targetState is AgentsDestination.List) {
+            if (targetState is ModesDestination.List) {
                 (slideInHorizontally { -it } + fadeIn()) togetherWith
                         (slideOutHorizontally { it } + fadeOut())
             } else {
@@ -73,29 +73,29 @@ fun AgentsScreen(viewModel: AgentsViewModel) {
                         (slideOutHorizontally { -it } + fadeOut())
             }
         },
-        label = "agents_nav",
+        label = "modes_nav",
     ) { dest ->
         when (dest) {
-            is AgentsDestination.List -> AgentListScreen(
-                agents      = agents,
-                onEditAgent = { destination = AgentsDestination.Edit(it) },
-                onDelete    = { viewModel.deleteAgent(it) },
-                onCreateNew = { destination = AgentsDestination.Edit(null) },
+            is ModesDestination.List -> ModeListScreen(
+                modes      = modes,
+                onEditMode = { destination = ModesDestination.Edit(it) },
+                onDelete   = { viewModel.deleteMode(it) },
+                onCreateNew = { destination = ModesDestination.Edit(null) },
             )
-            is AgentsDestination.Edit -> AgentEditScreen(
-                agent     = dest.agent,
-                onBack    = { destination = AgentsDestination.List },
+            is ModesDestination.Edit -> ModeEditScreen(
+                mode      = dest.mode,
+                onBack    = { destination = ModesDestination.List },
                 onSave    = { name, prompt ->
-                    if (dest.agent == null) {
-                        viewModel.createAgent(name, prompt)
+                    if (dest.mode == null) {
+                        viewModel.createMode(name, prompt)
                     } else {
-                        viewModel.updateAgent(dest.agent.id, name, prompt)
+                        viewModel.updateMode(dest.mode.id, name, prompt)
                     }
-                    destination = AgentsDestination.List
+                    destination = ModesDestination.List
                 },
                 onDelete  = {
-                    dest.agent?.let { viewModel.deleteAgent(it.id) }
-                    destination = AgentsDestination.List
+                    dest.mode?.let { viewModel.deleteMode(it.id) }
+                    destination = ModesDestination.List
                 },
             )
         }
@@ -103,14 +103,14 @@ fun AgentsScreen(viewModel: AgentsViewModel) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// AGENT LIST
+// MODE LIST
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AgentListScreen(
-    agents:      List<Agent>,
-    onEditAgent: (Agent) -> Unit,
+private fun ModeListScreen(
+    modes:      List<Mode>,
+    onEditMode: (Mode) -> Unit,
     onDelete:    (String) -> Unit,
     onCreateNew: () -> Unit,
 ) {
@@ -128,7 +128,8 @@ private fun AgentListScreen(
                 .background(
                     Brush.radialGradient(
                         colorStops = arrayOf(
-                            0.0f to AgentsAccent.copy(alpha = 0.04f),
+                            0.0f to ModesAccent.copy(alpha = 0.04f),
+                            0.0f to ModesAccent.copy(alpha = 0.04f),
                             1.0f to Color.Transparent,
                         ),
                         radius = 700f,
@@ -144,14 +145,14 @@ private fun AgentListScreen(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
-                                "Agents",
+                                "Modes",
                                 style = MaterialTheme.typography.headlineLarge,
                                 color = TextPrimary,
                             )
                             Text(
-                                "${agents.size} agent${if (agents.size != 1) "s" else ""}",
+                                "${modes.size} mode${if (modes.size != 1) "s" else ""}",
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    color        = AgentsAccent,
+                                    color        = ModesAccent,
                                     letterSpacing = 1.sp,
                                     fontWeight   = FontWeight.SemiBold,
                                 ),
@@ -163,11 +164,11 @@ private fun AgentListScreen(
                 )
             },
             floatingActionButton = {
-                AgentsFAB(onClick = onCreateNew)
+                ModesFAB(onClick = onCreateNew)
             },
         ) { padding ->
-            if (agents.isEmpty()) {
-                AgentsEmptyState(
+            if (modes.isEmpty()) {
+                ModesEmptyState(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
@@ -187,14 +188,14 @@ private fun AgentListScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     itemsIndexed(
-                        items = agents,
-                        key   = { _, a -> a.id },
-                    ) { index, agent ->
+                        items = modes,
+                        key   = { _, m -> m.id },
+                    ) { index, mode ->
                         StaggeredFadeSlide(index = index) {
-                            AgentCard(
-                                agent    = agent,
-                                onClick  = { onEditAgent(agent) },
-                                onDelete = { onDelete(agent.id) },
+                            ModeCard(
+                                mode     = mode,
+                                onClick  = { onEditMode(mode) },
+                                onDelete = { onDelete(mode.id) },
                             )
                         }
                     }
@@ -209,7 +210,7 @@ private fun AgentListScreen(
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
-private fun AgentsFAB(onClick: () -> Unit) {
+private fun ModesFAB(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(56.dp)
@@ -221,7 +222,7 @@ private fun AgentsFAB(onClick: () -> Unit) {
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
                                 24f, 0f, 4f,
-                                AgentsAccent.copy(alpha = 0.4f).toArgb(),
+                                ModesAccent.copy(alpha = 0.4f).toArgb(),
                             )
                         }
                     }
@@ -233,7 +234,7 @@ private fun AgentsFAB(onClick: () -> Unit) {
             }
             .clip(RoundedCornerShape(18.dp))
             .background(
-                Brush.linearGradient(listOf(AgentsAccent, AgentsAccentDim))
+                Brush.linearGradient(listOf(ModesAccent, ModesAccentDim))
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -244,7 +245,7 @@ private fun AgentsFAB(onClick: () -> Unit) {
     ) {
         Icon(
             Icons.Default.Add,
-            contentDescription = "Create Agent",
+            contentDescription = "Create Mode",
             tint     = Color.White,
             modifier = Modifier.size(26.dp),
         )
@@ -252,23 +253,23 @@ private fun AgentsFAB(onClick: () -> Unit) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// AGENT CARD
+// MODE CARD
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
-private fun AgentCard(
-    agent:    Agent,
+private fun ModeCard(
+    mode:     Mode,
     onClick:  () -> Unit,
     onDelete: () -> Unit,
 ) {
-    // Default agent gets violet, custom agents get teal
-    val cardAccent = if (agent.isDefault) VioletCore else AgentsAccent
-    val cardFrost  = if (agent.isDefault) VioletFrost else AgentsFrost
+    // Default mode gets violet, custom modes get teal
+    val cardAccent = if (mode.isDefault) VioletCore else ModesAccent
+    val cardFrost  = if (mode.isDefault) VioletFrost else ModesFrost
     val isDark = IsOrbitDarkTheme
     val cardShape = RoundedCornerShape(18.dp)
 
     // Light mode tinted glass color per accent
-    val lightGlassTint = if (agent.isDefault) Color(0xFFF0ECFF) else Color(0xFFE8FFF5)
+    val lightGlassTint = if (mode.isDefault) Color(0xFFF0ECFF) else Color(0xFFE8FFF5)
 
     Box(
         modifier = Modifier
@@ -349,8 +350,8 @@ private fun AgentCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text       = if (agent.isDefault) "✦" else agent.name.take(1).uppercase(),
-                    fontSize   = if (agent.isDefault) 20.sp else 18.sp,
+                    text       = if (mode.isDefault) "✦" else mode.name.take(1).uppercase(),
+                    fontSize   = if (mode.isDefault) 20.sp else 18.sp,
                     color      = cardAccent,
                     fontWeight = FontWeight.Bold,
                 )
@@ -364,11 +365,11 @@ private fun AgentCard(
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     Text(
-                        agent.name,
+                        mode.name,
                         style     = MaterialTheme.typography.titleMedium,
                         color     = TextPrimary,
                     )
-                    if (agent.isDefault) {
+                    if (mode.isDefault) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
@@ -385,7 +386,7 @@ private fun AgentCard(
                 }
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    agent.systemPrompt,
+                    mode.systemPrompt,
                     style    = MaterialTheme.typography.bodySmall,
                     color    = TextMuted,
                     maxLines = 2,
@@ -395,15 +396,15 @@ private fun AgentCard(
 
             Spacer(Modifier.width(6.dp))
 
-            // Delete — only for non-default agents, very subtle
-            if (!agent.isDefault) {
+            // Delete — only for non-default modes, very subtle
+            if (!mode.isDefault) {
                 IconButton(
                     onClick  = onDelete,
                     modifier = Modifier.size(34.dp),
                 ) {
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = "Delete agent",
+                        contentDescription = "Delete mode",
                         tint     = TextMuted.copy(0.4f),
                         modifier = Modifier.size(16.dp),
                     )
@@ -423,21 +424,21 @@ private fun AgentCard(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// AGENT EDIT SCREEN — full-screen, not a dialog
+// MODE EDIT SCREEN — full-screen, not a dialog
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AgentEditScreen(
-    agent:    Agent?,           // null = creating new
+private fun ModeEditScreen(
+    mode:     Mode?,            // null = creating new
     onBack:   () -> Unit,
     onSave:   (name: String, prompt: String) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var name   by remember { mutableStateOf(agent?.name ?: "") }
-    var prompt by remember { mutableStateOf(agent?.systemPrompt ?: "") }
-    val isNew  = agent == null
-    val isDefault = agent?.isDefault == true
+    var name   by remember { mutableStateOf(mode?.name ?: "") }
+    var prompt by remember { mutableStateOf(mode?.systemPrompt ?: "") }
+    val isNew  = mode == null
+    val isDefault = mode?.isDefault == true
 
     val canSave = name.isNotBlank() && prompt.isNotBlank()
 
@@ -455,7 +456,7 @@ private fun AgentEditScreen(
                 .background(
                     Brush.radialGradient(
                         colorStops = arrayOf(
-                            0.0f to AgentsAccent.copy(alpha = 0.05f),
+                            0.0f to ModesAccent.copy(alpha = 0.05f),
                             1.0f to Color.Transparent,
                         ),
                         radius = 600f,
@@ -486,18 +487,18 @@ private fun AgentEditScreen(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(AgentsFrost),
+                                    .background(ModesFrost),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     Icons.Default.SmartToy,
                                     null,
-                                    tint     = AgentsAccent,
+                                    tint     = ModesAccent,
                                     modifier = Modifier.size(17.dp),
                                 )
                             }
                             Text(
-                                if (isNew) "New Agent" else if (isDefault) "Edit Orbit" else "Edit Agent",
+                                if (isNew) "New Mode" else if (isDefault) "Edit Orbit" else "Edit Mode",
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = TextPrimary,
                             )
@@ -512,7 +513,7 @@ private fun AgentEditScreen(
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(
                                     if (canSave)
-                                        Brush.linearGradient(listOf(AgentsAccent, AgentsAccentDim))
+                                            Brush.linearGradient(listOf(ModesAccent, ModesAccentDim))
                                     else
                                         Brush.linearGradient(listOf(GlassWhite8, GlassWhite8))
                                 )
@@ -551,7 +552,7 @@ private fun AgentEditScreen(
             ) {
                 item {
                     // ── Name field ─────────────────────────────────────────
-                    AgentFieldLabel("Agent Name")
+                    ModeFieldLabel("Mode Name")
                     Spacer(Modifier.height(6.dp))
                     TextField(
                         value         = name,
@@ -563,7 +564,7 @@ private fun AgentEditScreen(
                             .background(
                                 brush = Brush.linearGradient(
                                     if (name.isNotBlank())
-                                        listOf(AgentsAccent.copy(0.25f), AgentsAccent.copy(0.05f))
+                                        listOf(ModesAccent.copy(0.25f), ModesAccent.copy(0.05f))
                                     else
                                         listOf(GlassBorder, GlassBorder.copy(0.02f))
                                 ),
@@ -583,7 +584,7 @@ private fun AgentEditScreen(
                             unfocusedIndicatorColor = Color.Transparent,
                             focusedTextColor        = TextPrimary,
                             unfocusedTextColor      = TextPrimary,
-                            cursorColor             = AgentsAccent,
+                            cursorColor             = ModesAccent,
                             disabledContainerColor  = Color.Transparent,
                             disabledIndicatorColor  = Color.Transparent,
                             disabledTextColor       = TextSecondary,
@@ -596,10 +597,10 @@ private fun AgentEditScreen(
 
                 item {
                     // ── System prompt field ────────────────────────────────
-                    AgentFieldLabel("System Prompt")
+                    ModeFieldLabel("System Prompt")
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Defines how this agent behaves and responds.",
+                        "Defines how this mode behaves and responds.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                     )
@@ -615,7 +616,7 @@ private fun AgentEditScreen(
                             .background(
                                 brush = Brush.linearGradient(
                                     if (prompt.isNotBlank())
-                                        listOf(AgentsAccent.copy(0.2f), AgentsAccent.copy(0.03f))
+                                        listOf(ModesAccent.copy(0.2f), ModesAccent.copy(0.03f))
                                     else
                                         listOf(GlassBorder, GlassBorder.copy(0.02f))
                                 ),
@@ -635,7 +636,7 @@ private fun AgentEditScreen(
                             unfocusedIndicatorColor = Color.Transparent,
                             focusedTextColor        = TextPrimary,
                             unfocusedTextColor      = TextPrimary,
-                            cursorColor             = AgentsAccent,
+                            cursorColor             = ModesAccent,
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             lineHeight = 22.sp,
@@ -654,7 +655,7 @@ private fun AgentEditScreen(
                     )
                 }
 
-                // Delete button — only for non-default existing agents
+                // Delete button — only for non-default existing modes
                 if (!isNew && !isDefault) {
                     item {
                         Spacer(Modifier.height(8.dp))
@@ -682,7 +683,7 @@ private fun AgentEditScreen(
                                     modifier = Modifier.size(17.dp),
                                 )
                                 Text(
-                                    "Delete Agent",
+                                    "Delete Mode",
                                     style      = MaterialTheme.typography.titleSmall,
                                     color      = Destructive,
                                     fontWeight = FontWeight.SemiBold,
@@ -701,11 +702,11 @@ private fun AgentEditScreen(
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
-private fun AgentsEmptyState(
+private fun ModesEmptyState(
     modifier: Modifier = Modifier,
     onCreate: () -> Unit,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "agent_pulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "mode_pulse")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue  = 0.1f,
         targetValue   = 0.3f,
@@ -734,7 +735,7 @@ private fun AgentsEmptyState(
                                 color       = android.graphics.Color.TRANSPARENT
                                 setShadowLayer(
                                     40f, 0f, 0f,
-                                    AgentsAccent.copy(alpha = glowAlpha).toArgb(),
+                                    ModesAccent.copy(alpha = glowAlpha).toArgb(),
                                 )
                             }
                         }
@@ -746,7 +747,7 @@ private fun AgentsEmptyState(
                 }
                 .clip(iconShape)
                 .background(
-                    if (isDark) AgentsFrost
+                    if (isDark) ModesFrost
                     else Color.White.copy(alpha = 0.80f)
                 )
                 .background(
@@ -761,8 +762,8 @@ private fun AgentsEmptyState(
                     width = 1.dp,
                     brush = Brush.linearGradient(
                         colorStops = arrayOf(
-                            0.0f to AgentsAccent.copy(alpha = if (isDark) 0.35f else 0.45f),
-                            1.0f to AgentsAccent.copy(alpha = if (isDark) 0.08f else 0.12f),
+                            0.0f to ModesAccent.copy(alpha = if (isDark) 0.35f else 0.45f),
+                            1.0f to ModesAccent.copy(alpha = if (isDark) 0.08f else 0.12f),
                         ),
                     ),
                     shape = iconShape,
@@ -772,7 +773,7 @@ private fun AgentsEmptyState(
             Icon(
                 Icons.Default.SmartToy,
                 contentDescription = null,
-                tint     = AgentsAccent,
+                tint     = ModesAccent,
                 modifier = Modifier.size(36.dp),
             )
         }
@@ -780,7 +781,7 @@ private fun AgentsEmptyState(
         Spacer(Modifier.height(28.dp))
 
         Text(
-            "No agents yet",
+            "No modes yet",
             style = MaterialTheme.typography.headlineMedium,
             color = TextPrimary,
         )
@@ -788,7 +789,7 @@ private fun AgentsEmptyState(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            "Create custom agents with different\nsystem prompts for any purpose",
+            "Create custom modes with different\nsystem prompts for any purpose",
             style     = MaterialTheme.typography.bodyMedium,
             color     = TextMuted,
             textAlign = TextAlign.Center,
@@ -801,7 +802,7 @@ private fun AgentsEmptyState(
                 .height(48.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(
-                    Brush.linearGradient(listOf(AgentsAccent, AgentsAccentDim))
+                    Brush.linearGradient(listOf(ModesAccent, ModesAccentDim))
                 )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -817,7 +818,7 @@ private fun AgentsEmptyState(
             ) {
                 Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Text(
-                    "Create Agent",
+                    "Create Mode",
                     style      = MaterialTheme.typography.titleMedium,
                     color      = Color.White,
                     fontWeight = FontWeight.Bold,
@@ -832,13 +833,13 @@ private fun AgentsEmptyState(
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
-private fun AgentFieldLabel(text: String) {
+private fun ModeFieldLabel(text: String) {
     Text(
         text.uppercase(),
         style = MaterialTheme.typography.labelMedium.copy(
             letterSpacing = 1.5.sp,
             fontWeight    = FontWeight.Bold,
         ),
-        color = AgentsAccent.copy(0.8f),
+        color = ModesAccent.copy(0.8f),
     )
 }
