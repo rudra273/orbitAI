@@ -62,8 +62,7 @@ fun SpacesScreen(
         // Ambient amber glow — top (enhanced for glass feel)
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(340.dp)
+                .fillMaxSize()
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.radialGradient(

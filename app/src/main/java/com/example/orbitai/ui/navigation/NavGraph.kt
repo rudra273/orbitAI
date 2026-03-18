@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -116,6 +117,7 @@ fun OrbitNavGraph(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
+    val initialChatId = rememberSaveable { chatViewModel.createNewChat() }
 
     Scaffold(
         containerColor = SpaceDeep,
@@ -136,7 +138,7 @@ fun OrbitNavGraph(
     ) { innerPadding ->
         NavHost(
             navController    = navController,
-            startDestination = Screen.Chat.route,
+            startDestination = Screen.ChatDetail.go(initialChatId),
             modifier         = Modifier.padding(innerPadding),
         ) {
 
@@ -180,7 +182,14 @@ fun OrbitNavGraph(
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
-                    onBack    = { navController.popBackStack() },
+                    onBack    = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Screen.Chat.route) {
+                                popUpTo(Screen.ChatDetail.go(chatId)) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
                 )
             }
 

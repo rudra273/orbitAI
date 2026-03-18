@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#1a0a2e"/>
+      <stop offset="100%" stop-color="#07000f"/>
+    </radialGradient>
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#7c3aed" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#2d0060" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="ringGlowPurple" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur1"/>
+      <feGaussianBlur stdDeviation="3" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/><feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ringGlowGreen" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="blur1"/>
+      <feGaussianBlur stdDeviation="3" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/><feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ringGlowYellow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="blur1"/>
+      <feGaussianBlur stdDeviation="3" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/><feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="dotGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="coreFilter" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sphereGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="squareClip">
+      <rect x="0" y="0" width="512" height="512"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="512" height="512" fill="url(#bgGrad)"/>
+
+  <!-- Star field -->
+  <g opacity="0.5">
+    <circle cx="60"  cy="80"  r="1.2" fill="#fff" opacity="0.6"/>
+    <circle cx="140" cy="45"  r="0.8" fill="#fff" opacity="0.4"/>
+    <circle cx="400" cy="90"  r="1"   fill="#fff" opacity="0.5"/>
+    <circle cx="450" cy="200" r="1.5" fill="#fff" opacity="0.3"/>
+    <circle cx="80"  cy="350" r="1"   fill="#fff" opacity="0.5"/>
+    <circle cx="430" cy="380" r="0.8" fill="#fff" opacity="0.4"/>
+    <circle cx="200" cy="470" r="1.2" fill="#fff" opacity="0.3"/>
+    <circle cx="360" cy="460" r="1"   fill="#fff" opacity="0.5"/>
+    <circle cx="100" cy="160" r="0.7" fill="#c084fc" opacity="0.5"/>
+    <circle cx="420" cy="140" r="0.9" fill="#c084fc" opacity="0.4"/>
+    <circle cx="470" cy="310" r="0.7" fill="#4ade80" opacity="0.4"/>
+    <circle cx="50"  cy="280" r="1"   fill="#facc15" opacity="0.3"/>
+  </g>
+
+  <!-- OUTER RING — purple glow layer then bright core -->
+  <g filter="url(#ringGlowPurple)">
+    <ellipse cx="256" cy="256" rx="210" ry="72" fill="none"
+      stroke="#c026d3" stroke-width="6"
+      transform="rotate(-28 256 256)" opacity="0.55"/>
+  </g>
+  <ellipse cx="256" cy="256" rx="210" ry="72" fill="none"
+    stroke="#e879f9" stroke-width="4"
+    transform="rotate(-28 256 256)"/>
+
+  <!-- MIDDLE RING — green -->
+  <g filter="url(#ringGlowGreen)">
+    <ellipse cx="256" cy="256" rx="170" ry="56" fill="none"
+      stroke="#16a34a" stroke-width="5"
+      transform="rotate(42 256 256)" opacity="0.55"/>
+  </g>
+  <ellipse cx="256" cy="256" rx="170" ry="56" fill="none"
+    stroke="#4ade80" stroke-width="3.5"
+    transform="rotate(42 256 256)"/>
+
+  <!-- INNER RING — yellow -->
+  <g filter="url(#ringGlowYellow)">
+    <ellipse cx="256" cy="256" rx="128" ry="42" fill="none"
+      stroke="#b45309" stroke-width="5"
+      transform="rotate(10 256 256)" opacity="0.55"/>
+  </g>
+  <ellipse cx="256" cy="256" rx="128" ry="42" fill="none"
+    stroke="#fde047" stroke-width="3"
+    transform="rotate(10 256 256)"/>
+
+  <!-- Orbiting dot — purple -->
+  <g filter="url(#dotGlow)">
+    <circle cx="384" cy="210" r="14" fill="#e040fb" opacity="0.3"/>
+  </g>
+  <circle cx="384" cy="210" r="8" fill="#f0abfc"/>
+
+  <!-- Orbiting dot — green -->
+  <g filter="url(#dotGlow)">
+    <circle cx="142" cy="308" r="11" fill="#4ade80" opacity="0.3"/>
+  </g>
+  <circle cx="142" cy="308" r="6" fill="#86efac"/>
+
+  <!-- Orbiting dot — yellow -->
+  <g filter="url(#dotGlow)">
+    <circle cx="318" cy="302" r="10" fill="#facc15" opacity="0.3"/>
+  </g>
+  <circle cx="318" cy="302" r="5.5" fill="#fde68a"/>
+
+  <!-- Core ambient glow -->
+  <circle cx="256" cy="256" r="70" fill="url(#coreGlow)" filter="url(#coreFilter)" opacity="0.65"/>
+
+  <!-- Inner sphere -->
+  <circle cx="256" cy="256" r="44" fill="#12002a"/>
+  <circle cx="256" cy="256" r="44" fill="none" stroke="#c084fc" stroke-width="3.5" filter="url(#sphereGlow)" opacity="0.9"/>
+
+  <!-- Circuit lines -->
+  <g clip-path="url(#squareClip)" opacity="0.65">
+    <line x1="220" y1="256" x2="292" y2="256" stroke="#c084fc" stroke-width="1.2"/>
+    <line x1="256" y1="220" x2="256" y2="292" stroke="#c084fc" stroke-width="1.2"/>
+    <line x1="228" y1="228" x2="284" y2="284" stroke="#4ade80" stroke-width="1" opacity="0.7"/>
+    <line x1="284" y1="228" x2="228" y2="284" stroke="#facc15" stroke-width="1" opacity="0.7"/>
+    <circle cx="256" cy="256" r="5"   fill="#e040fb"/>
+    <circle cx="232" cy="256" r="3"   fill="#c084fc" opacity="0.85"/>
+    <circle cx="280" cy="256" r="3"   fill="#c084fc" opacity="0.85"/>
+    <circle cx="256" cy="232" r="3"   fill="#4ade80" opacity="0.85"/>
+    <circle cx="256" cy="280" r="3"   fill="#facc15" opacity="0.85"/>
+  </g>
+
+</svg>

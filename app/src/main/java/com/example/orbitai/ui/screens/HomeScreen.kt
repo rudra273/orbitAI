@@ -61,8 +61,7 @@ fun HomeScreen(
         // ── Ambient radial glow — top-centre ─────────────────────────────
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(320.dp)
+                .fillMaxSize()
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.radialGradient(
@@ -79,13 +78,16 @@ fun HomeScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = {
-                ChatListTopBar(
-                    onNewChat = {
+            floatingActionButton = {
+                ChatListFab(
+                    onClick = {
                         val id = viewModel.createNewChat()
                         onOpenChat(id)
                     }
                 )
+            },
+            topBar = {
+                ChatListTopBar()
             },
         ) { padding ->
             if (sorted.isEmpty()) {
@@ -135,7 +137,7 @@ fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChatListTopBar(onNewChat: () -> Unit) {
+private fun ChatListTopBar() {
     TopAppBar(
         windowInsets = WindowInsets(0, 0, 0, 0),
         title = {
@@ -155,47 +157,52 @@ private fun ChatListTopBar(onNewChat: () -> Unit) {
                 )
             }
         },
-        actions = {
-            // New chat button — glassy pill in top-right
-            Box(
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(VioletFrost)
-                    .glowBorder(color = VioletCore.copy(alpha = 0.4f), radius = 18.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication        = null,
-                        onClick           = onNewChat,
-                    )
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment    = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        imageVector        = Icons.Default.Add,
-                        contentDescription = "New chat",
-                        tint               = VioletBright,
-                        modifier           = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text      = "New",
-                        style     = MaterialTheme.typography.labelLarge,
-                        color     = VioletBright,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-        },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
         ),
         modifier = Modifier.padding(top = 4.dp),
     )
+}
+
+@Composable
+private fun ChatListFab(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .drawBehind {
+                drawIntoCanvas { canvas ->
+                    val paint = Paint().apply {
+                        asFrameworkPaint().apply {
+                            isAntiAlias = true
+                            color       = android.graphics.Color.TRANSPARENT
+                            setShadowLayer(
+                                24f, 0f, 4f,
+                                VioletCore.copy(alpha = 0.35f).toArgb(),
+                            )
+                        }
+                    }
+                    canvas.drawRoundRect(
+                        0f, 0f, size.width, size.height,
+                        18.dp.toPx(), 18.dp.toPx(), paint,
+                    )
+                }
+            }
+            .clip(RoundedCornerShape(18.dp))
+            .background(OrbitGradients.primaryButton)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                onClick           = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "New chat",
+            tint = Color.White,
+            modifier = Modifier.size(24.dp),
+        )
+    }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
