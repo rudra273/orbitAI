@@ -14,10 +14,22 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -994,6 +1006,94 @@ private fun StreamingCursor() {
 // INPUT BAR — glassy floating bar
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+private enum class VoiceState { Idle, Listening }
+
+@Composable
+private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState, () -> Unit> {
+    val context  = LocalContext.current
+    val callback by rememberUpdatedState(onTextChange)
+    var state    by remember { mutableStateOf(VoiceState.Idle) }
+    val recognizer    = remember(context) { SpeechRecognizer.createSpeechRecognizer(context) }
+    // Flag to distinguish user-requested stop vs natural end-of-speech pause
+    val active        = remember { booleanArrayOf(false) }
+    // Accumulates confirmed sentences across auto-restarts
+    val confirmedText = remember { StringBuilder() }
+
+    fun startListening() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        }
+        recognizer.startListening(intent)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            confirmedText.clear()
+            active[0] = true
+            startListening()
+        }
+    }
+
+    DisposableEffect(recognizer) {
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) { state = VoiceState.Listening }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onPartialResults(partialResults: Bundle?) {
+                val partial = partialResults
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.takeIf { it.isNotBlank() } ?: return
+                // Show confirmed sentences + current partial
+                callback(confirmedText.toString() + partial)
+            }
+            override fun onResults(results: Bundle?) {
+                val result = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.takeIf { it.isNotBlank() }
+                if (result != null) {
+                    confirmedText.append(result).append(" ")
+                    callback(confirmedText.toString().trimEnd())
+                }
+                // Auto-restart so pauses don't end the session —
+                // only stop when the user taps the button (active[0] = false)
+                if (active[0]) startListening()
+            }
+            override fun onError(error: Int) {
+                // On transient errors while still active, restart silently
+                if (active[0]) startListening() else state = VoiceState.Idle
+            }
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+        onDispose { recognizer.destroy() }
+    }
+
+    val toggle: () -> Unit = {
+        if (active[0]) {
+            active[0] = false
+            recognizer.stopListening()
+            recognizer.cancel()
+            state = VoiceState.Idle
+            confirmedText.clear()
+        } else {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED) {
+                confirmedText.clear()
+                active[0] = true
+                startListening()
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    return state to toggle
+}
+
 @Composable
 private fun ChatInputBar(
     text:         String,
@@ -1003,6 +1103,7 @@ private fun ChatInputBar(
     isGenerating: Boolean,
     isLoading:    Boolean,
 ) {
+    val (voiceState, toggleVoice) = rememberVoiceInput(onTextChange = onTextChange)
     // Outer scrim fade — same as nav bar
     Box(
         modifier = Modifier
@@ -1048,18 +1149,23 @@ private fun ChatInputBar(
                     onSend       = onSend,
                     isGenerating = isGenerating,
                     isLoading    = isLoading,
+                    isListening  = voiceState == VoiceState.Listening,
                 )
             }
 
-            // Send / Stop button
+            // Send / Stop / Mic button
             if (isGenerating) {
                 StopButton(onClick = onStop)
-            } else {
+            } else if (voiceState == VoiceState.Listening) {
+                MicButton(isListening = true, onClick = toggleVoice)
+            } else if (text.trim().isNotEmpty()) {
                 SendButton(
-                    enabled   = text.trim().isNotEmpty() && !isLoading,
+                    enabled   = !isLoading,
                     isLoading = isLoading,
                     onClick   = onSend,
                 )
+            } else {
+                MicButton(isListening = false, onClick = toggleVoice)
             }
         }
     }
@@ -1072,6 +1178,7 @@ private fun BasicChatTextField(
     onSend:       () -> Unit,
     isGenerating: Boolean,
     isLoading:    Boolean,
+    isListening:  Boolean = false,
 ) {
     TextField(
         value            = text,
@@ -1081,7 +1188,7 @@ private fun BasicChatTextField(
             .defaultMinSize(minHeight = 48.dp),
         placeholder      = {
             Text(
-                "Message…",
+                if (isListening) "Listening…" else "Message…",
                 style = MaterialTheme.typography.bodyLarge,
                 color = TextMuted,
             )
@@ -1165,6 +1272,47 @@ private fun StopButton(onClick: () -> Unit) {
             Icons.Default.Stop,
             contentDescription = "Stop generation",
             tint     = Destructive,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue  = 1f,
+        targetValue   = if (isListening) 1.10f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation  = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "mic_scale",
+    )
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (isListening) Brush.linearGradient(listOf(Destructive, Color(0xFFFF6B6B)))
+                else OrbitGradients.primaryButton
+            )
+            .then(
+                if (isListening) Modifier.glowBorder(Destructive.copy(alpha = 0.5f), 16.dp)
+                else Modifier.glowBorder(VioletCore.copy(alpha = 0.4f), 16.dp)
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                onClick           = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Default.Mic,
+            contentDescription = if (isListening) "Stop voice input" else "Voice input",
+            tint     = Color.White,
             modifier = Modifier.size(22.dp),
         )
     }
