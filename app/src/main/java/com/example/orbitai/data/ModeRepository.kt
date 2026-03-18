@@ -1,10 +1,10 @@
 package com.example.orbitai.data
 
 import android.content.Context
-import com.example.orbitai.data.db.Agent
-import com.example.orbitai.data.db.AgentEntity
+import com.example.orbitai.data.db.Mode
+import com.example.orbitai.data.db.ModeEntity
 import com.example.orbitai.data.db.AppDatabase
-import com.example.orbitai.data.db.ORBIT_AGENT_ID
+import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.toDomain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,24 +17,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-class AgentRepository(private val context: Context) {
+class ModeRepository(private val context: Context) {
 
     private val db    = AppDatabase.getInstance(context)
-    private val dao   = db.agentDao()
+    private val dao   = db.modeDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val agents: StateFlow<List<Agent>> = dao.observeAgents()
+    val modes: StateFlow<List<Mode>> = dao.observeModes()
         .map { list -> list.map { it.toDomain() } }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     init {
-        // Ensure the default Orbit agent always exists (for fresh installs prior to migration)
+        // Ensure the default Orbit mode always exists (for fresh installs prior to migration)
         scope.launch {
-            val existing = dao.getAgentById(ORBIT_AGENT_ID)
+            val existing = dao.getModeById(ORBIT_MODE_ID)
             if (existing == null) {
-                dao.insertAgent(
-                    AgentEntity(
-                        id           = ORBIT_AGENT_ID,
+                dao.insertMode(
+                    ModeEntity(
+                        id           = ORBIT_MODE_ID,
                         name         = "Orbit",
                         systemPrompt = "You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.",
                         isDefault    = true,
@@ -45,26 +45,26 @@ class AgentRepository(private val context: Context) {
         }
     }
 
-    fun orbitAgent(): Agent? = agents.value.find { it.id == ORBIT_AGENT_ID }
+    fun orbitMode(): Mode? = modes.value.find { it.id == ORBIT_MODE_ID }
 
-    suspend fun createAgent(name: String, systemPrompt: String): Agent {
-        val entity = AgentEntity(
+    suspend fun createMode(name: String, systemPrompt: String): Mode {
+        val entity = ModeEntity(
             id           = UUID.randomUUID().toString(),
             name         = name.trim(),
             systemPrompt = systemPrompt.trim(),
             isDefault    = false,
             createdAt    = System.currentTimeMillis(),
         )
-        dao.insertAgent(entity)
+        dao.insertMode(entity)
         return entity.toDomain()
     }
 
-    suspend fun updateAgent(id: String, name: String, systemPrompt: String) =
+    suspend fun updateMode(id: String, name: String, systemPrompt: String) =
         withContext(Dispatchers.IO) {
-            dao.updateAgent(id, name.trim(), systemPrompt.trim())
+            dao.updateMode(id, name.trim(), systemPrompt.trim())
         }
 
-    suspend fun deleteAgent(id: String) = withContext(Dispatchers.IO) {
-        dao.deleteAgent(id)
+    suspend fun deleteMode(id: String) = withContext(Dispatchers.IO) {
+        dao.deleteMode(id)
     }
 }

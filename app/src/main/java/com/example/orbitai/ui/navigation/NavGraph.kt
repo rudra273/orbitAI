@@ -46,7 +46,7 @@ import androidx.navigation.navArgument
 import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.TokenStore
-import com.example.orbitai.ui.screens.AgentsScreen
+import com.example.orbitai.ui.screens.ModesScreen
 import com.example.orbitai.ui.screens.ChatScreen
 import com.example.orbitai.ui.screens.DeveloperSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
@@ -58,7 +58,7 @@ import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
 import com.example.orbitai.ui.theme.*
-import com.example.orbitai.viewmodel.AgentsViewModel
+import com.example.orbitai.viewmodel.ModesViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
@@ -72,7 +72,7 @@ sealed class Screen(val route: String) {
     // ── 4 primary tabs ──────────────────────────────────────────────────────
     data object Chat     : Screen("chat_list")   // renamed from Home for clarity
     data object Spaces   : Screen("spaces")
-    data object Agents   : Screen("agents")
+    data object Modes    : Screen("modes")
     data object Settings : Screen("settings")
 
     // ── Detail screens (not in bottom nav) ──────────────────────────────────
@@ -94,7 +94,7 @@ sealed class Screen(val route: String) {
 private val TAB_ROUTES = setOf(
     Screen.Chat.route,
     Screen.Spaces.route,
-    Screen.Agents.route,
+    Screen.Modes.route,
     Screen.Settings.route,
 )
 
@@ -108,7 +108,7 @@ fun OrbitNavGraph(
     chatViewModel:     ChatViewModel,
     downloadViewModel: DownloadViewModel,
     spacesViewModel:   SpacesViewModel,
-    agentsViewModel:   AgentsViewModel,
+    modesViewModel:    ModesViewModel,
     memoryViewModel:   MemoryViewModel,
     isDarkTheme:       Boolean,
     onThemeChanged:    (Boolean) -> Unit,
@@ -156,8 +156,8 @@ fun OrbitNavGraph(
                 )
             }
 
-            composable(Screen.Agents.route) {
-                AgentsScreen(viewModel = agentsViewModel)
+            composable(Screen.Modes.route) {
+                ModesScreen(viewModel = modesViewModel)
             }
 
             composable(Screen.Settings.route) {
@@ -252,7 +252,7 @@ private data class TabItem(
 private val TABS = listOf(
     TabItem(Screen.Chat.route,     "Chat",     Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
     TabItem(Screen.Spaces.route,   "Spaces",   Icons.Outlined.FolderOpen,        Icons.Filled.Folder),
-    TabItem(Screen.Agents.route,   "Agents",   Icons.Outlined.Person,            Icons.Filled.Person),
+    TabItem(Screen.Modes.route,    "Modes",    Icons.Outlined.Person,            Icons.Filled.Person),
     TabItem(Screen.Settings.route, "Settings", Icons.Outlined.Settings,          Icons.Filled.Settings),
 )
 

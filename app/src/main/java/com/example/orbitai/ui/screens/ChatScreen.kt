@@ -41,7 +41,7 @@ import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.Chat
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
-import com.example.orbitai.data.db.Agent
+import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatViewModel
@@ -62,8 +62,8 @@ fun ChatScreen(
     val uiState        by viewModel.uiState.collectAsState()
     val spaces         by viewModel.spaces.collectAsState()
     val activeSpaceIds by viewModel.activeSpaceIds.collectAsState()
-    val agents         by viewModel.agents.collectAsState()
-    val activeAgentId  by viewModel.activeAgentId.collectAsState()
+    val modes          by viewModel.modes.collectAsState()
+    val activeModeId   by viewModel.activeModeId.collectAsState()
 
     val chat     = chats.find { it.id == chatId }
     val messages = chat?.messages ?: emptyList()
@@ -103,13 +103,13 @@ fun ChatScreen(
             topBar = {
                 ChatTopBar(
                     chat          = chat,
-                    agents        = agents,
-                    activeAgentId = activeAgentId,
+                    modes         = modes,
+                    activeModeId  = activeModeId,
                     spaces        = spaces,
                     activeSpaceIds = activeSpaceIds,
                     onBack         = onBack,
                     onModelSelected = { model -> viewModel.selectModel(chatId, model) },
-                    onSelectAgent   = { viewModel.selectAgent(it) },
+                    onSelectMode    = { viewModel.selectMode(it) },
                     onToggleSpace   = { viewModel.toggleSpace(it) },
                 )
             },
@@ -162,23 +162,23 @@ fun ChatScreen(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// TOP BAR — agent name, space chips, model pill, back button
+// TOP BAR — mode name, space chips, model pill, back button
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatTopBar(
     chat:           Chat?,
-    agents:         List<Agent>,
-    activeAgentId:  String,
+    modes:          List<Mode>,
+    activeModeId:   String,
     spaces:         List<Space>,
     activeSpaceIds: Set<String>,
     onBack:         () -> Unit,
     onModelSelected: (com.example.orbitai.data.LlmModel) -> Unit,
-    onSelectAgent:  (String) -> Unit,
+    onSelectMode:   (String) -> Unit,
     onToggleSpace:  (String) -> Unit,
 ) {
-    val activeAgent = agents.find { it.id == activeAgentId } ?: agents.firstOrNull()
+    val activeMode = modes.find { it.id == activeModeId } ?: modes.firstOrNull()
 
     Column(
         modifier = Modifier
@@ -211,9 +211,9 @@ private fun ChatTopBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (activeAgent != null) {
+                    if (activeMode != null) {
                         Text(
-                            text  = "✦  ${activeAgent.name}",
+                            text  = "✦  ${activeMode.name}",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color      = VioletBright,
                                 fontWeight = FontWeight.Medium,
@@ -233,8 +233,8 @@ private fun ChatTopBar(
             modifier = Modifier.padding(top = 4.dp),
         )
 
-        // ── Row 2: agent + space selectors ───────────────────────────────
-        if (agents.isNotEmpty() || spaces.isNotEmpty()) {
+        // ── Row 2: mode + space selectors ────────────────────────────────
+        if (modes.isNotEmpty() || spaces.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -242,13 +242,13 @@ private fun ChatTopBar(
                 verticalAlignment    = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Agent single-select dropdown
-                if (agents.isNotEmpty() && activeAgent != null) {
-                    AgentDropdownChip(
-                        agents        = agents,
-                        activeAgent   = activeAgent,
-                        activeAgentId = activeAgentId,
-                        onSelectAgent = onSelectAgent,
+                // Mode single-select dropdown
+                if (modes.isNotEmpty() && activeMode != null) {
+                    ModeDropdownChip(
+                        modes        = modes,
+                        activeMode   = activeMode,
+                        activeModeId = activeModeId,
+                        onSelectMode = onSelectMode,
                     )
                 }
 
@@ -379,14 +379,14 @@ private fun ModelPill(
     }
 }
 
-// ── Agent dropdown chip ───────────────────────────────────────────────────────
+// ── Mode dropdown chip ────────────────────────────────────────────────────────
 
 @Composable
-private fun AgentDropdownChip(
-    agents:        List<Agent>,
-    activeAgent:   Agent,
-    activeAgentId: String,
-    onSelectAgent: (String) -> Unit,
+private fun ModeDropdownChip(
+    modes:         List<Mode>,
+    activeMode:    Mode,
+    activeModeId:  String,
+    onSelectMode:  (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -414,14 +414,14 @@ private fun AgentDropdownChip(
                     color    = VioletBright,
                 )
                 Text(
-                    activeAgent.name,
+                    activeMode.name,
                     style  = MaterialTheme.typography.labelMedium,
                     color  = VioletBright,
                     fontWeight = FontWeight.Medium,
                 )
                 Icon(
                     Icons.Default.ExpandMore,
-                    contentDescription = "Switch agent",
+                    contentDescription = "Switch mode",
                     tint     = VioletBright.copy(0.7f),
                     modifier = Modifier.size(14.dp),
                 )
@@ -433,19 +433,19 @@ private fun AgentDropdownChip(
             onDismissRequest = { expanded = false },
             containerColor   = SpaceNebula,
         ) {
-            agents.forEach { agent ->
-                val isSelected = agent.id == activeAgentId
+            modes.forEach { mode ->
+                val isSelected = mode.id == activeModeId
                 DropdownMenuItem(
                     text = {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    agent.name,
+                                    mode.name,
                                     color      = if (isSelected) VioletBright else TextPrimary,
                                     style      = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 )
-                                if (agent.isDefault) {
+                                if (mode.isDefault) {
                                     Spacer(Modifier.width(6.dp))
                                     Box(
                                         modifier = Modifier
@@ -462,7 +462,7 @@ private fun AgentDropdownChip(
                                 }
                             }
                             Text(
-                                agent.systemPrompt,
+                                mode.systemPrompt,
                                 style    = MaterialTheme.typography.bodySmall,
                                 color    = TextMuted,
                                 maxLines = 1,
@@ -470,7 +470,7 @@ private fun AgentDropdownChip(
                             )
                         }
                     },
-                    onClick      = { onSelectAgent(agent.id); expanded = false },
+                    onClick      = { onSelectMode(mode.id); expanded = false },
                     trailingIcon = if (isSelected) ({
                         Box(
                             Modifier
