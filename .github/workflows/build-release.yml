@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,7 +31,13 @@ jobs:
       - name: Collect release artifacts
         run: |
           mkdir -p release
-          cp app/build/outputs/apk/release/*.apk release/
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "No release APK files found in app/build/outputs/apk/release"
+            exit 1
+          fi
+          cp -v "${apks[@]}" release/
 
       - name: Upload release folder
         uses: actions/upload-artifact@v4
