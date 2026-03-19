@@ -19,6 +19,9 @@ import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
+import com.example.orbitai.tools.intents.IntentToolCommandParser
+import com.example.orbitai.tools.intents.IntentToolExecutionResult
+import com.example.orbitai.tools.intents.IntentToolExecutor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +49,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val modeRepo = ModeRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
     val memoryRepo = MemoryRepository(application)
+    private val intentToolExecutor = IntentToolExecutor(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
@@ -102,6 +106,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(chatId: String, userText: String) {
         val chat = chatRepo.chats.value.find { it.id == chatId } ?: return
+        val trimmedText = userText.trim()
+
+        if (trimmedText.isEmpty()) return
+
+        val toolRequest = IntentToolCommandParser.parse(trimmedText)
+        if (toolRequest != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                _uiState.update { it.copy(loadError = null) }
+                chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText))
+
+                when (val result = intentToolExecutor.execute(toolRequest, chat.messages)) {
+                    IntentToolExecutionResult.Launched -> Unit
+                    is IntentToolExecutionResult.Failed -> {
+                        _uiState.update { it.copy(loadError = result.message) }
+                    }
+                }
+            }
+            return
+        }
+
         val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId }
         val model = when {
             selectedModel != null && modelDownloader.isDownloaded(selectedModel) -> selectedModel
@@ -124,11 +148,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val memoryEnabled = memoryFeatureStore.isEnabled
 
             // 1. Add user message
-            chatRepo.addMessage(chatId, Message(role = Role.USER, content = userText))
+            chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText))
 
             // 1b. Auto-detect and save memorable facts from user message
             if (memoryEnabled) {
-                extractMemoryFacts(userText).forEach { fact ->
+                extractMemoryFacts(trimmedText).forEach { fact ->
                     memoryRepo.addMemory(fact, source = "auto")
                 }
             }
@@ -150,7 +174,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 3. Build prompt from history + RAG context + memories
             val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
             val ragContext = spaceRepo.searchChunksInSpaces(
-                userText,
+                trimmedText,
                 _activeSpaceIds.value.toList(),
                 limit = 5,
             ).map { it.content }
