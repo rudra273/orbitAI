@@ -5,6 +5,15 @@ plugins {
 }
 
 android {
+    val signingStoreFilePath = System.getenv("ORBIT_SIGNING_STORE_FILE")
+    val signingStorePassword = System.getenv("ORBIT_SIGNING_STORE_PASSWORD")
+    val signingKeyAlias = System.getenv("ORBIT_SIGNING_KEY_ALIAS")
+    val signingKeyPassword = System.getenv("ORBIT_SIGNING_KEY_PASSWORD")
+    val hasReleaseSigning = !signingStoreFilePath.isNullOrBlank() &&
+        !signingStorePassword.isNullOrBlank() &&
+        !signingKeyAlias.isNullOrBlank() &&
+        !signingKeyPassword.isNullOrBlank()
+
     namespace = "com.example.orbitai"
     compileSdk {
         version = release(36) {
@@ -21,8 +30,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(signingStoreFilePath!!)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
