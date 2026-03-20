@@ -11,6 +11,11 @@ object IntentToolCommandParser {
         Regex("""(?i)^(?:draft|write|send)\s+(?:a\s+)?(?:whatsapp|wa)(?:\s+message)?\b[:\-\s]*(.*)$"""),
         Regex("""(?i)^whatsapp\b[:\-\s]*(.*)$"""),
     )
+    private val reminderPatterns = listOf(
+        Regex("""(?i)^/(?:remind|reminder)\b\s*(.*)$"""),
+        Regex("""(?i)^(?:set|create|add)\s+(?:a\s+)?reminder\b[:\-\s]*(.*)$"""),
+        Regex("""(?i)^remind\s+me(?:\s+to)?\b[:\-\s]*(.*)$"""),
+    )
 
     fun parse(input: String): IntentToolRequest? {
         val trimmed = input.trim()
@@ -31,7 +36,15 @@ object IntentToolCommandParser {
         return if (whatsAppHint != null) {
             IntentToolRequest.DraftWhatsApp(topicHint = whatsAppHint)
         } else {
-            null
+            val reminderHint = reminderPatterns.firstNotNullOfOrNull { pattern ->
+                pattern.find(trimmed)?.groupValues?.getOrNull(1)
+            }?.trim()
+
+            if (reminderHint != null) {
+                IntentToolRequest.CreateReminder(topicHint = reminderHint)
+            } else {
+                null
+            }
         }
     }
 }

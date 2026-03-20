@@ -3,6 +3,7 @@ package com.example.orbitai.tools.intents
 sealed interface IntentToolRequest {
     data class DraftEmail(val topicHint: String) : IntentToolRequest
     data class DraftWhatsApp(val topicHint: String) : IntentToolRequest
+    data class CreateReminder(val topicHint: String) : IntentToolRequest
 }
 
 sealed interface IntentToolExecutionResult {
@@ -16,6 +17,7 @@ sealed interface IntentToolExecutionResult {
 
 enum class RuntimeToolPermission {
     CONTACTS,
+    NOTIFICATIONS,
 }
 
 data class EmailDraft(
@@ -26,4 +28,11 @@ data class EmailDraft(
 data class WhatsAppDraft(
     val recipientName: String,
     val message: String,
+)
+
+data class ReminderDraft(
+    val title: String,
+    val description: String,
+    val startTimeMillis: Long,
+    val endTimeMillis: Long,
 )

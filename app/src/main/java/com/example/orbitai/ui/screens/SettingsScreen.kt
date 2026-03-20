@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -109,6 +110,13 @@ private fun SettingsHub(
             title = "Developer",
             subtitle = "HuggingFace token, custom model URL",
             accentColor = Color(0xFFF472B6),
+        ),
+        SettingsCategory(
+            destination = "settings/tools",
+            icon = Icons.Default.Build,
+            title = "Tools",
+            subtitle = "Automation execution and tool behavior",
+            accentColor = Color(0xFFF59E0B),
         ),
     )
 

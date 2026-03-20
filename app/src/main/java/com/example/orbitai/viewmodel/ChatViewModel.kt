@@ -15,6 +15,7 @@ import com.example.orbitai.data.Role
 import com.example.orbitai.data.ModeRepository
 import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.SpaceRepository
+import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
@@ -24,12 +25,18 @@ import com.example.orbitai.tools.intents.EmailDraftParser
 import com.example.orbitai.tools.intents.IntentToolExecutionResult
 import com.example.orbitai.tools.intents.IntentToolExecutor
 import com.example.orbitai.tools.intents.IntentToolRequest
+import com.example.orbitai.tools.intents.ReminderDraftParser
 import com.example.orbitai.tools.intents.RuntimeToolPermission
 import com.example.orbitai.tools.intents.WhatsAppDraftParser
 import com.example.orbitai.tools.prompts.EmailDraftPromptBuilder
+import com.example.orbitai.tools.prompts.ReminderPromptBuilder
 import com.example.orbitai.tools.prompts.WhatsAppDraftPromptBuilder
+import com.example.orbitai.tools.reminders.ReminderScheduler
 import com.example.orbitai.tools.router.ToolRoute
 import com.example.orbitai.tools.router.ToolRouter
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,15 +55,21 @@ data class ChatUiState(
     val isModelLoading: Boolean = false,
     val isGenerating: Boolean = false,
     val loadError: String? = null,
+    val infoMessage: String? = null,
 )
 
 sealed interface ChatUiEvent {
     data object RequestContactsPermission : ChatUiEvent
+    data object RequestNotificationsPermission : ChatUiEvent
 }
 
 private data class PendingWhatsAppExecution(
     val request: IntentToolRequest.DraftWhatsApp,
     val draft: com.example.orbitai.tools.intents.WhatsAppDraft,
+)
+
+private data class PendingReminderExecution(
+    val draft: com.example.orbitai.tools.intents.ReminderDraft,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -68,8 +81,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val spaceRepo = SpaceRepository(application)
     private val modeRepo = ModeRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
+    private val toolSettingsStore = ToolSettingsStore(application)
     val memoryRepo = MemoryRepository(application)
     private val intentToolExecutor = IntentToolExecutor(application)
+    private val reminderScheduler = ReminderScheduler(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
@@ -103,6 +118,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private var generationJob: Job? = null
     private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
+    private var pendingReminderExecution: PendingReminderExecution? = null
+    private val reminderTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, hh:mm a")
 
     fun stopGeneration() {
         generationJob?.cancel()
@@ -114,7 +131,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (!granted) {
             _uiState.update {
-                it.copy(loadError = "Contacts permission is required to use WhatsApp by contact name.")
+                it.copy(
+                    loadError = "Contacts permission is required to use WhatsApp by contact name.",
+                    infoMessage = null,
+                )
             }
             return
         }
@@ -126,11 +146,44 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         request = pending.request,
                         draft = pending.draft,
                     ),
+                    onLaunched = null,
                     onPermissionRequired = { permissionResult ->
-                        _uiState.update { it.copy(loadError = permissionResult.message) }
+                        _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
                     },
                 )
             }
+        }
+    }
+
+    fun onNotificationsPermissionResult(granted: Boolean) {
+        val pending = pendingReminderExecution
+        pendingReminderExecution = null
+
+        if (!granted) {
+            _uiState.update {
+                it.copy(
+                    loadError = "Notifications permission is required for automatic reminder execution.",
+                    infoMessage = null,
+                )
+            }
+            return
+        }
+
+        if (pending != null) {
+            handleIntentResult(
+                reminderScheduler.schedule(pending.draft),
+                onLaunched = {
+                    _uiState.update {
+                        it.copy(
+                            loadError = null,
+                            infoMessage = "Reminder scheduled for ${formatReminderTime(pending.draft.startTimeMillis)}",
+                        )
+                    }
+                },
+                onPermissionRequired = { permissionResult ->
+                    _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
+                },
+            )
         }
     }
 
@@ -175,7 +228,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val settings = settingsStore.get()
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(loadError = null) }
+            _uiState.update { it.copy(loadError = null, infoMessage = null) }
 
             if (chat.modelId != model.id) {
                 chatRepo.updateChatModel(chatId, model.id)
@@ -229,6 +282,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     topicHint = toolRequest.topicHint,
                     memories = memories,
                 )
+                is IntentToolRequest.CreateReminder -> ReminderPromptBuilder.build(
+                    messages = history,
+                    topicHint = toolRequest.topicHint,
+                    memories = memories,
+                )
                 null -> {
                     val ragContext = spaceRepo.searchChunksInSpaces(
                         trimmedText,
@@ -273,10 +331,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             ) {
                                 IntentToolExecutionResult.Launched -> Unit
                                 is IntentToolExecutionResult.Failed -> {
-                                    _uiState.update { it.copy(loadError = result.message) }
+                                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                 }
                                 is IntentToolExecutionResult.PermissionRequired -> {
-                                    _uiState.update { it.copy(loadError = result.message) }
+                                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                 }
                             }
                         }
@@ -293,7 +351,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             ) {
                                 IntentToolExecutionResult.Launched -> Unit
                                 is IntentToolExecutionResult.Failed -> {
-                                    _uiState.update { it.copy(loadError = result.message) }
+                                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                 }
                                 is IntentToolExecutionResult.PermissionRequired -> {
                                     if (result.permission == RuntimeToolPermission.CONTACTS) {
@@ -302,7 +360,57 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                             draft = draft,
                                         )
                                         _events.emit(ChatUiEvent.RequestContactsPermission)
-                                        _uiState.update { it.copy(loadError = result.message) }
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                }
+                            }
+                        }
+                        is IntentToolRequest.CreateReminder -> {
+                            val draft = ReminderDraftParser.parse(
+                                modelOutput = accumulated,
+                                topicHint = toolRequest.topicHint,
+                            )
+                            if (toolSettingsStore.isAutomationExecutionEnabled) {
+                                when (val result = reminderScheduler.schedule(draft)) {
+                                    IntentToolExecutionResult.Launched -> {
+                                        _uiState.update {
+                                            it.copy(
+                                                loadError = null,
+                                                infoMessage = "Reminder scheduled for ${formatReminderTime(draft.startTimeMillis)}",
+                                            )
+                                        }
+                                    }
+                                    is IntentToolExecutionResult.Failed -> {
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                    is IntentToolExecutionResult.PermissionRequired -> {
+                                        if (result.permission == RuntimeToolPermission.NOTIFICATIONS) {
+                                            pendingReminderExecution = PendingReminderExecution(draft)
+                                            _events.emit(ChatUiEvent.RequestNotificationsPermission)
+                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                        }
+                                    }
+                                }
+                            } else {
+                                when (
+                                    val result = intentToolExecutor.execute(
+                                        request = toolRequest,
+                                        draft = draft,
+                                    )
+                                ) {
+                                    IntentToolExecutionResult.Launched -> {
+                                        _uiState.update {
+                                            it.copy(
+                                                loadError = null,
+                                                infoMessage = "Calendar opened for reminder on ${formatReminderTime(draft.startTimeMillis)}",
+                                            )
+                                        }
+                                    }
+                                    is IntentToolExecutionResult.Failed -> {
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                    is IntentToolExecutionResult.PermissionRequired -> {
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                     }
                                 }
                             }
@@ -357,14 +465,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun handleIntentResult(
         result: IntentToolExecutionResult,
+        onLaunched: (() -> Unit)?,
         onPermissionRequired: (IntentToolExecutionResult.PermissionRequired) -> Unit,
     ) {
         when (result) {
-            IntentToolExecutionResult.Launched -> Unit
+            IntentToolExecutionResult.Launched -> onLaunched?.invoke()
             is IntentToolExecutionResult.Failed -> {
-                _uiState.update { it.copy(loadError = result.message) }
+                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
             }
             is IntentToolExecutionResult.PermissionRequired -> onPermissionRequired(result)
         }
+    }
+
+    private fun formatReminderTime(timeMillis: Long): String {
+        return Instant.ofEpochMilli(timeMillis)
+            .atZone(ZoneId.systemDefault())
+            .format(reminderTimeFormatter)
     }
 }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,6 +20,7 @@ class IntentToolExecutor(context: Context) {
         return when (request) {
             is IntentToolRequest.DraftEmail -> launchDraftEmail(draft)
             is IntentToolRequest.DraftWhatsApp -> IntentToolExecutionResult.Failed("Unsupported draft type for WhatsApp request.")
+            is IntentToolRequest.CreateReminder -> IntentToolExecutionResult.Failed("Unsupported draft type for reminder request.")
         }
     }
 
@@ -26,6 +28,15 @@ class IntentToolExecutor(context: Context) {
         return when (request) {
             is IntentToolRequest.DraftWhatsApp -> launchDraftWhatsApp(draft)
             is IntentToolRequest.DraftEmail -> IntentToolExecutionResult.Failed("Unsupported draft type for email request.")
+            is IntentToolRequest.CreateReminder -> IntentToolExecutionResult.Failed("Unsupported draft type for reminder request.")
+        }
+    }
+
+    suspend fun execute(request: IntentToolRequest, draft: ReminderDraft): IntentToolExecutionResult {
+        return when (request) {
+            is IntentToolRequest.CreateReminder -> launchReminder(draft)
+            is IntentToolRequest.DraftEmail -> IntentToolExecutionResult.Failed("Unsupported draft type for email request.")
+            is IntentToolRequest.DraftWhatsApp -> IntentToolExecutionResult.Failed("Unsupported draft type for WhatsApp request.")
         }
     }
 
@@ -89,5 +100,23 @@ class IntentToolExecutor(context: Context) {
         }
 
         IntentToolExecutionResult.Failed("WhatsApp is not installed on this device.")
+    }
+
+    private suspend fun launchReminder(draft: ReminderDraft): IntentToolExecutionResult = withContext(Dispatchers.Main) {
+        val intent = Intent(Intent.ACTION_INSERT).apply {
+            data = CalendarContract.Events.CONTENT_URI
+            putExtra(CalendarContract.Events.TITLE, draft.title)
+            putExtra(CalendarContract.Events.DESCRIPTION, draft.description)
+            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, draft.startTimeMillis)
+            putExtra(CalendarContract.EXTRA_EVENT_END_TIME, draft.endTimeMillis)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            appContext.startActivity(intent)
+            IntentToolExecutionResult.Launched
+        } catch (_: ActivityNotFoundException) {
+            IntentToolExecutionResult.Failed("No calendar app found on this device.")
+        }
     }
 }

@@ -42,4 +42,14 @@ class IntentToolCommandParserTest {
             result,
         )
     }
+
+    @Test
+    fun parsesReminderCommand() {
+        val result = IntentToolCommandParser.parse("set reminder tomorrow at 6 pm to call mom")
+
+        assertEquals(
+            IntentToolRequest.CreateReminder(topicHint = "tomorrow at 6 pm to call mom"),
+            result,
+        )
+    }
 }

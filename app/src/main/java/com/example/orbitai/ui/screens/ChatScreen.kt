@@ -87,6 +87,11 @@ fun ChatScreen(
     ) { granted ->
         viewModel.onContactsPermissionResult(granted)
     }
+    val notificationsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onNotificationsPermissionResult(granted)
+    }
     val chats          by viewModel.chats.collectAsState()
     val uiState        by viewModel.uiState.collectAsState()
     val spaces         by viewModel.spaces.collectAsState()
@@ -106,6 +111,9 @@ fun ChatScreen(
             when (event) {
                 ChatUiEvent.RequestContactsPermission -> {
                     contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                }
+                ChatUiEvent.RequestNotificationsPermission -> {
+                    notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
         }
@@ -179,6 +187,9 @@ fun ChatScreen(
                 // Status banners
                 if (uiState.isModelLoading) {
                     GlassStatusBanner("Loading model…", VioletCore)
+                }
+                uiState.infoMessage?.let {
+                    GlassStatusBanner(it, Color(0xFF34D399))
                 }
                 uiState.loadError?.let {
                     GlassStatusBanner(it, Destructive)

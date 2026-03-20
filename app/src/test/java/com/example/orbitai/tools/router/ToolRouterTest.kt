@@ -32,4 +32,14 @@ class ToolRouterTest {
             result,
         )
     }
+
+    @Test
+    fun routesReminderCommandToToolFlow() {
+        val result = ToolRouter.route("remind me to pay rent tomorrow at 9 am")
+
+        assertEquals(
+            ToolRoute.ToolOnly(IntentToolRequest.CreateReminder(topicHint = "pay rent tomorrow at 9 am")),
+            result,
+        )
+    }
 }
