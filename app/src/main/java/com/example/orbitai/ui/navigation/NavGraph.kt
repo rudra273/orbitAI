@@ -46,6 +46,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.MemoryFeatureStore
+import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.screens.ModesScreen
 import com.example.orbitai.ui.screens.ChatScreen
@@ -58,6 +59,7 @@ import com.example.orbitai.ui.screens.RagSettingsScreen
 import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
+import com.example.orbitai.ui.screens.ToolsSettingsScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
@@ -90,6 +92,7 @@ sealed class Screen(val route: String) {
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
     data object SettingsRag       : Screen("settings/rag")
     data object SettingsDeveloper : Screen("settings/developer")
+    data object SettingsTools     : Screen("settings/tools")
 }
 
 private val TAB_ROUTES = setOf(
@@ -240,6 +243,14 @@ fun OrbitNavGraph(
                 DeveloperSettingsScreen(
                     tokenStore = tokenStore,
                     downloadViewModel = downloadViewModel,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.SettingsTools.route) {
+                val context = LocalContext.current
+                val toolSettingsStore = remember { ToolSettingsStore(context) }
+                ToolsSettingsScreen(
+                    toolSettingsStore = toolSettingsStore,
                     onBack = { navController.popBackStack() },
                 )
             }

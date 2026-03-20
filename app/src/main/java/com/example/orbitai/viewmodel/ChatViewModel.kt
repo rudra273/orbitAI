@@ -15,16 +15,37 @@ import com.example.orbitai.data.Role
 import com.example.orbitai.data.ModeRepository
 import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.SpaceRepository
+import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
+import com.example.orbitai.prompts.GemmaChatPromptBuilder
+import com.example.orbitai.tools.intents.EmailDraftParser
+import com.example.orbitai.tools.intents.IntentToolExecutionResult
+import com.example.orbitai.tools.intents.IntentToolExecutor
+import com.example.orbitai.tools.intents.IntentToolRequest
+import com.example.orbitai.tools.intents.ReminderDraftParser
+import com.example.orbitai.tools.intents.RuntimeToolPermission
+import com.example.orbitai.tools.intents.WhatsAppDraftParser
+import com.example.orbitai.tools.prompts.EmailDraftPromptBuilder
+import com.example.orbitai.tools.prompts.ReminderPromptBuilder
+import com.example.orbitai.tools.prompts.WhatsAppDraftPromptBuilder
+import com.example.orbitai.tools.reminders.ReminderScheduler
+import com.example.orbitai.tools.router.ToolRoute
+import com.example.orbitai.tools.router.ToolRouter
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +55,21 @@ data class ChatUiState(
     val isModelLoading: Boolean = false,
     val isGenerating: Boolean = false,
     val loadError: String? = null,
+    val infoMessage: String? = null,
+)
+
+sealed interface ChatUiEvent {
+    data object RequestContactsPermission : ChatUiEvent
+    data object RequestNotificationsPermission : ChatUiEvent
+}
+
+private data class PendingWhatsAppExecution(
+    val request: IntentToolRequest.DraftWhatsApp,
+    val draft: com.example.orbitai.tools.intents.WhatsAppDraft,
+)
+
+private data class PendingReminderExecution(
+    val draft: com.example.orbitai.tools.intents.ReminderDraft,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -45,7 +81,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val spaceRepo = SpaceRepository(application)
     private val modeRepo = ModeRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
+    private val toolSettingsStore = ToolSettingsStore(application)
     val memoryRepo = MemoryRepository(application)
+    private val intentToolExecutor = IntentToolExecutor(application)
+    private val reminderScheduler = ReminderScheduler(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
@@ -74,11 +113,78 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+    private val _events = MutableSharedFlow<ChatUiEvent>()
+    val events: SharedFlow<ChatUiEvent> = _events.asSharedFlow()
 
     private var generationJob: Job? = null
+    private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
+    private var pendingReminderExecution: PendingReminderExecution? = null
+    private val reminderTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, hh:mm a")
 
     fun stopGeneration() {
         generationJob?.cancel()
+    }
+
+    fun onContactsPermissionResult(granted: Boolean) {
+        val pending = pendingWhatsAppExecution
+        pendingWhatsAppExecution = null
+
+        if (!granted) {
+            _uiState.update {
+                it.copy(
+                    loadError = "Contacts permission is required to use WhatsApp by contact name.",
+                    infoMessage = null,
+                )
+            }
+            return
+        }
+
+        if (pending != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                handleIntentResult(
+                    intentToolExecutor.execute(
+                        request = pending.request,
+                        draft = pending.draft,
+                    ),
+                    onLaunched = null,
+                    onPermissionRequired = { permissionResult ->
+                        _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
+                    },
+                )
+            }
+        }
+    }
+
+    fun onNotificationsPermissionResult(granted: Boolean) {
+        val pending = pendingReminderExecution
+        pendingReminderExecution = null
+
+        if (!granted) {
+            _uiState.update {
+                it.copy(
+                    loadError = "Notifications permission is required for automatic reminder execution.",
+                    infoMessage = null,
+                )
+            }
+            return
+        }
+
+        if (pending != null) {
+            handleIntentResult(
+                reminderScheduler.schedule(pending.draft),
+                onLaunched = {
+                    _uiState.update {
+                        it.copy(
+                            loadError = null,
+                            infoMessage = "Reminder scheduled for ${formatReminderTime(pending.draft.startTimeMillis)}",
+                        )
+                    }
+                },
+                onPermissionRequired = { permissionResult ->
+                    _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
+                },
+            )
+        }
     }
 
     // ── Chat management ───────────────────────────────────────────────────────
@@ -102,6 +208,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(chatId: String, userText: String) {
         val chat = chatRepo.chats.value.find { it.id == chatId } ?: return
+        val trimmedText = userText.trim()
+
+        if (trimmedText.isEmpty()) return
+
+        val route = ToolRouter.route(trimmedText)
+        val toolRequest = (route as? ToolRoute.ToolOnly)?.request
+
         val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId }
         val model = when {
             selectedModel != null && modelDownloader.isDownloaded(selectedModel) -> selectedModel
@@ -115,7 +228,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val settings = settingsStore.get()
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(loadError = null) }
+            _uiState.update { it.copy(loadError = null, infoMessage = null) }
 
             if (chat.modelId != model.id) {
                 chatRepo.updateChatModel(chatId, model.id)
@@ -124,11 +237,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val memoryEnabled = memoryFeatureStore.isEnabled
 
             // 1. Add user message
-            chatRepo.addMessage(chatId, Message(role = Role.USER, content = userText))
+            chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText))
 
             // 1b. Auto-detect and save memorable facts from user message
             if (memoryEnabled) {
-                extractMemoryFacts(userText).forEach { fact ->
+                extractMemoryFacts(trimmedText).forEach { fact ->
                     memoryRepo.addMemory(fact, source = "auto")
                 }
             }
@@ -149,11 +262,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 3. Build prompt from history + RAG context + memories
             val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
-            val ragContext = spaceRepo.searchChunksInSpaces(
-                userText,
-                _activeSpaceIds.value.toList(),
-                limit = 5,
-            ).map { it.content }
             val memories = if (memoryEnabled) {
                 memoryRepo.getAllMemories().map { it.content }
             } else {
@@ -163,7 +271,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 .find { it.id == _activeModeId.value }
                 ?.systemPrompt
                 ?: modeRepo.modes.value.find { it.isDefault }?.systemPrompt
-            val prompt = buildGemmaPrompt(history, ragContext, memories, systemPrompt)
+            val prompt = when (toolRequest) {
+                is IntentToolRequest.DraftEmail -> EmailDraftPromptBuilder.build(
+                    messages = history,
+                    topicHint = toolRequest.topicHint,
+                    memories = memories,
+                )
+                is IntentToolRequest.DraftWhatsApp -> WhatsAppDraftPromptBuilder.build(
+                    messages = history,
+                    topicHint = toolRequest.topicHint,
+                    memories = memories,
+                )
+                is IntentToolRequest.CreateReminder -> ReminderPromptBuilder.build(
+                    messages = history,
+                    topicHint = toolRequest.topicHint,
+                    memories = memories,
+                )
+                null -> {
+                    val ragContext = spaceRepo.searchChunksInSpaces(
+                        trimmedText,
+                        _activeSpaceIds.value.toList(),
+                        limit = 5,
+                    ).map { it.content }
+                    GemmaChatPromptBuilder.build(history, ragContext, memories, systemPrompt)
+                }
+            }
 
             // 4. Add empty assistant message (streaming placeholder)
             val assistantMsg = Message(role = Role.ASSISTANT, content = "", isStreaming = true)
@@ -184,6 +316,109 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 accumulated = "Error: ${e.message}"
             } finally {
                 chatRepo.updateLastMessage(chatId, accumulated, isStreaming = false)
+
+                if (!accumulated.startsWith("Error:")) {
+                    when (toolRequest) {
+                        is IntentToolRequest.DraftEmail -> {
+                            when (
+                                val result = intentToolExecutor.execute(
+                                    request = toolRequest,
+                                    draft = EmailDraftParser.parse(
+                                        modelOutput = accumulated,
+                                        topicHint = toolRequest.topicHint,
+                                    ),
+                                )
+                            ) {
+                                IntentToolExecutionResult.Launched -> Unit
+                                is IntentToolExecutionResult.Failed -> {
+                                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                }
+                                is IntentToolExecutionResult.PermissionRequired -> {
+                                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                }
+                            }
+                        }
+                        is IntentToolRequest.DraftWhatsApp -> {
+                            val draft = WhatsAppDraftParser.parse(
+                                modelOutput = accumulated,
+                                topicHint = toolRequest.topicHint,
+                            )
+                            when (
+                                val result = intentToolExecutor.execute(
+                                    request = toolRequest,
+                                    draft = draft,
+                                )
+                            ) {
+                                IntentToolExecutionResult.Launched -> Unit
+                                is IntentToolExecutionResult.Failed -> {
+                                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                }
+                                is IntentToolExecutionResult.PermissionRequired -> {
+                                    if (result.permission == RuntimeToolPermission.CONTACTS) {
+                                        pendingWhatsAppExecution = PendingWhatsAppExecution(
+                                            request = toolRequest,
+                                            draft = draft,
+                                        )
+                                        _events.emit(ChatUiEvent.RequestContactsPermission)
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                }
+                            }
+                        }
+                        is IntentToolRequest.CreateReminder -> {
+                            val draft = ReminderDraftParser.parse(
+                                modelOutput = accumulated,
+                                topicHint = toolRequest.topicHint,
+                            )
+                            if (toolSettingsStore.isAutomationExecutionEnabled) {
+                                when (val result = reminderScheduler.schedule(draft)) {
+                                    IntentToolExecutionResult.Launched -> {
+                                        _uiState.update {
+                                            it.copy(
+                                                loadError = null,
+                                                infoMessage = "Reminder scheduled for ${formatReminderTime(draft.startTimeMillis)}",
+                                            )
+                                        }
+                                    }
+                                    is IntentToolExecutionResult.Failed -> {
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                    is IntentToolExecutionResult.PermissionRequired -> {
+                                        if (result.permission == RuntimeToolPermission.NOTIFICATIONS) {
+                                            pendingReminderExecution = PendingReminderExecution(draft)
+                                            _events.emit(ChatUiEvent.RequestNotificationsPermission)
+                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                        }
+                                    }
+                                }
+                            } else {
+                                when (
+                                    val result = intentToolExecutor.execute(
+                                        request = toolRequest,
+                                        draft = draft,
+                                    )
+                                ) {
+                                    IntentToolExecutionResult.Launched -> {
+                                        _uiState.update {
+                                            it.copy(
+                                                loadError = null,
+                                                infoMessage = "Calendar opened for reminder on ${formatReminderTime(draft.startTimeMillis)}",
+                                            )
+                                        }
+                                    }
+                                    is IntentToolExecutionResult.Failed -> {
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                    is IntentToolExecutionResult.PermissionRequired -> {
+                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                                    }
+                                }
+                            }
+                        }
+                        null -> Unit
+                    }
+                }
+
                 _uiState.update { it.copy(isGenerating = false) }
             }
         }
@@ -223,57 +458,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return facts
     }
 
-    /** Format messages in Gemma instruction-tuned format, with optional system prompt, RAG context and memories. */
-    private fun buildGemmaPrompt(
-        messages: List<Message>,
-        ragContext: List<String> = emptyList(),
-        memories: List<String> = emptyList(),
-        systemPrompt: String? = null,
-    ): String {
-        val sb = StringBuilder()
-
-        // System prompt turn (mode persona)
-        if (!systemPrompt.isNullOrBlank()) {
-            sb.append("<start_of_turn>user\n")
-            sb.append("System instructions: $systemPrompt\n")
-            sb.append("<end_of_turn>\n")
-            sb.append("<start_of_turn>model\nUnderstood.<end_of_turn>\n")
-        }
-
-        // Inject memories + RAG context as a preamble turn
-        val hasContext = memories.isNotEmpty() || ragContext.isNotEmpty()
-        if (hasContext) {
-            sb.append("<start_of_turn>user\n")
-            if (memories.isNotEmpty()) {
-                sb.append("The following is personal context you know about the user. Always use this when relevant:\n\n")
-                memories.forEachIndexed { i, fact ->
-                    sb.append("[Memory ${i + 1}] $fact\n")
-                }
-                sb.append("\n")
-            }
-            if (ragContext.isNotEmpty()) {
-                sb.append("Use the following reference documents to answer the question. ")
-                sb.append("If the answer is not in the documents, say so.\n\n")
-                ragContext.forEachIndexed { i, chunk ->
-                    sb.append("[Document ${i + 1}]\n$chunk\n\n")
-                }
-            }
-            sb.append("Now answer the user's questions using the above context.<end_of_turn>\n")
-            sb.append("<start_of_turn>model\nUnderstood. I'll use the provided context to answer your questions.<end_of_turn>\n")
-        }
-
-        messages.forEach { msg ->
-            when (msg.role) {
-                Role.USER      -> sb.append("<start_of_turn>user\n${msg.content}<end_of_turn>\n")
-                Role.ASSISTANT -> sb.append("<start_of_turn>model\n${msg.content}<end_of_turn>\n")
-            }
-        }
-        sb.append("<start_of_turn>model\n")
-        return sb.toString()
-    }
-
     override fun onCleared() {
         super.onCleared()
         llmRepo.close()
+    }
+
+    private fun handleIntentResult(
+        result: IntentToolExecutionResult,
+        onLaunched: (() -> Unit)?,
+        onPermissionRequired: (IntentToolExecutionResult.PermissionRequired) -> Unit,
+    ) {
+        when (result) {
+            IntentToolExecutionResult.Launched -> onLaunched?.invoke()
+            is IntentToolExecutionResult.Failed -> {
+                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+            }
+            is IntentToolExecutionResult.PermissionRequired -> onPermissionRequired(result)
+        }
+    }
+
+    private fun formatReminderTime(timeMillis: Long): String {
+        return Instant.ofEpochMilli(timeMillis)
+            .atZone(ZoneId.systemDefault())
+            .format(reminderTimeFormatter)
     }
 }
