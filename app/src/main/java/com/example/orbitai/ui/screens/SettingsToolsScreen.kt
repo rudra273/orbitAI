@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,18 +40,31 @@ fun ToolsSettingsScreen(
         onBack = onBack,
     ) {
         SettingsDescription(
-            "Control whether supported tools run automatically in the background. " +
-                "Right now, this applies to reminders only."
+            "Available tools in Orbit. Turn automation on only for tools that support automatic execution."
         )
 
         GlassCard(accent = Color(0xFFF59E0B)) {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 RowSetting(
-                    title = "Automation execution",
+                    title = "Gmail",
+                    subtitle = "Available tool. Opens Gmail compose flow (manual handoff).",
+                )
+
+                OrbitDivider()
+
+                RowSetting(
+                    title = "WhatsApp",
+                    subtitle = "Available tool. Opens WhatsApp compose flow (manual handoff).",
+                )
+
+                OrbitDivider()
+
+                RowSetting(
+                    title = "Reminder",
                     subtitle = if (automationEnabled) {
-                        "Supported tools execute automatically. Reminders are scheduled as background notifications."
+                        "Automation ON: reminders are scheduled directly in background notifications."
                     } else {
-                        "Tools open their target app UI instead of running automatically."
+                        "Automation OFF: opens calendar/reminder app flow instead of automatic scheduling."
                     },
                     trailing = {
                         Switch(
@@ -68,13 +81,6 @@ fun ToolsSettingsScreen(
                             ),
                         )
                     },
-                )
-
-                OrbitDivider()
-
-                RowSetting(
-                    title = "Supported automatic tool",
-                    subtitle = "Reminders: create a background notification at the scheduled time.",
                 )
             }
         }
