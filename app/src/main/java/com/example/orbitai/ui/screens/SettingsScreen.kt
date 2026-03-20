@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -180,6 +181,30 @@ private fun SettingsHub(
                             )
                         }
                     },
+                    actions = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Contrast,
+                                contentDescription = null,
+                                tint = VioletBright,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Switch(
+                                checked = isDarkTheme,
+                                onCheckedChange = onThemeChanged,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = VioletCore,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = GlassWhite20,
+                                ),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     modifier = Modifier.padding(top = 4.dp),
                 )
@@ -192,13 +217,6 @@ private fun SettingsHub(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item {
-                    ThemeModeCard(
-                        isDarkTheme = isDarkTheme,
-                        onThemeChanged = onThemeChanged,
-                    )
-                }
-
                 items(categories.indices.toList()) { index ->
                     StaggeredFadeSlide(index = index) {
                         SettingsCategoryCard(
@@ -222,101 +240,6 @@ private fun SettingsHub(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ThemeModeCard(
-    isDarkTheme: Boolean,
-    onThemeChanged: (Boolean) -> Unit,
-) {
-    val isDark = IsOrbitDarkTheme
-    val cardShape = RoundedCornerShape(18.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(cardShape)
-            .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else Color(0xFFF0ECFF).copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
-            .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else VioletCore)
-                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
-                        0.5f to VioletCore.copy(alpha = if (isDark) 0.10f else 0.15f),
-                        1.0f to (if (isDark) Color.White else VioletCore)
-                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
-                    ),
-                ),
-                shape = cardShape,
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(VioletCore.copy(alpha = 0.14f))
-                        .border(
-                            width = 0.5.dp,
-                            color = VioletCore.copy(alpha = if (isDark) 0.22f else 0.25f),
-                            shape = RoundedCornerShape(12.dp),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = if (isDarkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
-                        contentDescription = null,
-                        tint = VioletBright,
-                    )
-                }
-                Column {
-                    Text(
-                        text = "Theme",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                    Text(
-                        text = if (isDarkTheme) "Dark mode" else "Light mode",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
-                    )
-                }
-            }
-
-            Switch(
-                checked = isDarkTheme,
-                onCheckedChange = onThemeChanged,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = VioletCore,
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = GlassWhite20,
-                ),
-            )
         }
     }
 }

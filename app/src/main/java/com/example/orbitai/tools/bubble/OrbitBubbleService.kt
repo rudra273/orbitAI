@@ -58,6 +58,9 @@ import kotlinx.coroutines.withContext
 
 class OrbitBubbleService : Service() {
 
+    private val slideTabWidthDp = 24f
+    private val slideTabHeightDp = 104f
+
     // ── Window / bubble ───────────────────────────────────────────────────────
     private var windowManager: WindowManager? = null
     private var bubbleView: FrameLayout? = null
@@ -66,6 +69,7 @@ class OrbitBubbleService : Service() {
 
     // ── Result overlay ────────────────────────────────────────────────────────
     private var resultCardView: View? = null
+    private var resultCardParams: WindowManager.LayoutParams? = null
     private var resultTextView: TextView? = null
     private var resultScrollView: ScrollView? = null
     private var isResultVisible = false
@@ -84,6 +88,9 @@ class OrbitBubbleService : Service() {
 
     // ── Config (read from settings on each onStartCommand) ───────────────────
     private var bubbleSizePx = 0
+    private var edgeDockMarginPx = 0
+    private var bubbleIdleAlpha = 0.42f
+    private var bubbleStyle = "round"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -103,6 +110,10 @@ class OrbitBubbleService : Service() {
         if (!canDrawOverlays(this)) { stopSelf(); return START_NOT_STICKY }
 
         val newSizePx = dpToPx(ToolSettingsStore(this).bubbleSizeDp.toFloat())
+        val settings = ToolSettingsStore(this)
+        edgeDockMarginPx = dpToPx(6f)
+        bubbleStyle = settings.bubbleStyle
+        bubbleIdleAlpha = settings.bubbleIdleAlphaPercent / 100f
         if (isBubbleAttached && newSizePx != bubbleSizePx) {
             removeBubble()  // will re-attach below with new size
         }
@@ -113,6 +124,9 @@ class OrbitBubbleService : Service() {
         if (!isBubbleAttached) {
             attachBubble()
             Toast.makeText(this, "Tap to speak. Long press to dismiss.", Toast.LENGTH_SHORT).show()
+        } else if (!isListening) {
+            // Apply transparency slider changes immediately while bubble is idle.
+            enterIdleVisualMode()
         }
 
         return START_STICKY
@@ -143,22 +157,39 @@ class OrbitBubbleService : Service() {
         var moved = false
         var longPressTriggered = false
 
-        val iconPad = dpToPx(12f)
         val bubble = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(bubbleSizePx, bubbleSizePx)
+            val width = if (bubbleStyle == "slide") dpToPx(slideTabWidthDp) else bubbleSizePx
+            val height = if (bubbleStyle == "slide") dpToPx(slideTabHeightDp) else bubbleSizePx
+            layoutParams = FrameLayout.LayoutParams(width, height)
             background = bubbleBackground(isActive = false)
             elevation = 32f
-            addView(ImageView(context).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    Gravity.CENTER,
-                )
-                setPadding(iconPad, iconPad, iconPad, iconPad)
-                setImageResource(R.drawable.vector_logo)
-                imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-            })
+            if (bubbleStyle == "slide") {
+                addView(View(context).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        dpToPx(3f),
+                        dpToPx(44f),
+                        Gravity.CENTER,
+                    )
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = dpToPx(2f).toFloat()
+                        setColor(Color.argb(170, 255, 255, 255))
+                    }
+                })
+            } else {
+                val iconPad = dpToPx(12f)
+                addView(ImageView(context).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        Gravity.CENTER,
+                    )
+                    setPadding(iconPad, iconPad, iconPad, iconPad)
+                    setImageResource(R.drawable.vector_logo)
+                    imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                })
+            }
         }
 
         val longPressRunnable = Runnable {
@@ -171,6 +202,7 @@ class OrbitBubbleService : Service() {
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    enterActiveVisualMode()
                     initialX = params.x
                     initialY = params.y
                     initialTouchX = event.rawX
@@ -189,8 +221,16 @@ class OrbitBubbleService : Service() {
                     }
                     if (moved) {
                         val (screenW, screenH) = getScreenSize()
-                        params.x = (initialX + deltaX).coerceIn(0, (screenW - bubbleSizePx).coerceAtLeast(0))
-                        params.y = (initialY + deltaY).coerceIn(0, (screenH - bubbleSizePx).coerceAtLeast(0))
+                        val bubbleW = bubble.width.takeIf { it > 0 } ?: params.width
+                        val bubbleH = bubble.height.takeIf { it > 0 } ?: params.height
+                        if (bubbleStyle == "slide") {
+                            // Keep slide style docked with half of the widget outside screen.
+                            params.x = (screenW - (bubbleW / 2)).coerceAtLeast(edgeDockMarginPx)
+                            params.y = (initialY + deltaY).coerceIn(edgeDockMarginPx, (screenH - bubbleH - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx))
+                        } else {
+                            params.x = (initialX + deltaX).coerceIn(edgeDockMarginPx, (screenW - bubbleW - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx))
+                            params.y = (initialY + deltaY).coerceIn(edgeDockMarginPx, (screenH - bubbleH - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx))
+                        }
                         windowManager?.updateViewLayout(bubble, params)
                     }
                     true
@@ -199,11 +239,18 @@ class OrbitBubbleService : Service() {
                     bubble.removeCallbacks(longPressRunnable)
                     if (!moved && !longPressTriggered) {
                         toggleListening()
+                    } else {
+                        snapToNearestEdge(animated = true)
+                        if (!isListening) enterIdleVisualMode()
                     }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     bubble.removeCallbacks(longPressRunnable)
+                    if (!isListening) {
+                        snapToNearestEdge(animated = true)
+                        enterIdleVisualMode()
+                    }
                     true
                 }
                 else -> false
@@ -211,21 +258,23 @@ class OrbitBubbleService : Service() {
         }
 
         val layoutParams = WindowManager.LayoutParams(
-            bubbleSizePx,
-            bubbleSizePx,
+            if (bubbleStyle == "slide") dpToPx(slideTabWidthDp) else bubbleSizePx,
+            if (bubbleStyle == "slide") dpToPx(slideTabHeightDp) else bubbleSizePx,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dpToPx(16f)
-            y = dpToPx(200f)
+            x = if (bubbleStyle == "slide") getScreenSize().first - (width / 2) else dpToPx(16f)
+            y = if (bubbleStyle == "slide") dpToPx(90f) else dpToPx(200f)
         }
 
         bubbleView = bubble
         bubbleParams = layoutParams
         windowManager?.addView(bubble, layoutParams)
         isBubbleAttached = true
+        snapToNearestEdge(animated = false)
+        enterIdleVisualMode()
     }
 
     private fun removeBubble() {
@@ -265,6 +314,7 @@ class OrbitBubbleService : Service() {
 
         partialTranscript = ""
         isListening = true
+        enterActiveVisualMode()
         updateBubbleUi(isActive = true)
         startBubbleForeground(isListening = true)
 
@@ -288,6 +338,8 @@ class OrbitBubbleService : Service() {
         partialTranscript = ""
         isListening = false
         updateBubbleUi(isActive = false)
+        snapToNearestEdge(animated = true)
+        enterIdleVisualMode()
         startBubbleForeground(isListening = false)
 
         if (submitTranscript && transcript.isNotBlank()) {
@@ -350,12 +402,13 @@ class OrbitBubbleService : Service() {
         hideResultOverlay()
         val (screenW, screenH) = getScreenSize()
         val cardW = screenW - dpToPx(32f)
+        val responseHeightPx = dpToPx(ToolSettingsStore(this).bubbleResponseHeightDp.toFloat())
         val bubbleY = bubbleParams?.y ?: dpToPx(200f)
         val cardY = if (bubbleY < screenH / 2)
             (bubbleY + bubbleSizePx + dpToPx(10f))
         else
-            (bubbleY - dpToPx(300f)).coerceAtLeast(dpToPx(24f))
-        val card = buildResultCardView(transcript)
+            (bubbleY - (responseHeightPx + dpToPx(94f))).coerceAtLeast(dpToPx(24f))
+        val card = buildResultCardView(transcript, responseHeightPx)
         val params = WindowManager.LayoutParams(
             cardW,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -364,6 +417,7 @@ class OrbitBubbleService : Service() {
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START; x = dpToPx(16f); y = cardY }
         resultCardView = card
+        resultCardParams = params
         windowManager?.addView(card, params)
         isResultVisible = true
     }
@@ -374,21 +428,22 @@ class OrbitBubbleService : Service() {
             try { windowManager?.removeView(resultCardView) } catch (_: Exception) {}
         }
         resultCardView = null
+        resultCardParams = null
         resultTextView = null
         resultScrollView = null
         isResultVisible = false
     }
 
     @Suppress("SetTextI18n")
-    private fun buildResultCardView(transcript: String): View {
+    private fun buildResultCardView(transcript: String, responseHeightPx: Int): View {
         fun dp(v: Int): Int = dpToPx(v.toFloat())
 
         val frame = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(20).toFloat()
-                setColor(Color.parseColor("#1E1530"))
-                setStroke(dp(1), Color.parseColor("#6D5EF5"))
+                setColor(Color.argb(96, 104, 66, 166))
+                setStroke(dp(1), Color.argb(132, 193, 168, 255))
             }
             elevation = 24f
         }
@@ -407,7 +462,7 @@ class OrbitBubbleService : Service() {
         header.addView(ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(8) }
             setImageResource(R.drawable.vector_logo)
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#8B5CF6"))
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
         })
         header.addView(TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -416,10 +471,24 @@ class OrbitBubbleService : Service() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.DEFAULT_BOLD
         })
+        val openBtn = TextView(this).apply {
+            text = "Open in Chat"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(9).toFloat()
+                setColor(Color.argb(52, 188, 150, 255))
+                setStroke(1, Color.argb(120, 224, 206, 255))
+            }
+        }
+        openBtn.setOnClickListener { hideResultOverlay(); launchApp(lastTranscript) }
+        header.addView(openBtn)
         val closeBtn = TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
             text = "✕"
-            setTextColor(Color.parseColor("#888888"))
+            setTextColor(Color.argb(190, 255, 255, 255))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             gravity = Gravity.CENTER
         }
@@ -427,10 +496,49 @@ class OrbitBubbleService : Service() {
         header.addView(closeBtn)
         root.addView(header)
 
+        // Drag response card anywhere (bounded to visible area)
+        var initialX = 0
+        var initialY = 0
+        var initialTouchX = 0f
+        var initialTouchY = 0f
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        var moved = false
+        header.setOnTouchListener { _, event ->
+            val params = resultCardParams ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x
+                    initialY = params.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    moved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = (event.rawX - initialTouchX).toInt()
+                    val deltaY = (event.rawY - initialTouchY).toInt()
+                    if (!moved && (kotlin.math.abs(deltaX) > touchSlop || kotlin.math.abs(deltaY) > touchSlop)) {
+                        moved = true
+                    }
+                    if (moved) {
+                        val (screenW, screenH) = getScreenSize()
+                        val cardW = params.width
+                        val cardH = (resultCardView?.height ?: (responseHeightPx + dp(100))).coerceAtLeast(dp(140))
+                        params.x = (initialX + deltaX).coerceIn(edgeDockMarginPx, (screenW - cardW - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx))
+                        params.y = (initialY + deltaY).coerceIn(edgeDockMarginPx, (screenH - cardH - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx))
+                        resultCardView?.let { windowManager?.updateViewLayout(it, params) }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> moved
+                else -> false
+            }
+        }
+
         // Transcript snippet
         root.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
-            setBackgroundColor(Color.parseColor("#2A1E45"))
+            setBackgroundColor(Color.argb(70, 255, 255, 255))
         })
         root.addView(TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -438,19 +546,19 @@ class OrbitBubbleService : Service() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { setMargins(dp(14), dp(6), dp(14), 0) }
             text = "\"${transcript.take(80)}${if (transcript.length > 80) "\u2026" else "\""}"
-            setTextColor(Color.parseColor("#9580C2"))
+            setTextColor(Color.argb(205, 233, 219, 255))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             maxLines = 2
         })
 
         // Response body
         val scrollView = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(180))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, responseHeightPx)
             isVerticalScrollBarEnabled = false
         }
         val responseText = TextView(this).apply {
             setPadding(dp(14), dp(8), dp(14), dp(10))
-            setTextColor(Color.parseColor("#E8E0F7"))
+            setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setLineSpacing(dp(2).toFloat(), 1f)
             text = "Thinking…"
@@ -459,34 +567,6 @@ class OrbitBubbleService : Service() {
         root.addView(scrollView)
         resultTextView = responseText
         resultScrollView = scrollView
-
-        // Footer
-        root.addView(View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
-                setMargins(0, dp(4), 0, 0)
-            }
-            setBackgroundColor(Color.parseColor("#2A1E45"))
-        })
-        val footer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(14), dp(8), dp(14), dp(12))
-            gravity = Gravity.END
-        }
-        val openBtn = TextView(this).apply {
-            text = "Open in Chat  →"
-            setTextColor(Color.parseColor("#A78BF7"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setPadding(dp(12), dp(7), dp(12), dp(7))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(10).toFloat()
-                setColor(Color.parseColor("#2D1E55"))
-                setStroke(1, Color.parseColor("#6D5EF5"))
-            }
-        }
-        openBtn.setOnClickListener { hideResultOverlay(); launchApp(lastTranscript) }
-        footer.addView(openBtn)
-        root.addView(footer)
         return frame
     }
 
@@ -530,14 +610,70 @@ class OrbitBubbleService : Service() {
 
     private fun bubbleBackground(isActive: Boolean): GradientDrawable {
         return GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
+            shape = if (bubbleStyle == "slide") GradientDrawable.RECTANGLE else GradientDrawable.OVAL
             colors = if (isActive) {
                 intArrayOf(Color.parseColor("#FF5B5B"), Color.parseColor("#FF8A65"))
             } else {
-                intArrayOf(Color.parseColor("#6D5EF5"), Color.parseColor("#4A90E2"))
+                intArrayOf(Color.parseColor("#7A6BFF"), Color.parseColor("#5A9CFF"))
+            }
+            if (bubbleStyle == "slide") {
+                cornerRadii = floatArrayOf(
+                    dpToPx(14f).toFloat(), dpToPx(14f).toFloat(),
+                    0f, 0f,
+                    0f, 0f,
+                    dpToPx(14f).toFloat(), dpToPx(14f).toFloat(),
+                )
             }
             setStroke(3, Color.argb(if (isActive) 160 else 110, 255, 255, 255))
         }
+    }
+
+    private fun snapToNearestEdge(animated: Boolean) {
+        val params = bubbleParams ?: return
+        val (screenW, screenH) = getScreenSize()
+        val bubbleW = (bubbleView?.width ?: params.width).coerceAtLeast(1)
+        val bubbleH = (bubbleView?.height ?: params.height).coerceAtLeast(1)
+        val maxX = (screenW - bubbleW - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx)
+        val maxY = (screenH - bubbleH - edgeDockMarginPx).coerceAtLeast(edgeDockMarginPx)
+        val leftX = edgeDockMarginPx
+        val rightX = maxX
+        val centerX = screenW / 2
+        val currentX = params.x
+        val targetX = if (bubbleStyle == "slide") {
+            (screenW - (bubbleW / 2)).coerceAtLeast(0)
+        } else if (currentX + bubbleW / 2 < centerX) {
+            leftX
+        } else {
+            rightX
+        }
+        val clampedY = params.y.coerceIn(edgeDockMarginPx, maxY)
+
+        if (!animated) {
+            params.x = targetX
+            params.y = clampedY
+            bubbleView?.let { windowManager?.updateViewLayout(it, params) }
+            return
+        }
+
+        val startX = currentX
+        val animator = android.animation.ValueAnimator.ofInt(startX, targetX)
+        animator.duration = 220L
+        animator.interpolator = AccelerateDecelerateInterpolator()
+        animator.addUpdateListener {
+            val value = it.animatedValue as Int
+            params.x = value
+            params.y = clampedY
+            bubbleView?.let { view -> windowManager?.updateViewLayout(view, params) }
+        }
+        animator.start()
+    }
+
+    private fun enterIdleVisualMode() {
+        bubbleView?.alpha = bubbleIdleAlpha
+    }
+
+    private fun enterActiveVisualMode() {
+        bubbleView?.alpha = 1f
     }
 
     private fun dpToPx(dp: Float): Int = (dp * resources.displayMetrics.density + 0.5f).toInt()

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ import com.example.orbitai.ui.theme.TextMuted
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.ui.theme.VioletBright
 import com.example.orbitai.ui.theme.VioletCore
+import com.example.orbitai.ui.screens.OrbitSlider
 
 @Composable
 fun OrbitBubbleSettingsScreen(
@@ -54,6 +56,9 @@ fun OrbitBubbleSettingsScreen(
     val context = LocalContext.current
     var bubbleEnabled by remember { mutableStateOf(toolSettingsStore.isFloatingBubbleEnabled) }
     var bubbleSizeDp by remember { mutableIntStateOf(toolSettingsStore.bubbleSizeDp) }
+    var responseHeightDp by remember { mutableIntStateOf(toolSettingsStore.bubbleResponseHeightDp) }
+    var bubbleIdleAlphaPercent by remember { mutableIntStateOf(toolSettingsStore.bubbleIdleAlphaPercent) }
+    var bubbleStyle by remember { mutableStateOf(toolSettingsStore.bubbleStyle) }
     var resultsInOverlay by remember { mutableStateOf(toolSettingsStore.bubbleResultsInOverlay) }
     var overlayGranted by remember { mutableStateOf(OrbitBubbleService.canDrawOverlays(context)) }
     var audioGranted by remember {
@@ -111,6 +116,9 @@ fun OrbitBubbleSettingsScreen(
         audioGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         bubbleEnabled = toolSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted
         bubbleSizeDp = toolSettingsStore.bubbleSizeDp
+        responseHeightDp = toolSettingsStore.bubbleResponseHeightDp
+        bubbleIdleAlphaPercent = toolSettingsStore.bubbleIdleAlphaPercent
+        bubbleStyle = toolSettingsStore.bubbleStyle
         resultsInOverlay = toolSettingsStore.bubbleResultsInOverlay
         if (bubbleEnabled) OrbitBubbleService.start(context)
     }
@@ -174,20 +182,6 @@ fun OrbitBubbleSettingsScreen(
                 OrbitDivider()
 
                 RowSetting(
-                    title = "Bubble size",
-                    subtitle = "Choose small, medium, or large size.",
-                    trailing = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            SizeChip("S", bubbleSizeDp == OrbitBubbleService.SIZE_SMALL_DP) { updateSize(OrbitBubbleService.SIZE_SMALL_DP) }
-                            SizeChip("M", bubbleSizeDp == OrbitBubbleService.SIZE_MEDIUM_DP) { updateSize(OrbitBubbleService.SIZE_MEDIUM_DP) }
-                            SizeChip("L", bubbleSizeDp == OrbitBubbleService.SIZE_LARGE_DP) { updateSize(OrbitBubbleService.SIZE_LARGE_DP) }
-                        }
-                    },
-                )
-
-                OrbitDivider()
-
-                RowSetting(
                     title = "Response mode",
                     subtitle = if (resultsInOverlay) {
                         "Response appears directly over the current app."
@@ -214,6 +208,74 @@ fun OrbitBubbleSettingsScreen(
                 OrbitDivider()
 
                 RowSetting(
+                    title = "Bubble style",
+                    subtitle = "Round bubble or right-side slide tab.",
+                    trailing = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            SizeChip("Round", bubbleStyle == "round") {
+                                bubbleStyle = "round"
+                                toolSettingsStore.bubbleStyle = "round"
+                                if (bubbleEnabled) OrbitBubbleService.start(context)
+                            }
+                            SizeChip("Slide", bubbleStyle == "slide") {
+                                bubbleStyle = "slide"
+                                toolSettingsStore.bubbleStyle = "slide"
+                                if (bubbleEnabled) OrbitBubbleService.start(context)
+                            }
+                        }
+                    },
+                )
+
+                OrbitDivider()
+
+                RowSetting(
+                    title = "Bubble size",
+                    subtitle = "Choose small, medium, or large size.",
+                    trailing = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            SizeChip("S", bubbleSizeDp == OrbitBubbleService.SIZE_SMALL_DP) { updateSize(OrbitBubbleService.SIZE_SMALL_DP) }
+                            SizeChip("M", bubbleSizeDp == OrbitBubbleService.SIZE_MEDIUM_DP) { updateSize(OrbitBubbleService.SIZE_MEDIUM_DP) }
+                            SizeChip("L", bubbleSizeDp == OrbitBubbleService.SIZE_LARGE_DP) { updateSize(OrbitBubbleService.SIZE_LARGE_DP) }
+                        }
+                    },
+                )
+
+                OrbitDivider()
+
+                OrbitSlider(
+                    label = "Response window height",
+                    value = responseHeightDp.toFloat(),
+                    valueStr = "${responseHeightDp} dp",
+                    range = 70f..360f,
+                    steps = 10,
+                    accent = Color(0xFFF59E0B),
+                    hint = "Adjust overlay output panel height.",
+                    onChange = { value ->
+                        responseHeightDp = value.toInt()
+                        toolSettingsStore.bubbleResponseHeightDp = responseHeightDp
+                    },
+                )
+
+                OrbitDivider()
+
+                OrbitSlider(
+                    label = "Idle transparency",
+                    value = bubbleIdleAlphaPercent.toFloat(),
+                    valueStr = "${bubbleIdleAlphaPercent}%",
+                    range = 20f..100f,
+                    steps = 15,
+                    accent = Color(0xFFF59E0B),
+                    hint = "How visible the bubble stays when not interacting.",
+                    onChange = { value ->
+                        bubbleIdleAlphaPercent = value.toInt()
+                        toolSettingsStore.bubbleIdleAlphaPercent = bubbleIdleAlphaPercent
+                        if (bubbleEnabled) OrbitBubbleService.start(context)
+                    },
+                )
+
+                OrbitDivider()
+
+                RowSetting(
                     title = "Permissions",
                     subtitle = buildString {
                         append("Overlay: ")
@@ -231,7 +293,8 @@ fun OrbitBubbleSettingsScreen(
 private fun SizeChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .padding(horizontal = 1.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (selected) VioletCore.copy(alpha = 0.20f) else Color.Transparent)
             .border(
@@ -239,6 +302,7 @@ private fun SizeChip(label: String, selected: Boolean, onClick: () -> Unit) {
                 color = if (selected) VioletBright else GlassWhite20,
                 shape = RoundedCornerShape(10.dp),
             )
+            .padding(horizontal = 10.dp, vertical = 9.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
