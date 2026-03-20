@@ -1,28 +1,23 @@
 package com.example.orbitai.tools.intents
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
-import com.example.orbitai.data.Message
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class IntentToolExecutor(context: Context) {
 
     private val appContext = context.applicationContext
-    private val mainHandler = Handler(Looper.getMainLooper())
 
-    fun execute(request: IntentToolRequest, messages: List<Message>): IntentToolExecutionResult {
+    suspend fun execute(request: IntentToolRequest, draft: EmailDraft): IntentToolExecutionResult {
         return when (request) {
-            is IntentToolRequest.DraftEmail -> launchDraftEmail(messages, request.topicHint)
+            is IntentToolRequest.DraftEmail -> launchDraftEmail(draft)
         }
     }
 
-    private fun launchDraftEmail(
-        messages: List<Message>,
-        topicHint: String,
-    ): IntentToolExecutionResult {
-        val draft = EmailDraftBuilder.build(messages = messages, topicHint = topicHint)
+    private suspend fun launchDraftEmail(draft: EmailDraft): IntentToolExecutionResult = withContext(Dispatchers.Main) {
         val intent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.parse("mailto:")
             putExtra(Intent.EXTRA_SUBJECT, draft.subject)
@@ -30,13 +25,11 @@ class IntentToolExecutor(context: Context) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        if (intent.resolveActivity(appContext.packageManager) == null) {
-            return IntentToolExecutionResult.Failed("No email app found on this device.")
-        }
-
-        mainHandler.post {
+        try {
             appContext.startActivity(intent)
+            IntentToolExecutionResult.Launched
+        } catch (_: ActivityNotFoundException) {
+            IntentToolExecutionResult.Failed("No email app found on this device.")
         }
-        return IntentToolExecutionResult.Launched
     }
 }

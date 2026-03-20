@@ -19,9 +19,11 @@ import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
+import com.example.orbitai.tools.intents.EmailDraftParser
 import com.example.orbitai.tools.intents.IntentToolCommandParser
 import com.example.orbitai.tools.intents.IntentToolExecutionResult
 import com.example.orbitai.tools.intents.IntentToolExecutor
+import com.example.orbitai.tools.intents.IntentToolRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -111,20 +113,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (trimmedText.isEmpty()) return
 
         val toolRequest = IntentToolCommandParser.parse(trimmedText)
-        if (toolRequest != null) {
-            viewModelScope.launch(Dispatchers.IO) {
-                _uiState.update { it.copy(loadError = null) }
-                chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText))
-
-                when (val result = intentToolExecutor.execute(toolRequest, chat.messages)) {
-                    IntentToolExecutionResult.Launched -> Unit
-                    is IntentToolExecutionResult.Failed -> {
-                        _uiState.update { it.copy(loadError = result.message) }
-                    }
-                }
-            }
-            return
-        }
 
         val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId }
         val model = when {
@@ -173,11 +161,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 3. Build prompt from history + RAG context + memories
             val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
-            val ragContext = spaceRepo.searchChunksInSpaces(
-                trimmedText,
-                _activeSpaceIds.value.toList(),
-                limit = 5,
-            ).map { it.content }
             val memories = if (memoryEnabled) {
                 memoryRepo.getAllMemories().map { it.content }
             } else {
@@ -187,7 +170,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 .find { it.id == _activeModeId.value }
                 ?.systemPrompt
                 ?: modeRepo.modes.value.find { it.isDefault }?.systemPrompt
-            val prompt = buildGemmaPrompt(history, ragContext, memories, systemPrompt)
+            val prompt = if (toolRequest is IntentToolRequest.DraftEmail) {
+                buildEmailDraftPrompt(
+                    messages = history,
+                    topicHint = toolRequest.topicHint,
+                    memories = memories,
+                )
+            } else {
+                val ragContext = spaceRepo.searchChunksInSpaces(
+                    trimmedText,
+                    _activeSpaceIds.value.toList(),
+                    limit = 5,
+                ).map { it.content }
+                buildGemmaPrompt(history, ragContext, memories, systemPrompt)
+            }
 
             // 4. Add empty assistant message (streaming placeholder)
             val assistantMsg = Message(role = Role.ASSISTANT, content = "", isStreaming = true)
@@ -208,6 +204,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 accumulated = "Error: ${e.message}"
             } finally {
                 chatRepo.updateLastMessage(chatId, accumulated, isStreaming = false)
+
+                if (toolRequest is IntentToolRequest.DraftEmail && !accumulated.startsWith("Error:")) {
+                    when (
+                        val result = intentToolExecutor.execute(
+                            request = toolRequest,
+                            draft = EmailDraftParser.parse(
+                                modelOutput = accumulated,
+                                topicHint = toolRequest.topicHint,
+                            ),
+                        )
+                    ) {
+                        IntentToolExecutionResult.Launched -> Unit
+                        is IntentToolExecutionResult.Failed -> {
+                            _uiState.update { it.copy(loadError = result.message) }
+                        }
+                    }
+                }
+
                 _uiState.update { it.copy(isGenerating = false) }
             }
         }
@@ -292,6 +306,58 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 Role.ASSISTANT -> sb.append("<start_of_turn>model\n${msg.content}<end_of_turn>\n")
             }
         }
+        sb.append("<start_of_turn>model\n")
+        return sb.toString()
+    }
+
+    private fun buildEmailDraftPrompt(
+        messages: List<Message>,
+        topicHint: String,
+        memories: List<String>,
+    ): String {
+        val sb = StringBuilder()
+
+        sb.append("<start_of_turn>user\n")
+        sb.append("You are drafting an email on behalf of the user. ")
+        sb.append("Understand what the user wants to send from the recent conversation and write the email for them.\n\n")
+        sb.append("Return exactly in this format:\n")
+        sb.append("Subject: <one line subject>\n")
+        sb.append("Body:\n")
+        sb.append("<full email body>\n\n")
+        sb.append("Rules:\n")
+        sb.append("- Do not mention chat, conversation, context, OrbitAI, or that you are an AI.\n")
+        sb.append("- Write the actual email the user wants to send.\n")
+        sb.append("- Infer the recipient, tone, and purpose from the user's request when possible.\n")
+        sb.append("- Keep the subject concise and natural.\n")
+        sb.append("- Output only the formatted draft, with no explanation.\n\n")
+
+        if (topicHint.isNotBlank()) {
+            sb.append("Explicit request: ")
+            sb.append(topicHint)
+            sb.append("\n\n")
+        }
+
+        if (memories.isNotEmpty()) {
+            sb.append("Useful personal context:\n")
+            memories.forEachIndexed { index, fact ->
+                sb.append("[")
+                sb.append(index + 1)
+                sb.append("] ")
+                sb.append(fact)
+                sb.append("\n")
+            }
+            sb.append("\n")
+        }
+
+        sb.append("Recent conversation:\n")
+        messages.takeLast(10).forEach { message ->
+            val speaker = if (message.role == Role.USER) "User" else "Assistant"
+            sb.append(speaker)
+            sb.append(": ")
+            sb.append(message.content)
+            sb.append("\n")
+        }
+        sb.append("<end_of_turn>\n")
         sb.append("<start_of_turn>model\n")
         return sb.toString()
     }
