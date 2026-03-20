@@ -44,6 +44,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.example.orbitai.OverlayPromptRequest
 import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.ToolSettingsStore
@@ -59,6 +60,7 @@ import com.example.orbitai.ui.screens.RagSettingsScreen
 import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
+import com.example.orbitai.ui.screens.OrbitBubbleSettingsScreen
 import com.example.orbitai.ui.screens.ToolsSettingsScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
@@ -93,6 +95,7 @@ sealed class Screen(val route: String) {
     data object SettingsRag       : Screen("settings/rag")
     data object SettingsDeveloper : Screen("settings/developer")
     data object SettingsTools     : Screen("settings/tools")
+    data object SettingsOrbitBubble : Screen("settings/orbit_bubble")
 }
 
 private val TAB_ROUTES = setOf(
@@ -114,13 +117,24 @@ fun OrbitNavGraph(
     spacesViewModel:   SpacesViewModel,
     modesViewModel:    ModesViewModel,
     memoryViewModel:   MemoryViewModel,
+    overlayPromptRequest: OverlayPromptRequest?,
+    onOverlayPromptConsumed: () -> Unit,
     isDarkTheme:       Boolean,
     onThemeChanged:    (Boolean) -> Unit,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
-    val initialChatId = rememberSaveable { chatViewModel.createNewChat() }
+    val initialChatId = rememberSaveable { overlayPromptRequest?.chatId ?: chatViewModel.createNewChat() }
+
+    LaunchedEffect(overlayPromptRequest?.id) {
+        val request = overlayPromptRequest ?: return@LaunchedEffect
+        navController.navigate(Screen.ChatDetail.go(request.chatId)) {
+            launchSingleTop = true
+        }
+        chatViewModel.sendMessage(request.chatId, request.prompt)
+        onOverlayPromptConsumed()
+    }
 
     Scaffold(
         containerColor = SpaceDeep,
@@ -250,6 +264,14 @@ fun OrbitNavGraph(
                 val context = LocalContext.current
                 val toolSettingsStore = remember { ToolSettingsStore(context) }
                 ToolsSettingsScreen(
+                    toolSettingsStore = toolSettingsStore,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.SettingsOrbitBubble.route) {
+                val context = LocalContext.current
+                val toolSettingsStore = remember { ToolSettingsStore(context) }
+                OrbitBubbleSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
                     onBack = { navController.popBackStack() },
                 )

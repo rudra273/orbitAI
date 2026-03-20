@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -115,7 +116,14 @@ private fun SettingsHub(
             destination = "settings/tools",
             icon = Icons.Default.Build,
             title = "Tools",
-            subtitle = "Automation execution and tool behavior",
+            subtitle = "Available tools and automation support",
+            accentColor = Color(0xFFF59E0B),
+        ),
+        SettingsCategory(
+            destination = "settings/orbit_bubble",
+            icon = Icons.Default.ChatBubble,
+            title = "Orbit Bubble",
+            subtitle = "Floating bubble toggle and behavior",
             accentColor = Color(0xFFF59E0B),
         ),
     )
