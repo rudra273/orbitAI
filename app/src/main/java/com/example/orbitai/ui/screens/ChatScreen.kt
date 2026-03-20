@@ -67,6 +67,7 @@ import com.example.orbitai.data.Role
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.ui.theme.*
+import com.example.orbitai.viewmodel.ChatUiEvent
 import com.example.orbitai.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 
@@ -81,6 +82,11 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     onBack:    () -> Unit,
 ) {
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onContactsPermissionResult(granted)
+    }
     val chats          by viewModel.chats.collectAsState()
     val uiState        by viewModel.uiState.collectAsState()
     val spaces         by viewModel.spaces.collectAsState()
@@ -94,6 +100,16 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope     = rememberCoroutineScope()
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                ChatUiEvent.RequestContactsPermission -> {
+                    contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)

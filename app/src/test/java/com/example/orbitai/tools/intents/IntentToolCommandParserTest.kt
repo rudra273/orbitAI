@@ -32,4 +32,14 @@ class IntentToolCommandParserTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun parsesWhatsAppCommand() {
+        val result = IntentToolCommandParser.parse("/whatsapp tell him I will be late")
+
+        assertEquals(
+            IntentToolRequest.DraftWhatsApp(topicHint = "tell him I will be late"),
+            result,
+        )
+    }
 }

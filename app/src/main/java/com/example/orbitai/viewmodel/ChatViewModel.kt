@@ -19,17 +19,26 @@ import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.memory.MemoryRepository
+import com.example.orbitai.prompts.GemmaChatPromptBuilder
 import com.example.orbitai.tools.intents.EmailDraftParser
-import com.example.orbitai.tools.intents.IntentToolCommandParser
 import com.example.orbitai.tools.intents.IntentToolExecutionResult
 import com.example.orbitai.tools.intents.IntentToolExecutor
 import com.example.orbitai.tools.intents.IntentToolRequest
+import com.example.orbitai.tools.intents.RuntimeToolPermission
+import com.example.orbitai.tools.intents.WhatsAppDraftParser
+import com.example.orbitai.tools.prompts.EmailDraftPromptBuilder
+import com.example.orbitai.tools.prompts.WhatsAppDraftPromptBuilder
+import com.example.orbitai.tools.router.ToolRoute
+import com.example.orbitai.tools.router.ToolRouter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,6 +48,15 @@ data class ChatUiState(
     val isModelLoading: Boolean = false,
     val isGenerating: Boolean = false,
     val loadError: String? = null,
+)
+
+sealed interface ChatUiEvent {
+    data object RequestContactsPermission : ChatUiEvent
+}
+
+private data class PendingWhatsAppExecution(
+    val request: IntentToolRequest.DraftWhatsApp,
+    val draft: com.example.orbitai.tools.intents.WhatsAppDraft,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -80,11 +98,40 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+    private val _events = MutableSharedFlow<ChatUiEvent>()
+    val events: SharedFlow<ChatUiEvent> = _events.asSharedFlow()
 
     private var generationJob: Job? = null
+    private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
 
     fun stopGeneration() {
         generationJob?.cancel()
+    }
+
+    fun onContactsPermissionResult(granted: Boolean) {
+        val pending = pendingWhatsAppExecution
+        pendingWhatsAppExecution = null
+
+        if (!granted) {
+            _uiState.update {
+                it.copy(loadError = "Contacts permission is required to use WhatsApp by contact name.")
+            }
+            return
+        }
+
+        if (pending != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                handleIntentResult(
+                    intentToolExecutor.execute(
+                        request = pending.request,
+                        draft = pending.draft,
+                    ),
+                    onPermissionRequired = { permissionResult ->
+                        _uiState.update { it.copy(loadError = permissionResult.message) }
+                    },
+                )
+            }
+        }
     }
 
     // ── Chat management ───────────────────────────────────────────────────────
@@ -112,7 +159,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (trimmedText.isEmpty()) return
 
-        val toolRequest = IntentToolCommandParser.parse(trimmedText)
+        val route = ToolRouter.route(trimmedText)
+        val toolRequest = (route as? ToolRoute.ToolOnly)?.request
 
         val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId }
         val model = when {
@@ -170,19 +218,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 .find { it.id == _activeModeId.value }
                 ?.systemPrompt
                 ?: modeRepo.modes.value.find { it.isDefault }?.systemPrompt
-            val prompt = if (toolRequest is IntentToolRequest.DraftEmail) {
-                buildEmailDraftPrompt(
+            val prompt = when (toolRequest) {
+                is IntentToolRequest.DraftEmail -> EmailDraftPromptBuilder.build(
                     messages = history,
                     topicHint = toolRequest.topicHint,
                     memories = memories,
                 )
-            } else {
-                val ragContext = spaceRepo.searchChunksInSpaces(
-                    trimmedText,
-                    _activeSpaceIds.value.toList(),
-                    limit = 5,
-                ).map { it.content }
-                buildGemmaPrompt(history, ragContext, memories, systemPrompt)
+                is IntentToolRequest.DraftWhatsApp -> WhatsAppDraftPromptBuilder.build(
+                    messages = history,
+                    topicHint = toolRequest.topicHint,
+                    memories = memories,
+                )
+                null -> {
+                    val ragContext = spaceRepo.searchChunksInSpaces(
+                        trimmedText,
+                        _activeSpaceIds.value.toList(),
+                        limit = 5,
+                    ).map { it.content }
+                    GemmaChatPromptBuilder.build(history, ragContext, memories, systemPrompt)
+                }
             }
 
             // 4. Add empty assistant message (streaming placeholder)
@@ -205,20 +259,55 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } finally {
                 chatRepo.updateLastMessage(chatId, accumulated, isStreaming = false)
 
-                if (toolRequest is IntentToolRequest.DraftEmail && !accumulated.startsWith("Error:")) {
-                    when (
-                        val result = intentToolExecutor.execute(
-                            request = toolRequest,
-                            draft = EmailDraftParser.parse(
+                if (!accumulated.startsWith("Error:")) {
+                    when (toolRequest) {
+                        is IntentToolRequest.DraftEmail -> {
+                            when (
+                                val result = intentToolExecutor.execute(
+                                    request = toolRequest,
+                                    draft = EmailDraftParser.parse(
+                                        modelOutput = accumulated,
+                                        topicHint = toolRequest.topicHint,
+                                    ),
+                                )
+                            ) {
+                                IntentToolExecutionResult.Launched -> Unit
+                                is IntentToolExecutionResult.Failed -> {
+                                    _uiState.update { it.copy(loadError = result.message) }
+                                }
+                                is IntentToolExecutionResult.PermissionRequired -> {
+                                    _uiState.update { it.copy(loadError = result.message) }
+                                }
+                            }
+                        }
+                        is IntentToolRequest.DraftWhatsApp -> {
+                            val draft = WhatsAppDraftParser.parse(
                                 modelOutput = accumulated,
                                 topicHint = toolRequest.topicHint,
-                            ),
-                        )
-                    ) {
-                        IntentToolExecutionResult.Launched -> Unit
-                        is IntentToolExecutionResult.Failed -> {
-                            _uiState.update { it.copy(loadError = result.message) }
+                            )
+                            when (
+                                val result = intentToolExecutor.execute(
+                                    request = toolRequest,
+                                    draft = draft,
+                                )
+                            ) {
+                                IntentToolExecutionResult.Launched -> Unit
+                                is IntentToolExecutionResult.Failed -> {
+                                    _uiState.update { it.copy(loadError = result.message) }
+                                }
+                                is IntentToolExecutionResult.PermissionRequired -> {
+                                    if (result.permission == RuntimeToolPermission.CONTACTS) {
+                                        pendingWhatsAppExecution = PendingWhatsAppExecution(
+                                            request = toolRequest,
+                                            draft = draft,
+                                        )
+                                        _events.emit(ChatUiEvent.RequestContactsPermission)
+                                        _uiState.update { it.copy(loadError = result.message) }
+                                    }
+                                }
+                            }
                         }
+                        null -> Unit
                     }
                 }
 
@@ -261,109 +350,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return facts
     }
 
-    /** Format messages in Gemma instruction-tuned format, with optional system prompt, RAG context and memories. */
-    private fun buildGemmaPrompt(
-        messages: List<Message>,
-        ragContext: List<String> = emptyList(),
-        memories: List<String> = emptyList(),
-        systemPrompt: String? = null,
-    ): String {
-        val sb = StringBuilder()
-
-        // System prompt turn (mode persona)
-        if (!systemPrompt.isNullOrBlank()) {
-            sb.append("<start_of_turn>user\n")
-            sb.append("System instructions: $systemPrompt\n")
-            sb.append("<end_of_turn>\n")
-            sb.append("<start_of_turn>model\nUnderstood.<end_of_turn>\n")
-        }
-
-        // Inject memories + RAG context as a preamble turn
-        val hasContext = memories.isNotEmpty() || ragContext.isNotEmpty()
-        if (hasContext) {
-            sb.append("<start_of_turn>user\n")
-            if (memories.isNotEmpty()) {
-                sb.append("The following is personal context you know about the user. Always use this when relevant:\n\n")
-                memories.forEachIndexed { i, fact ->
-                    sb.append("[Memory ${i + 1}] $fact\n")
-                }
-                sb.append("\n")
-            }
-            if (ragContext.isNotEmpty()) {
-                sb.append("Use the following reference documents to answer the question. ")
-                sb.append("If the answer is not in the documents, say so.\n\n")
-                ragContext.forEachIndexed { i, chunk ->
-                    sb.append("[Document ${i + 1}]\n$chunk\n\n")
-                }
-            }
-            sb.append("Now answer the user's questions using the above context.<end_of_turn>\n")
-            sb.append("<start_of_turn>model\nUnderstood. I'll use the provided context to answer your questions.<end_of_turn>\n")
-        }
-
-        messages.forEach { msg ->
-            when (msg.role) {
-                Role.USER      -> sb.append("<start_of_turn>user\n${msg.content}<end_of_turn>\n")
-                Role.ASSISTANT -> sb.append("<start_of_turn>model\n${msg.content}<end_of_turn>\n")
-            }
-        }
-        sb.append("<start_of_turn>model\n")
-        return sb.toString()
-    }
-
-    private fun buildEmailDraftPrompt(
-        messages: List<Message>,
-        topicHint: String,
-        memories: List<String>,
-    ): String {
-        val sb = StringBuilder()
-
-        sb.append("<start_of_turn>user\n")
-        sb.append("You are drafting an email on behalf of the user. ")
-        sb.append("Understand what the user wants to send from the recent conversation and write the email for them.\n\n")
-        sb.append("Return exactly in this format:\n")
-        sb.append("Subject: <one line subject>\n")
-        sb.append("Body:\n")
-        sb.append("<full email body>\n\n")
-        sb.append("Rules:\n")
-        sb.append("- Do not mention chat, conversation, context, OrbitAI, or that you are an AI.\n")
-        sb.append("- Write the actual email the user wants to send.\n")
-        sb.append("- Infer the recipient, tone, and purpose from the user's request when possible.\n")
-        sb.append("- Keep the subject concise and natural.\n")
-        sb.append("- Output only the formatted draft, with no explanation.\n\n")
-
-        if (topicHint.isNotBlank()) {
-            sb.append("Explicit request: ")
-            sb.append(topicHint)
-            sb.append("\n\n")
-        }
-
-        if (memories.isNotEmpty()) {
-            sb.append("Useful personal context:\n")
-            memories.forEachIndexed { index, fact ->
-                sb.append("[")
-                sb.append(index + 1)
-                sb.append("] ")
-                sb.append(fact)
-                sb.append("\n")
-            }
-            sb.append("\n")
-        }
-
-        sb.append("Recent conversation:\n")
-        messages.takeLast(10).forEach { message ->
-            val speaker = if (message.role == Role.USER) "User" else "Assistant"
-            sb.append(speaker)
-            sb.append(": ")
-            sb.append(message.content)
-            sb.append("\n")
-        }
-        sb.append("<end_of_turn>\n")
-        sb.append("<start_of_turn>model\n")
-        return sb.toString()
-    }
-
     override fun onCleared() {
         super.onCleared()
         llmRepo.close()
+    }
+
+    private fun handleIntentResult(
+        result: IntentToolExecutionResult,
+        onPermissionRequired: (IntentToolExecutionResult.PermissionRequired) -> Unit,
+    ) {
+        when (result) {
+            IntentToolExecutionResult.Launched -> Unit
+            is IntentToolExecutionResult.Failed -> {
+                _uiState.update { it.copy(loadError = result.message) }
+            }
+            is IntentToolExecutionResult.PermissionRequired -> onPermissionRequired(result)
+        }
     }
 }
