@@ -87,4 +87,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/*.apk
+          body: |
+            ## Highlights
+            - Integrated tools are now live in Orbit.
+            - You can now draft emails, draft WhatsApp messages, and set reminders using Orbit.
+          append_body: true
           generate_release_notes: true
