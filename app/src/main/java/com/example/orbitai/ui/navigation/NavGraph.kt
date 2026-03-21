@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,10 +35,9 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -51,7 +51,7 @@ import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.screens.ModesScreen
 import com.example.orbitai.ui.screens.ChatScreen
-import com.example.orbitai.ui.screens.DeveloperSettingsScreen
+import com.example.orbitai.ui.screens.ModelSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
 import com.example.orbitai.ui.screens.InferenceSettingsScreen
 import com.example.orbitai.ui.screens.MemorySettingsScreen
@@ -105,6 +105,13 @@ private val TAB_ROUTES = setOf(
     Screen.Settings.route,
 )
 
+private val SWIPE_NAV_ROUTES = listOf(
+    Screen.Chat.route,
+    Screen.Spaces.route,
+    Screen.Modes.route,
+    Screen.Settings.route,
+)
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ROOT NAV GRAPH
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -126,6 +133,16 @@ fun OrbitNavGraph(
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
     val initialChatId = rememberSaveable { overlayPromptRequest?.chatId ?: chatViewModel.createNewChat() }
+    val swipeModifier = rememberTabSwipeModifier(
+        currentRoute = currentRoute,
+        onNavigate = { route ->
+            navController.navigate(route) {
+                popUpTo(Screen.Chat.route) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        },
+    )
 
     LaunchedEffect(initialChatId) {
         navController.navigate(Screen.ChatDetail.go(initialChatId)) {
@@ -162,7 +179,9 @@ fun OrbitNavGraph(
         NavHost(
             navController    = navController,
             startDestination = Screen.Chat.route,
-            modifier         = Modifier.padding(innerPadding),
+            modifier         = Modifier
+                .padding(innerPadding)
+                .then(swipeModifier),
         ) {
 
             // ── Tab screens ────────────────────────────────────────────────
@@ -227,8 +246,11 @@ fun OrbitNavGraph(
             }
 
             composable(Screen.SettingsModel.route) {
+                val context = LocalContext.current
+                val tokenStore = remember { TokenStore(context) }
                 ModelSettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -256,11 +278,12 @@ fun OrbitNavGraph(
                 )
             }
             composable(Screen.SettingsDeveloper.route) {
+                // Developer settings merged into Model settings
                 val context = LocalContext.current
                 val tokenStore = remember { TokenStore(context) }
-                DeveloperSettingsScreen(
-                    tokenStore = tokenStore,
+                ModelSettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -275,12 +298,50 @@ fun OrbitNavGraph(
             composable(Screen.SettingsOrbitBubble.route) {
                 val context = LocalContext.current
                 val toolSettingsStore = remember { ToolSettingsStore(context) }
+                val tokenStore = remember { TokenStore(context) }
+                val availableModels by chatViewModel.availableModels.collectAsState()
+                LaunchedEffect(Unit) { chatViewModel.refreshAvailableModels() }
                 OrbitBubbleSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
+                    tokenStore = tokenStore,
+                    availableModels = availableModels,
                     onBack = { navController.popBackStack() },
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun rememberTabSwipeModifier(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+): Modifier {
+    if (currentRoute !in SWIPE_NAV_ROUTES) return Modifier
+
+    return Modifier.pointerInput(currentRoute) {
+        var totalDrag = 0f
+        detectHorizontalDragGestures(
+            onHorizontalDrag = { _, dragAmount ->
+                totalDrag += dragAmount
+            },
+            onDragEnd = {
+                val threshold = 90f
+                val currentIndex = SWIPE_NAV_ROUTES.indexOf(currentRoute)
+                val targetRoute = when {
+                    totalDrag <= -threshold && currentIndex < SWIPE_NAV_ROUTES.lastIndex ->
+                        SWIPE_NAV_ROUTES[currentIndex + 1]
+                    totalDrag >= threshold && currentIndex > 0 ->
+                        SWIPE_NAV_ROUTES[currentIndex - 1]
+                    else -> null
+                }
+                totalDrag = 0f
+                targetRoute?.let(onNavigate)
+            },
+            onDragCancel = {
+                totalDrag = 0f
+            },
+        )
     }
 }
 
@@ -313,7 +374,10 @@ private fun OrbitBottomBar(
             .fillMaxWidth()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, SpaceDeep.copy(alpha = 0.97f)),
+                    colors = listOf(
+                        Color.Transparent,
+                        if (IsOrbitDarkTheme) SpaceDeep.copy(alpha = 0.22f) else SpaceDeep.copy(alpha = 0.90f),
+                    ),
                     startY = 0f,
                     endY   = Float.POSITIVE_INFINITY,
                 )
@@ -337,10 +401,10 @@ private fun OrbitBottomBar(
                                 isAntiAlias = true
                                 color       = android.graphics.Color.TRANSPARENT
                                 setShadowLayer(
-                                    if (isDark) 32f else 20f,
-                                    0f, 4f,
-                                    (if (isDark) VioletGlow else Color.Black)
-                                        .copy(alpha = if (isDark) 0.35f else 0.08f)
+                                    if (isDark) 42f else 20f,
+                                    0f, if (isDark) 10f else 4f,
+                                    (if (isDark) VioletCore else Color.Black)
+                                        .copy(alpha = if (isDark) 0.24f else 0.08f)
                                         .toArgb(),
                                 )
                             }
@@ -356,17 +420,39 @@ private fun OrbitBottomBar(
                 .clip(pillShape)
                 // Glass fill
                 .background(
-                    if (isDark) Color.White.copy(alpha = 0.05f)
-                    else Color.White.copy(alpha = 0.72f)
+                    Brush.linearGradient(
+                        colors = if (isDark) {
+                            listOf(
+                                Color.White.copy(alpha = 0.08f),
+                                VioletCore.copy(alpha = 0.10f),
+                                Color.White.copy(alpha = 0.04f),
+                            )
+                        } else {
+                            listOf(
+                                Color.White.copy(alpha = 0.84f),
+                                VioletCore.copy(alpha = 0.10f),
+                                Color.White.copy(alpha = 0.74f),
+                            )
+                        }
+                    )
                 )
                 // Top sheen
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                            0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                            0.5f  to Color.Transparent,
+                            0.0f  to Color.White.copy(alpha = if (isDark) 0.16f else 0.50f),
+                            0.18f to Color.White.copy(alpha = if (isDark) 0.08f else 0.16f),
+                            0.55f to Color.Transparent,
                         ),
+                    )
+                )
+                .background(
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.0f to VioletBright.copy(alpha = if (isDark) 0.10f else 0.05f),
+                            0.5f to Color.Transparent,
+                            1.0f to VioletCore.copy(alpha = if (isDark) 0.14f else 0.06f),
+                        )
                     )
                 )
                 // Glass border
@@ -375,11 +461,11 @@ private fun OrbitBottomBar(
                     brush = Brush.linearGradient(
                         colorStops = arrayOf(
                             0.0f to (if (isDark) Color.White else VioletCore)
-                                         .copy(alpha = if (isDark) 0.18f else 0.30f),
+                                         .copy(alpha = if (isDark) 0.22f else 0.30f),
                             0.5f to (if (isDark) VioletCore else VioletCore)
-                                         .copy(alpha = if (isDark) 0.10f else 0.12f),
+                                         .copy(alpha = if (isDark) 0.28f else 0.12f),
                             1.0f to (if (isDark) Color.White else VioletCore)
-                                         .copy(alpha = if (isDark) 0.05f else 0.06f),
+                                         .copy(alpha = if (isDark) 0.12f else 0.06f),
                         ),
                     ),
                     shape = pillShape,
@@ -414,63 +500,54 @@ private fun TabButton(
     onClick: () -> Unit,
 ) {
     val iconTint by animateColorAsState(
-        targetValue   = if (selected) VioletBright else TextMuted,
+        targetValue   = if (selected) Color.White else TextMuted,
         animationSpec = tween(200),
         label         = "tab_tint",
-    )
-    val labelColor by animateColorAsState(
-        targetValue   = if (selected) VioletBright else TextMuted,
-        animationSpec = tween(200),
-        label         = "tab_label",
     )
     val bgAlpha by animateFloatAsState(
         targetValue   = if (selected) 1f else 0f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
         label         = "tab_bg",
     )
-    val indicatorWidth by animateDpAsState(
-        targetValue   = if (selected) 20.dp else 0.dp,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
-        label         = "tab_indicator",
+    val iconSize by animateDpAsState(
+        targetValue   = if (selected) 24.dp else 22.dp,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 500f),
+        label         = "tab_icon_size",
     )
 
-    Column(
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(VioletGlowSoft.copy(alpha = VioletGlowSoft.alpha * bgAlpha))
+            .size(width = 68.dp, height = 48.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = if (selected) 0.14f * bgAlpha else 0f),
+                        VioletCore.copy(alpha = if (selected) 0.24f * bgAlpha else 0f),
+                    )
+                )
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) {
+                    Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.36f)
+                } else {
+                    Color.Transparent
+                },
+                shape = RoundedCornerShape(18.dp),
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication        = null,
                 onClick           = onClick,
-            )
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector        = if (selected) tab.iconActive else tab.iconDefault,
             contentDescription = tab.label,
             tint               = iconTint,
-            modifier           = Modifier.size(22.dp),
-        )
-        Text(
-            text       = tab.label,
-            fontSize   = 10.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color      = labelColor,
-            maxLines   = 1,
-        )
-        // Active indicator dot
-        Box(
-            modifier = Modifier
-                .width(indicatorWidth)
-                .height(2.dp)
-                .clip(RoundedCornerShape(1.dp))
-                .background(
-                    brush = Brush.horizontalGradient(
-                        listOf(Color.Transparent, VioletCore, Color.Transparent)
-                    )
-                )
+            modifier           = Modifier.size(iconSize),
         )
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -29,6 +30,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
@@ -65,12 +68,26 @@ import com.example.orbitai.data.Chat
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
+import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
+import com.example.orbitai.data.extractDocumentText
+import com.example.orbitai.data.isImageDocument
+import com.example.orbitai.data.normalizeDocumentMimeType
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatUiEvent
 import com.example.orbitai.viewmodel.ChatViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private val SpaceAccent = Color(0xFFFBBF24)
+private val SpaceAccentDim = Color(0xFFF59E0B)
+
+private data class PendingAttachment(
+    val name: String,
+    val promptText: String,
+)
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHAT SCREEN
@@ -103,10 +120,53 @@ fun ChatScreen(
 
     val chat     = chats.find { it.id == chatId }
     val messages = chat?.messages ?: emptyList()
+    val selectedModel = remember(chat?.modelId, availableModels) {
+        availableModels.find { it.id == chat?.modelId } ?: availableModels.firstOrNull()
+    }
 
     var inputText by remember { mutableStateOf("") }
+    var pendingAttachment by remember { mutableStateOf<PendingAttachment?>(null) }
+    var attachmentError by remember { mutableStateOf<String?>(null) }
+    var attachmentInfo by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val scope     = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val documentPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        val model = selectedModel
+        if (model == null || !model.supportsDocumentAttachments()) {
+            pendingAttachment = null
+            attachmentInfo = null
+            attachmentError = "This model doesn't support file attachments yet. Use Gemma 3 or Gemini."
+            return@rememberLauncherForActivityResult
+        }
+
+        scope.launch {
+            val attachment = readAttachmentForPrompt(context, uri)
+            if (attachment == null) {
+                pendingAttachment = null
+                attachmentInfo = null
+                val mimeType = normalizeDocumentMimeType(
+                    context.contentResolver.getType(uri),
+                    "file"
+                )
+                attachmentError =
+                    if (isImageDocument(mimeType)) {
+                        "Image picking is visible now, but true image analysis is not wired into this chat engine yet."
+                    } else {
+                        "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
+                    }
+            } else {
+                pendingAttachment = attachment
+                attachmentError = null
+                attachmentInfo = "${attachment.name} attached"
+            }
+        }
+    }
 
     BackHandler(onBack = onBack)
 
@@ -171,9 +231,20 @@ fun ChatScreen(
                     onTextChange = { inputText = it },
                     onSend       = {
                         val text = inputText.trim()
-                        if (text.isNotEmpty() && !uiState.isGenerating && !uiState.isModelLoading) {
+                        val finalPrompt = buildString {
+                            if (text.isNotEmpty()) append(text)
+                            pendingAttachment?.let { attachment ->
+                                if (isNotEmpty()) append("\n\n")
+                                append(attachment.promptText)
+                            }
+                        }.trim()
+
+                        if (finalPrompt.isNotEmpty() && !uiState.isGenerating && !uiState.isModelLoading) {
                             inputText = ""
-                            viewModel.sendMessage(chatId, text)
+                            pendingAttachment = null
+                            attachmentInfo = null
+                            attachmentError = null
+                            viewModel.sendMessage(chatId, finalPrompt)
                             scope.launch {
                                 if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
                             }
@@ -182,6 +253,22 @@ fun ChatScreen(
                     onStop       = { viewModel.stopGeneration() },
                     isGenerating = uiState.isGenerating,
                     isLoading    = uiState.isModelLoading,
+                    selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
+                    pendingAttachment = pendingAttachment,
+                    onPickAttachment = {
+                        attachmentError = null
+                        attachmentInfo = null
+                        if (selectedModel?.supportsDocumentAttachments() == true) {
+                            documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
+                        } else {
+                            pendingAttachment = null
+                            attachmentError = "Use a different model for file upload. Gemma 3 and Gemini work better here."
+                        }
+                    },
+                    onClearAttachment = {
+                        pendingAttachment = null
+                        attachmentInfo = null
+                    },
                 )
             },
         ) { padding ->
@@ -193,6 +280,12 @@ fun ChatScreen(
                 // Status banners
                 if (uiState.isModelLoading) {
                     GlassStatusBanner("Loading model…", VioletCore)
+                }
+                attachmentInfo?.let {
+                    GlassStatusBanner(it, SpaceAccent)
+                }
+                attachmentError?.let {
+                    GlassStatusBanner(it, SpaceAccent)
                 }
                 uiState.infoMessage?.let {
                     GlassStatusBanner(it, Color(0xFF34D399))
@@ -229,7 +322,10 @@ fun ChatScreen(
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 text = "How can I help you today?",
-                                style = MaterialTheme.typography.headlineLarge,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontFamily = FontFamily.Serif,
+                                    letterSpacing = 0.2.sp,
+                                ),
                                 color = TextPrimary.copy(alpha = 0.92f),
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -274,8 +370,7 @@ private fun ChatTopBar(
                 Brush.verticalGradient(
                     listOf(SpaceDust.copy(alpha = 0.95f), Color.Transparent)
                 )
-            )
-            .statusBarsPadding(),
+            ),
     ) {
         // ── Row 1: back + title + model pill ──────────────────────────────
         TopAppBar(
@@ -331,7 +426,6 @@ private fun ChatTopBar(
                 Spacer(Modifier.width(8.dp))
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-            modifier = Modifier.padding(top = 4.dp),
         )
 
         // ── Row 2: mode + space selectors ────────────────────────────────
@@ -598,17 +692,17 @@ private fun SpaceToggleChip(
     onToggleSpace: (String) -> Unit,
 ) {
     val bgColor by animateColorAsState(
-        targetValue   = if (selected) VioletFrost else GlassWhite4,
+        targetValue   = if (selected) SpaceAccent.copy(alpha = 0.18f) else GlassWhite4,
         animationSpec = tween(200),
         label         = "space_chip_bg",
     )
     val textColor by animateColorAsState(
-        targetValue   = if (selected) VioletBright else TextMuted,
+        targetValue   = if (selected) SpaceAccent else TextMuted,
         animationSpec = tween(200),
         label         = "space_chip_text",
     )
     val borderColor by animateColorAsState(
-        targetValue   = if (selected) VioletCore.copy(0.5f) else GlassBorder,
+        targetValue   = if (selected) SpaceAccent.copy(alpha = 0.55f) else GlassBorder,
         animationSpec = tween(200),
         label         = "space_chip_border",
     )
@@ -619,7 +713,12 @@ private fun SpaceToggleChip(
             .clip(RoundedCornerShape(14.dp))
             .background(bgColor)
             .background(
-                brush = Brush.linearGradient(listOf(borderColor, borderColor.copy(0.1f))),
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        borderColor.copy(alpha = if (selected) 0.28f else borderColor.alpha),
+                        borderColor.copy(alpha = 0.08f),
+                    )
+                ),
                 shape = RoundedCornerShape(14.dp),
             )
             .clickable(
@@ -1142,6 +1241,10 @@ private fun ChatInputBar(
     onStop:       () -> Unit,
     isGenerating: Boolean,
     isLoading:    Boolean,
+    selectedModelSupportsAttachments: Boolean,
+    pendingAttachment: PendingAttachment?,
+    onPickAttachment: () -> Unit,
+    onClearAttachment: () -> Unit,
 ) {
     val (voiceState, toggleVoice) = rememberVoiceInput(onTextChange = onTextChange)
     // Outer scrim fade — same as nav bar
@@ -1157,55 +1260,127 @@ private fun ChatInputBar(
             .imePadding()
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        Row(
-            modifier             = Modifier.fillMaxWidth(),
-            verticalAlignment    = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Text field — glass pill
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        if (IsOrbitDarkTheme) SpaceDust.copy(alpha = 0.85f)
-                        else Color(0xFFF0ECFF).copy(alpha = 0.82f)
+            pendingAttachment?.let { attachment ->
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    SpaceAccent.copy(alpha = 0.18f),
+                                    SpaceAccentDim.copy(alpha = 0.08f),
+                                )
+                            )
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = SpaceAccent.copy(alpha = 0.30f),
+                            shape = RoundedCornerShape(16.dp),
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        Icons.Default.AttachFile,
+                        contentDescription = null,
+                        tint = SpaceAccent,
+                        modifier = Modifier.size(16.dp),
                     )
-                    .border(
-                        width = if (IsOrbitDarkTheme) 0.5.dp else 1.dp,
-                        brush = Brush.linearGradient(
-                            colorStops = arrayOf(
-                                0.0f to (if (IsOrbitDarkTheme) Color.White else VioletCore)
-                                             .copy(alpha = if (IsOrbitDarkTheme) 0.12f else 0.25f),
-                                1.0f to VioletCore.copy(alpha = if (IsOrbitDarkTheme) 0.04f else 0.08f),
+                    Text(
+                        text = attachment.name,
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Remove attachment",
+                        tint = TextMuted,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onClearAttachment,
                             ),
-                        ),
-                        shape = RoundedCornerShape(22.dp),
-                    ),
-            ) {
-                BasicChatTextField(
-                    text         = text,
-                    onTextChange = onTextChange,
-                    onSend       = onSend,
-                    isGenerating = isGenerating,
-                    isLoading    = isLoading,
-                    isListening  = voiceState == VoiceState.Listening,
-                )
+                    )
+                }
             }
 
-            // Send / Stop / Mic button
-            if (isGenerating) {
-                StopButton(onClick = onStop)
-            } else if (voiceState == VoiceState.Listening) {
-                MicButton(isListening = true, onClick = toggleVoice)
-            } else if (text.trim().isNotEmpty()) {
-                SendButton(
-                    enabled   = !isLoading,
-                    isLoading = isLoading,
-                    onClick   = onSend,
-                )
-            } else {
-                MicButton(isListening = false, onClick = toggleVoice)
+            Row(
+                modifier             = Modifier.fillMaxWidth(),
+                verticalAlignment    = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Text field — glass pill
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(
+                            if (IsOrbitDarkTheme) {
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        VioletCore.copy(alpha = 0.08f),
+                                        SpaceDust.copy(alpha = 0.80f),
+                                        SpaceNebula.copy(alpha = 0.90f),
+                                    )
+                                )
+                            } else {
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFFF0ECFF).copy(alpha = 0.84f),
+                                        Color.White.copy(alpha = 0.82f),
+                                    )
+                                )
+                            }
+                        )
+                        .border(
+                            width = if (IsOrbitDarkTheme) 0.8.dp else 1.dp,
+                            brush = Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to (if (IsOrbitDarkTheme) Color.White else VioletCore)
+                                        .copy(alpha = if (IsOrbitDarkTheme) 0.14f else 0.25f),
+                                    1.0f to VioletCore.copy(alpha = if (IsOrbitDarkTheme) 0.06f else 0.08f),
+                                ),
+                            ),
+                            shape = RoundedCornerShape(18.dp),
+                        ),
+                ) {
+                    BasicChatTextField(
+                        text         = text,
+                        onTextChange = onTextChange,
+                        onSend       = onSend,
+                        isGenerating = isGenerating,
+                        isLoading    = isLoading,
+                        isListening  = voiceState == VoiceState.Listening,
+                        attachmentsEnabled = selectedModelSupportsAttachments,
+                        onPickAttachment = onPickAttachment,
+                    )
+                }
+
+                // Send / Stop / Mic button
+                if (isGenerating) {
+                    StopButton(onClick = onStop)
+                } else if (voiceState == VoiceState.Listening) {
+                    MicButton(isListening = true, onClick = toggleVoice)
+                } else if (text.trim().isNotEmpty() || pendingAttachment != null) {
+                    SendButton(
+                        enabled   = !isLoading,
+                        isLoading = isLoading,
+                        onClick   = onSend,
+                    )
+                } else {
+                    MicButton(isListening = false, onClick = toggleVoice)
+                }
             }
         }
     }
@@ -1219,19 +1394,48 @@ private fun BasicChatTextField(
     isGenerating: Boolean,
     isLoading:    Boolean,
     isListening:  Boolean = false,
+    attachmentsEnabled: Boolean,
+    onPickAttachment: () -> Unit,
 ) {
     TextField(
         value            = text,
         onValueChange    = onTextChange,
         modifier         = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 48.dp),
+            .height(48.dp),
         placeholder      = {
             Text(
                 if (isListening) "Listening…" else "Message…",
                 style = MaterialTheme.typography.bodyLarge,
                 color = TextMuted,
             )
+        },
+        leadingIcon      = {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (attachmentsEnabled) {
+                            SpaceAccent.copy(alpha = 0.18f)
+                        } else {
+                            Color.White.copy(alpha = 0.05f)
+                        }
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onPickAttachment,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = "Upload file",
+                    tint = if (attachmentsEnabled) SpaceAccent else TextMuted.copy(alpha = 0.85f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         },
         colors           = TextFieldDefaults.colors(
             focusedContainerColor    = Color.Transparent,
@@ -1242,7 +1446,8 @@ private fun BasicChatTextField(
             unfocusedTextColor       = TextPrimary,
             cursorColor              = VioletBright,
         ),
-        maxLines         = 6,
+        singleLine       = true,
+        maxLines         = 1,
         keyboardOptions  = KeyboardOptions(
             capitalization = KeyboardCapitalization.Sentences,
             imeAction      = ImeAction.Default,
@@ -1257,25 +1462,27 @@ private fun SendButton(
     isLoading: Boolean,
     onClick:   () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                if (enabled) OrbitGradients.primaryButton
-                else Brush.linearGradient(listOf(GlassWhite8, GlassWhite8))
+    GlassyComposerButton(
+        enabled = enabled,
+        onClick = onClick,
+        glowColor = VioletCore.copy(alpha = 0.26f),
+        fill = if (enabled) {
+            Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = 0.12f),
+                    VioletCore.copy(alpha = 0.88f),
+                    VioletBright.copy(alpha = 0.74f),
+                )
             )
-            .then(
-                if (enabled) Modifier.glowBorder(VioletCore.copy(0.4f), 16.dp)
-                else Modifier
+        } else {
+            Brush.linearGradient(listOf(GlassWhite8, GlassWhite8))
+        },
+        border = Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = if (enabled) 0.24f else 0.10f),
+                VioletBright.copy(alpha = if (enabled) 0.30f else 0.08f),
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                enabled           = enabled,
-                onClick           = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+        ),
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -1296,17 +1503,23 @@ private fun SendButton(
 
 @Composable
 private fun StopButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(DestructiveSoft)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+    GlassyComposerButton(
+        enabled = true,
+        onClick = onClick,
+        glowColor = Destructive.copy(alpha = 0.22f),
+        fill = Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = 0.10f),
+                DestructiveSoft.copy(alpha = 0.90f),
+                Destructive.copy(alpha = 0.48f),
+            )
+        ),
+        border = Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = 0.18f),
+                Destructive.copy(alpha = 0.28f),
+            )
+        ),
     ) {
         Icon(
             Icons.Default.Stop,
@@ -1329,25 +1542,28 @@ private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
         ),
         label = "mic_scale",
     )
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                if (isListening) Brush.linearGradient(listOf(Destructive, Color(0xFFFF6B6B)))
-                else OrbitGradients.primaryButton
+    GlassyComposerButton(
+        enabled = true,
+        onClick = onClick,
+        glowColor = if (isListening) Destructive.copy(alpha = 0.30f) else VioletCore.copy(alpha = 0.24f),
+        fill = if (isListening) {
+            Brush.linearGradient(listOf(Destructive, Color(0xFFFF6B6B)))
+        } else {
+            Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = 0.12f),
+                    VioletCore.copy(alpha = 0.82f),
+                    VioletBright.copy(alpha = 0.66f),
+                )
             )
-            .then(
-                if (isListening) Modifier.glowBorder(Destructive.copy(alpha = 0.5f), 16.dp)
-                else Modifier.glowBorder(VioletCore.copy(alpha = 0.4f), 16.dp)
+        },
+        border = Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = 0.24f),
+                if (isListening) Destructive.copy(alpha = 0.34f) else VioletBright.copy(alpha = 0.28f),
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+        ),
+        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale },
     ) {
         Icon(
             Icons.Default.Mic,
@@ -1356,6 +1572,43 @@ private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
             modifier = Modifier.size(22.dp),
         )
     }
+}
+
+@Composable
+private fun GlassyComposerButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    fill: Brush,
+    border: Brush,
+    glowColor: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(fill)
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.White.copy(alpha = 0.18f),
+                        0.35f to Color.White.copy(alpha = 0.07f),
+                        1.0f to Color.Transparent,
+                    )
+                )
+            )
+            .border(1.dp, border, RoundedCornerShape(16.dp))
+            .then(if (enabled) Modifier.glowBorder(glowColor, 16.dp) else Modifier)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+        content = content,
+    )
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1409,3 +1662,38 @@ private fun animateColorAsState(
         animationSpec = animationSpec,
         label         = label,
     )
+
+private fun LlmModel.supportsDocumentAttachments(): Boolean {
+    val normalizedId = id.lowercase()
+    return provider == com.example.orbitai.data.ModelProvider.GEMINI ||
+        normalizedId.startsWith("gemma3") ||
+        normalizedId.startsWith("gemma-3")
+}
+
+private suspend fun readAttachmentForPrompt(
+    context: android.content.Context,
+    uri: Uri,
+): PendingAttachment? = withContext(Dispatchers.IO) {
+    val resolver = context.contentResolver
+    val name = resolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        cursor.moveToFirst()
+        if (nameIndex >= 0) cursor.getString(nameIndex) else null
+    } ?: "document"
+    val mimeType = normalizeDocumentMimeType(resolver.getType(uri), name)
+    val content = extractDocumentText(context, uri, mimeType)
+        .replace("\r\n", "\n")
+        .trim()
+        .take(6000)
+
+    if (content.isBlank()) return@withContext null
+
+    PendingAttachment(
+        name = name,
+        promptText = buildString {
+            append("Attached file: ").append(name).append('\n')
+            append("Please use the file below while answering.\n\n")
+            append(content)
+        }
+    )
+}

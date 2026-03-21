@@ -12,6 +12,9 @@ import com.example.orbitai.data.db.RagStatus
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.data.db.SpaceEntity
 import com.example.orbitai.data.db.toDomain
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.example.orbitai.data.rag.EmbeddingModel
 import com.example.orbitai.data.rag.cosineSimilarity
 import com.example.orbitai.data.rag.toByteArray
@@ -77,7 +80,7 @@ class SpaceRepository(private val context: Context) {
                 Pair(n, s)
             } ?: Pair("document", 0L)
 
-            val mimeType = cr.getType(uri) ?: "application/octet-stream"
+            val mimeType = normalizeDocumentMimeType(cr.getType(uri), name)
             val docId    = UUID.randomUUID().toString()
 
             ragDao.insertDocument(
@@ -100,8 +103,8 @@ class SpaceRepository(private val context: Context) {
     private suspend fun processDocument(docId: String, uri: Uri, mimeType: String) {
         ragDao.updateStatus(docId, RagStatus.PROCESSING.name, 0)
         try {
-            val text   = extractText(uri, mimeType)
-            val chunks = chunkText(text, docId)
+            val textBlocks = extractTextBlocks(uri, mimeType)
+            val chunks     = chunkTextBlocks(textBlocks, docId)
 
             val embedder = EmbeddingModel.create(context)
             val chunksWithEmbeddings = if (embedder != null) {
@@ -120,46 +123,109 @@ class SpaceRepository(private val context: Context) {
         }
     }
 
-    private fun extractText(uri: Uri, mimeType: String): String = when {
-        mimeType == "application/pdf" -> extractPdfText(uri)
-        mimeType.startsWith("text/")  ->
-            context.contentResolver.openInputStream(uri)
-                ?.bufferedReader()?.readText() ?: ""
-        else -> ""
+    private fun extractTextBlocks(uri: Uri, mimeType: String): List<String> = when {
+        mimeType == "application/pdf" -> extractPdfPages(uri)
+        isTextLikeDocument(mimeType)  -> extractPlainTextBlocks(uri)
+        else -> emptyList()
     }
 
-    private fun extractPdfText(uri: Uri): String = try {
-        val pfd = context.contentResolver.openFileDescriptor(uri, "r")
-            ?: return "[PDF — could not open]"
-        pfd.use {
-            val renderer  = android.graphics.pdf.PdfRenderer(it)
-            val pageCount = renderer.pageCount
-            renderer.close()
-            "[PDF — $pageCount pages — full text extraction coming soon]"
-        }
-    } catch (e: Exception) {
-        "[PDF — error: ${e.message}]"
-    }
+    private fun extractPlainTextBlocks(uri: Uri): List<String> {
+        val text = context.contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            .orEmpty()
+            .replace("\r\n", "\n")
+            .trim()
 
-    private fun chunkText(text: String, docId: String, chunkWordSize: Int = 500): List<RagChunkEntity> {
         if (text.isBlank()) return emptyList()
-        val words      = text.split(Regex("\\s+")).filter { it.isNotBlank() }
-        val stride     = (chunkWordSize * 3) / 4
-        val chunks     = mutableListOf<RagChunkEntity>()
-        var idx        = 0
+
+        return text
+            .split(Regex("\\n\\s*\\n+"))
+            .map { normalizeChunkText(it) }
+            .filter { it.isNotBlank() }
+    }
+
+    private fun extractPdfPages(uri: Uri): List<String> = try {
+        PDFBoxResourceLoader.init(context)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            PDDocument.load(input).use { document ->
+                val stripper = PDFTextStripper().apply { sortByPosition = true }
+                (1..document.numberOfPages).mapNotNull { pageNumber ->
+                    stripper.startPage = pageNumber
+                    stripper.endPage = pageNumber
+                    val pageText = normalizeChunkText(stripper.getText(document))
+                    if (pageText.isBlank()) null else "[Page $pageNumber]\n$pageText"
+                }
+            }
+        } ?: emptyList()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private fun chunkTextBlocks(
+        textBlocks: List<String>,
+        docId: String,
+        chunkWordSize: Int = 500,
+        overlapWordCount: Int = 125,
+    ): List<RagChunkEntity> {
+        if (textBlocks.isEmpty()) return emptyList()
+
+        val chunks = mutableListOf<RagChunkEntity>()
         var chunkIndex = 0
-        while (idx < words.size) {
-            val end = minOf(idx + chunkWordSize, words.size)
+        var currentWords = mutableListOf<String>()
+
+        fun flushChunk() {
+            if (currentWords.isEmpty()) return
             chunks += RagChunkEntity(
                 id         = UUID.randomUUID().toString(),
                 docId      = docId,
                 chunkIndex = chunkIndex++,
-                content    = words.subList(idx, end).joinToString(" "),
+                content    = currentWords.joinToString(" "),
             )
-            idx += stride
+            currentWords = currentWords.takeLast(overlapWordCount).toMutableList()
         }
+
+        textBlocks.forEach { block ->
+            val blockWords = block.split(Regex("\\s+")).filter { it.isNotBlank() }
+            if (blockWords.isEmpty()) return@forEach
+
+            if (currentWords.isNotEmpty() && currentWords.size + blockWords.size > chunkWordSize) {
+                flushChunk()
+            }
+
+            if (blockWords.size >= chunkWordSize) {
+                var start = 0
+                while (start < blockWords.size) {
+                    val preservedOverlap = if (currentWords.isEmpty()) emptyList() else currentWords
+                    val availableWords = (chunkWordSize - preservedOverlap.size).coerceAtLeast(1)
+                    val end = minOf(start + availableWords, blockWords.size)
+                    currentWords = (preservedOverlap + blockWords.subList(start, end)).toMutableList()
+                    flushChunk()
+                    start = end
+                }
+            } else {
+                currentWords.addAll(blockWords)
+            }
+        }
+
+        if (currentWords.isNotEmpty()) {
+            chunks += RagChunkEntity(
+                id         = UUID.randomUUID().toString(),
+                docId      = docId,
+                chunkIndex = chunkIndex,
+                content    = currentWords.joinToString(" "),
+            )
+        }
+
         return chunks
     }
+
+    private fun normalizeChunkText(text: String): String =
+        text
+            .replace(Regex("[\\t\\x0B\\f\\r ]+"), " ")
+            .replace(Regex(" *\\n *"), "\n")
+            .replace(Regex("\\n{3,}"), "\n\n")
+            .trim()
 
     suspend fun deleteDocument(id: String) = withContext(Dispatchers.IO) {
         ragDao.deleteDocument(id)

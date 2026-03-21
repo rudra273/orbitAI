@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,12 +15,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -36,9 +40,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.example.orbitai.R
+import com.example.orbitai.data.LlmModel
+import com.example.orbitai.data.TokenStore
 import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.tools.bubble.OrbitBubbleService
 import com.example.orbitai.ui.theme.GlassWhite20
@@ -46,11 +54,16 @@ import com.example.orbitai.ui.theme.TextMuted
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.ui.theme.VioletBright
 import com.example.orbitai.ui.theme.VioletCore
+import com.example.orbitai.ui.theme.GlassWhite8
 import com.example.orbitai.ui.screens.OrbitSlider
+
+private val BubbleOrange = Color(0xFFF97316)
 
 @Composable
 fun OrbitBubbleSettingsScreen(
     toolSettingsStore: ToolSettingsStore,
+    tokenStore: TokenStore,
+    availableModels: List<LlmModel>,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -60,6 +73,7 @@ fun OrbitBubbleSettingsScreen(
     var bubbleIdleAlphaPercent by remember { mutableIntStateOf(toolSettingsStore.bubbleIdleAlphaPercent) }
     var bubbleStyle by remember { mutableStateOf(toolSettingsStore.bubbleStyle) }
     var resultsInOverlay by remember { mutableStateOf(toolSettingsStore.bubbleResultsInOverlay) }
+    var bubbleModelId by remember { mutableStateOf(toolSettingsStore.bubbleModelId) }
     var overlayGranted by remember { mutableStateOf(OrbitBubbleService.canDrawOverlays(context)) }
     var audioGranted by remember {
         mutableStateOf(
@@ -120,6 +134,7 @@ fun OrbitBubbleSettingsScreen(
         bubbleIdleAlphaPercent = toolSettingsStore.bubbleIdleAlphaPercent
         bubbleStyle = toolSettingsStore.bubbleStyle
         resultsInOverlay = toolSettingsStore.bubbleResultsInOverlay
+        bubbleModelId = toolSettingsStore.bubbleModelId
         if (bubbleEnabled) OrbitBubbleService.start(context)
     }
 
@@ -150,13 +165,94 @@ fun OrbitBubbleSettingsScreen(
 
     SettingsSubScreen(
         title = "Orbit Bubble",
-        icon = Icons.Default.ChatBubble,
-        accent = Color(0xFFF59E0B),
+        icon = Icons.Default.Memory,
+        accent = BubbleOrange,
         onBack = onBack,
+        iconPainter = painterResource(R.drawable.vector_logo),
     ) {
         SettingsDescription("Manage floating bubble visibility and behavior over other apps.")
 
-        GlassCard(accent = Color(0xFFF59E0B)) {
+        // ── Model Selector ─────────────────────────────────────────────────
+        if (availableModels.isNotEmpty()) {
+            SettingsSectionLabel("AI Model")
+            GlassCard(accent = BubbleOrange) {
+                if (availableModels.isEmpty()) {
+                    Text(
+                        "No models available. Configure Gemini or download an on-device model.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                        availableModels.forEachIndexed { index, model ->
+                            val isSelected = bubbleModelId == model.id
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) {
+                                        bubbleModelId = model.id
+                                        toolSettingsStore.bubbleModelId = model.id
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) BubbleOrange else GlassWhite20
+                                        )
+                                        .border(
+                                            width = if (isSelected) 0.dp else 1.5.dp,
+                                            color = if (isSelected) Color.Transparent else TextMuted.copy(0.4f),
+                                            shape = CircleShape,
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White),
+                                        )
+                                    }
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        model.displayName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = if (isSelected) TextPrimary else TextMuted,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    )
+                                    Text(
+                                        "${model.paramCount} · ${model.format.badgeLabel()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextMuted.copy(if (isSelected) 0.8f else 0.5f),
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Memory,
+                                        contentDescription = null,
+                                        tint = BubbleOrange,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                            if (index < availableModels.lastIndex) OrbitDivider()
+                        }
+                    }
+                }
+            }
+        }
+
+        GlassCard(accent = BubbleOrange) {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 RowSetting(
                     title = "Enable bubble",
@@ -171,7 +267,7 @@ fun OrbitBubbleSettingsScreen(
                             onCheckedChange = ::updateBubble,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFFF59E0B),
+                                checkedTrackColor = BubbleOrange,
                                 uncheckedThumbColor = Color.White,
                                 uncheckedTrackColor = GlassWhite20,
                             ),
@@ -197,7 +293,7 @@ fun OrbitBubbleSettingsScreen(
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFFF59E0B),
+                                checkedTrackColor = BubbleOrange,
                                 uncheckedThumbColor = Color.White,
                                 uncheckedTrackColor = GlassWhite20,
                             ),
@@ -248,7 +344,7 @@ fun OrbitBubbleSettingsScreen(
                     valueStr = "${responseHeightDp} dp",
                     range = 70f..360f,
                     steps = 10,
-                    accent = Color(0xFFF59E0B),
+                    accent = BubbleOrange,
                     hint = "Adjust overlay output panel height.",
                     onChange = { value ->
                         responseHeightDp = value.toInt()
@@ -264,7 +360,7 @@ fun OrbitBubbleSettingsScreen(
                     valueStr = "${bubbleIdleAlphaPercent}%",
                     range = 20f..100f,
                     steps = 15,
-                    accent = Color(0xFFF59E0B),
+                    accent = BubbleOrange,
                     hint = "How visible the bubble stays when not interacting.",
                     onChange = { value ->
                         bubbleIdleAlphaPercent = value.toInt()

@@ -87,7 +87,7 @@ fun HomeScreen(
                 )
             },
             topBar = {
-                ChatListTopBar()
+                ChatListTopBar(chatCount = sorted.size)
             },
         ) { padding ->
             if (sorted.isEmpty()) {
@@ -137,35 +137,45 @@ fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChatListTopBar() {
-    TopAppBar(
-        windowInsets = WindowInsets(0, 0, 0, 0),
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(
-                    text       = "Chats",
-                    style      = MaterialTheme.typography.headlineLarge,
-                    color      = TextPrimary,
-                )
-                Text(
-                    text  = "OrbitAI",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color        = VioletBright,
-                        letterSpacing = 1.5.sp,
-                        fontWeight   = FontWeight.SemiBold,
-                    ),
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Transparent,
-        ),
-        modifier = Modifier.padding(top = 4.dp),
-    )
+private fun ChatListTopBar(chatCount: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "Chats",
+                style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = if (chatCount == 1) "1 chat" else "$chatCount chats",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextMuted,
+            )
+        }
+
+        Text(
+            text = "Orbit AI",
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = VioletBright,
+                letterSpacing = 1.8.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
 }
 
 @Composable
 private fun ChatListFab(onClick: () -> Unit) {
+    val isDark = IsOrbitDarkTheme
+    val shape = RoundedCornerShape(20.dp)
+
     Box(
         modifier = Modifier
             .size(56.dp)
@@ -176,19 +186,55 @@ private fun ChatListFab(onClick: () -> Unit) {
                             isAntiAlias = true
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                24f, 0f, 4f,
-                                VioletCore.copy(alpha = 0.35f).toArgb(),
+                                if (isDark) 34f else 24f,
+                                0f, if (isDark) 8f else 4f,
+                                VioletCore.copy(alpha = if (isDark) 0.28f else 0.24f).toArgb(),
                             )
                         }
                     }
                     canvas.drawRoundRect(
                         0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
+                        20.dp.toPx(), 20.dp.toPx(), paint,
                     )
                 }
             }
-            .clip(RoundedCornerShape(18.dp))
-            .background(OrbitGradients.primaryButton)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    colors = if (isDark) {
+                        listOf(
+                            Color.White.copy(alpha = 0.10f),
+                            VioletCore.copy(alpha = 0.88f),
+                            VioletBright.copy(alpha = 0.72f),
+                        )
+                    } else {
+                        listOf(
+                            Color.White.copy(alpha = 0.92f),
+                            VioletCore.copy(alpha = 0.92f),
+                            VioletBright.copy(alpha = 0.86f),
+                        )
+                    }
+                )
+            )
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.White.copy(alpha = if (isDark) 0.22f else 0.38f),
+                        0.28f to Color.White.copy(alpha = if (isDark) 0.10f else 0.12f),
+                        1.0f to Color.Transparent,
+                    )
+                )
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = if (isDark) 0.26f else 0.46f),
+                        VioletBright.copy(alpha = if (isDark) 0.40f else 0.30f),
+                    )
+                ),
+                shape = shape,
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication        = null,
@@ -235,6 +281,7 @@ private fun ChatListCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer { alpha = cardAlpha }
             .drawBehind {
                 drawIntoCanvas { canvas ->
                     val paint = Paint().apply {
@@ -242,10 +289,10 @@ private fun ChatListCard(
                             isAntiAlias = true
                             color       = android.graphics.Color.TRANSPARENT
                             setShadowLayer(
-                                if (isDark) 24f else 16f,
-                                0f, 4f,
-                                (if (isDark) Color.Black else VioletCore)
-                                    .copy(alpha = if (isDark) 0.30f else 0.08f)
+                                if (isDark) 30f else 16f,
+                                0f, if (isDark) 6f else 4f,
+                                (if (isDark) VioletCore else VioletCore)
+                                    .copy(alpha = if (isDark) 0.22f else 0.08f)
                                     .toArgb()
                             )
                         }
@@ -259,18 +306,70 @@ private fun ChatListCard(
             .clip(cardShape)
             // Glass fill
             .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else Color(0xFFF0ECFF).copy(alpha = 0.82f) // violet-tinted frost for light
+                if (isDark) {
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.0f to VioletCore.copy(alpha = 0.12f),
+                            0.24f to VioletBright.copy(alpha = 0.06f),
+                            0.62f to SpaceCloud.copy(alpha = 0.14f),
+                            1.0f to SpaceNebula.copy(alpha = 0.26f),
+                        )
+                    )
+                } else {
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFF0ECFF).copy(alpha = 0.82f),
+                            VioletCore.copy(alpha = 0.10f),
+                            Color.White.copy(alpha = 0.78f),
+                        )
+                    )
+                }
             )
             // Top sheen
             .background(
                 Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.0f  to Color.White.copy(alpha = if (isDark) 0.11f else 0.50f),
+                        0.22f to Color.White.copy(alpha = if (isDark) 0.04f else 0.10f),
                         0.5f  to Color.Transparent,
                     ),
                 )
+            )
+            .background(
+                if (isDark) {
+                    Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = 0.07f),
+                            0.18f to VioletBright.copy(alpha = 0.05f),
+                            0.42f to Color.Transparent,
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.0f to VioletBright.copy(alpha = 0.06f),
+                            0.55f to Color.Transparent,
+                            1.0f to VioletCore.copy(alpha = 0.05f),
+                        )
+                    )
+                }
+            )
+            .background(
+                if (isDark) {
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            0.72f to Color.Transparent,
+                            1.0f to SpaceDeep.copy(alpha = 0.18f),
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, Color.Transparent)
+                    )
+                }
             )
             // Glass border
             .border(
@@ -279,7 +378,7 @@ private fun ChatListCard(
                     colorStops = arrayOf(
                         0.0f to (if (isDark) Color.White else VioletCore)
                                      .copy(alpha = if (isDark) 0.18f else 0.40f),
-                        0.5f to VioletCore.copy(alpha = if (isDark) 0.12f else 0.18f),
+                        0.36f to VioletCore.copy(alpha = if (isDark) 0.13f else 0.18f),
                         1.0f to (if (isDark) Color.White else VioletCore)
                                      .copy(alpha = if (isDark) 0.05f else 0.08f),
                     ),
@@ -303,29 +402,6 @@ private fun ChatListCard(
                 .padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment    = Alignment.CenterVertically,
         ) {
-            // Icon badge — glass
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(VioletFrost)
-                    .border(
-                        width = 0.5.dp,
-                        color = VioletCore.copy(alpha = if (isDark) 0.20f else 0.25f),
-                        shape = RoundedCornerShape(13.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector        = Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = null,
-                    tint               = VioletBright,
-                    modifier           = Modifier.size(20.dp),
-                )
-            }
-
-            Spacer(Modifier.width(14.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text      = chat.title,

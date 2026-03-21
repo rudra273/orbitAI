@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
 import com.example.orbitai.data.db.RagDocument
 import com.example.orbitai.data.db.RagStatus
 import com.example.orbitai.ui.theme.*
@@ -69,15 +70,7 @@ fun SpaceDetailScreen(
     }
 
     val launchPicker = {
-        documentPicker.launch(
-            arrayOf(
-                "application/pdf",
-                "text/plain",
-                "text/markdown",
-                "text/csv",
-                "text/x-markdown",
-            )
-        )
+        documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
     }
 
     Box(

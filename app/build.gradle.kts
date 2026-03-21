@@ -105,6 +105,7 @@ dependencies {
     implementation(libs.mediapipe.llm.inference)
     implementation(libs.litertlm.android)
     implementation(libs.mediapipe.text)
+    implementation(libs.pdfbox.android)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)

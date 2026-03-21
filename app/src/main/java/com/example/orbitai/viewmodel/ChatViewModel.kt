@@ -5,7 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.orbitai.data.Chat
 import com.example.orbitai.data.ChatRepository
-import com.example.orbitai.data.InferenceSettingsStore
+import com.example.orbitai.data.ModeInferenceSettingsStore
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.LlmRepository
 import com.example.orbitai.data.MemoryFeatureStore
@@ -79,7 +79,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val llmRepo = LlmRepository(application)
     private val modelDownloader = ModelDownloader(application)
     private val tokenStore = TokenStore(application)
-    private val settingsStore = InferenceSettingsStore(application)
+    private val modeInferenceStore = ModeInferenceSettingsStore(application)
     private val spaceRepo = SpaceRepository(application)
     private val modeRepo = ModeRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
@@ -269,7 +269,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (currentAvailableModels.isEmpty()) {
             _uiState.update {
-                it.copy(loadError = "No available model found. Download one in Settings > Model or configure Gemini in Settings > Developer.")
+                it.copy(loadError = "No available model found. Download one or configure Gemini in Settings > Model.")
             }
             return
         }
@@ -287,7 +287,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             return
         }
-        val settings = settingsStore.get()
+        val activeModeId = _activeModeId.value
+        val settings = modeInferenceStore.get(activeModeId)
         val generationToken = beginNewGenerationToken()
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {

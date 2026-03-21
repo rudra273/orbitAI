@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +39,7 @@ fun SettingsSubScreen(
     icon: ImageVector,
     accent: Color = VioletCore,
     onBack: () -> Unit,
+    iconPainter: Painter? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(
@@ -74,7 +78,15 @@ fun SettingsSubScreen(
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(icon, null, tint = accent, modifier = Modifier.size(17.dp))
+                                if (iconPainter != null) {
+                                    Image(
+                                        painter = iconPainter,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(17.dp),
+                                    )
+                                } else {
+                                    Icon(icon, null, tint = accent, modifier = Modifier.size(17.dp))
+                                }
                             }
                             Text(
                                 title,
