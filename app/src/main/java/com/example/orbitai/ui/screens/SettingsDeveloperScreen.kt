@@ -39,7 +39,12 @@ fun DeveloperSettingsScreen(
         accent = Color(0xFFF472B6),
         onBack = onBack,
     ) {
-        SettingsDescription("HuggingFace token is required to download Gemma models. Custom URL lets you sideload any compatible model.")
+        SettingsDescription("Configure provider keys. Gemini appears in chat only when API key and model are set.")
+
+        SettingsSectionLabel("Gemini API")
+        GeminiApiConfigCard(tokenStore)
+
+        SettingsSectionLabel("HuggingFace")
 
         HuggingFaceTokenCard(tokenStore)
 
@@ -56,6 +61,143 @@ fun DeveloperSettingsScreen(
                 format = inferModelFormat(normalizedFileName),
             )
             downloadViewModel.startDownload(custom, url)
+        }
+    }
+}
+
+@Composable
+private fun GeminiApiConfigCard(tokenStore: TokenStore) {
+    var modelName by remember { mutableStateOf(tokenStore.geminiModelName) }
+    var apiKey by remember { mutableStateOf(tokenStore.geminiApiKey) }
+    var showApiKey by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
+
+    GlassCard(accent = Color(0xFF60A5FA)) {
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (saved) Color(0xFF34D399) else TextMuted.copy(0.4f)),
+            )
+            Text(
+                if (saved) "Gemini configured" else "Gemini not configured",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (saved) Color(0xFF34D399) else TextMuted,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        TextField(
+            value = modelName,
+            onValueChange = {
+                modelName = it.lowercase()
+                saved = false
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(GlassWhite4),
+            placeholder = {
+                Text(
+                    "model name",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = TextMuted,
+                )
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary,
+                cursorColor = Color(0xFF60A5FA),
+            ),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.None,
+                imeAction = ImeAction.Next,
+            ),
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        TextField(
+            value = apiKey,
+            onValueChange = {
+                apiKey = it
+                saved = false
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(GlassWhite4),
+            placeholder = {
+                Text(
+                    "api key",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = TextMuted,
+                )
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary,
+                cursorColor = Color(0xFF60A5FA),
+            ),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            singleLine = true,
+            visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showApiKey = !showApiKey }) {
+                    Icon(
+                        if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = "Toggle visibility",
+                        tint = TextMuted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OrbitPrimaryButton(
+                label = if (saved) "Saved" else "Save Gemini",
+                enabled = modelName.isNotBlank() && apiKey.isNotBlank() && !saved,
+                accent = Color(0xFF60A5FA),
+                onClick = {
+                    tokenStore.geminiModelName = modelName
+                    tokenStore.geminiApiKey = apiKey
+                    saved = true
+                },
+            )
+            if (saved) {
+                OrbitDestructiveButton(
+                    label = "Clear",
+                    onClick = {
+                        modelName = ""
+                        apiKey = ""
+                        tokenStore.geminiModelName = ""
+                        tokenStore.geminiApiKey = ""
+                        saved = false
+                    },
+                )
+            }
         }
     }
 }

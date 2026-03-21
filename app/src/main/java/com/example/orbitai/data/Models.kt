@@ -11,7 +11,13 @@ data class LlmModel(
     val description: String,
     val paramCount: String,        // e.g. "1.5B"
     val format: ModelFormat = ModelFormat.TASK,
+    val provider: ModelProvider = ModelProvider.LOCAL,
 )
+
+enum class ModelProvider {
+    LOCAL,
+    GEMINI,
+}
 
 enum class ModelFormat {
     TASK,
@@ -86,6 +92,6 @@ data class Chat(
     val id: String = UUID.randomUUID().toString(),
     val title: String = "New Chat",
     val messages: List<Message> = emptyList(),
-    val modelId: String = AVAILABLE_MODELS.first().id,
+    val modelId: String = "",
     val createdAt: Long = System.currentTimeMillis(),
 )

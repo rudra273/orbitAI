@@ -19,6 +19,7 @@ class ChatRepository(context: Context) {
     private val chatDao    = db.chatDao()
     private val messageDao = db.messageDao()
     private val modelDownloader = ModelDownloader(context)
+    private val tokenStore = TokenStore(context)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -32,9 +33,13 @@ class ChatRepository(context: Context) {
 
     suspend fun createChat(modelId: String? = null): Chat =
         withContext(Dispatchers.IO) {
+            val availableModels = availableChatModels(modelDownloader, tokenStore)
+            val lastSelectedModelId = tokenStore.lastSelectedModelId
             val resolvedModelId = modelId
-                ?: AVAILABLE_MODELS.firstOrNull { modelDownloader.isDownloaded(it) }?.id
-                ?: AVAILABLE_MODELS.first().id
+                ?: lastSelectedModelId.takeIf { preferredId ->
+                    preferredId.isNotBlank() && availableModels.any { it.id == preferredId }
+                }
+                ?: ""
 
             val chat = Chat(modelId = resolvedModelId)
             chatDao.insertChat(chat.toEntity())

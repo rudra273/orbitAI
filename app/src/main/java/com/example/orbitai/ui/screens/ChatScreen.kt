@@ -61,8 +61,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.Chat
+import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.Message
 import com.example.orbitai.data.Role
 import com.example.orbitai.data.db.Mode
@@ -99,6 +99,7 @@ fun ChatScreen(
     val activeSpaceIds by viewModel.activeSpaceIds.collectAsState()
     val modes          by viewModel.modes.collectAsState()
     val activeModeId   by viewModel.activeModeId.collectAsState()
+    val availableModels by viewModel.availableModels.collectAsState()
 
     val chat     = chats.find { it.id == chatId }
     val messages = chat?.messages ?: emptyList()
@@ -110,6 +111,7 @@ fun ChatScreen(
     BackHandler(onBack = onBack)
 
     LaunchedEffect(viewModel) {
+        viewModel.refreshAvailableModels()
         viewModel.events.collect { event ->
             when (event) {
                 ChatUiEvent.RequestContactsPermission -> {
@@ -156,6 +158,7 @@ fun ChatScreen(
                     activeModeId  = activeModeId,
                     spaces        = spaces,
                     activeSpaceIds = activeSpaceIds,
+                    availableModels = availableModels,
                     onBack         = onBack,
                     onModelSelected = { model -> viewModel.selectModel(chatId, model) },
                     onSelectMode    = { viewModel.selectMode(it) },
@@ -256,8 +259,9 @@ private fun ChatTopBar(
     activeModeId:   String,
     spaces:         List<Space>,
     activeSpaceIds: Set<String>,
+    availableModels: List<LlmModel>,
     onBack:         () -> Unit,
-    onModelSelected: (com.example.orbitai.data.LlmModel) -> Unit,
+    onModelSelected: (LlmModel) -> Unit,
     onSelectMode:   (String) -> Unit,
     onToggleSpace:  (String) -> Unit,
 ) {
@@ -318,7 +322,11 @@ private fun ChatTopBar(
             actions = {
                 // Model selector pill
                 if (chat != null) {
-                    ModelPill(chat = chat, onModelSelected = onModelSelected)
+                    ModelPill(
+                        chat = chat,
+                        availableModels = availableModels,
+                        onModelSelected = onModelSelected,
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
             },
@@ -382,10 +390,13 @@ private fun ChatTopBar(
 @Composable
 private fun ModelPill(
     chat:            Chat,
-    onModelSelected: (com.example.orbitai.data.LlmModel) -> Unit,
+    availableModels: List<LlmModel>,
+    onModelSelected: (LlmModel) -> Unit,
 ) {
-    var expanded    by remember { mutableStateOf(false) }
-    val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId } ?: AVAILABLE_MODELS.first()
+    if (availableModels.isEmpty()) return
+
+    var expanded by remember { mutableStateOf(false) }
+    val selectedModel = availableModels.find { it.id == chat.modelId }
 
     Box {
         val isDark = IsOrbitDarkTheme
@@ -421,7 +432,7 @@ private fun ModelPill(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text  = selectedModel.displayName,
+                    text  = selectedModel?.displayName ?: "Select model",
                     style = MaterialTheme.typography.labelMedium,
                     color = TextSecondary,
                 )
@@ -439,7 +450,7 @@ private fun ModelPill(
             onDismissRequest = { expanded = false },
             containerColor   = SpaceNebula,
         ) {
-            AVAILABLE_MODELS.forEach { model ->
+            availableModels.forEach { model ->
                 val isSelected = model.id == chat.modelId
                 DropdownMenuItem(
                     text = {
