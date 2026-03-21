@@ -88,33 +88,12 @@ jobs:
         with:
           files: app/build/outputs/apk/release/*.apk
           body: |
-
             ## Highlights
-
-            ### Introducing the Orbit Bubble Widget
-
-            The Orbit Bubble is your always-available AI assistant, floating over any app for instant access. Here’s everything you can do with it:
-
-            - **Enable/Disable Instantly:** Toggle the floating bubble on or off from the new settings page. Requires overlay and audio permissions.
-            - **Modes:**
-              - **Round:** Classic floating bubble, draggable anywhere.
-              - **Slide:** Slim, right-edge tab—half-visible for minimal distraction, always ready.
-            - **Quick Interactions:**
-              - **Tap:** Start voice-to-text and chat with AI instantly.
-              - **Long Press:** Dismiss the bubble from your screen.
-              - **Drag:** Move and dock the bubble to any screen edge. It snaps safely and stays visible.
-            - **Response Display:**
-              - **Overlay Mode:** See AI responses in a beautiful, draggable, glassy overlay right over your current app.
-              - **App Mode:** Open responses directly in the Orbit chat app.
-            - **Customization:**
-              - **Size:** Choose Small, Medium, or Large for the bubble.
-              - **Idle Transparency:** Set how see-through the bubble is when idle (20%–100%).
-              - **Response Window Height:** Adjust the overlay’s height for comfort (70–360dp).
-            - **Visual Polish:**
-              - Violet glassmorphism, dark mode support, and smooth animations.
-            - **Permissions Helper:** Settings screen guides you to grant overlay and audio permissions as needed.
-
-            The Orbit Bubble is designed for speed, privacy, and seamless multitasking—making AI just a tap away, anywhere on your device.
+            - UI redesigned with a cleaner glassy experience across the app
+            - Gemini support added
+            - Orbit Bubble improved for a smoother floating assistant experience
+            - More customizable modes and inference controls
+            - File upload support added in chat
 
           append_body: true
           generate_release_notes: true
