@@ -47,6 +47,8 @@ import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.Role
 import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.prompts.GemmaChatPromptBuilder
+import com.example.orbitai.tools.router.ToolRoute
+import com.example.orbitai.tools.router.ToolRouter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,8 +60,8 @@ import kotlinx.coroutines.withContext
 
 class OrbitBubbleService : Service() {
 
-    private val slideTabWidthDp = 24f
-    private val slideTabHeightDp = 104f
+    private var slideTabWidthDp = 24f
+    private var slideTabHeightDp = 104f
 
     // ── Window / bubble ───────────────────────────────────────────────────────
     private var windowManager: WindowManager? = null
@@ -118,6 +120,11 @@ class OrbitBubbleService : Service() {
             removeBubble()  // will re-attach below with new size
         }
         bubbleSizePx = newSizePx
+        
+        // Calculate slide tab dimensions based on bubble size (proportional scaling)
+        val bubbleSizeDp = settings.bubbleSizeDp.toFloat()
+        slideTabWidthDp = (bubbleSizeDp * 0.375f).coerceIn(16f, 32f)
+        slideTabHeightDp = (bubbleSizeDp * 1.625f).coerceIn(76f, 130f)
 
         startBubbleForeground(isListening = false)
 
@@ -351,8 +358,19 @@ class OrbitBubbleService : Service() {
 
     private fun handleTranscript(transcript: String) {
         lastTranscript = transcript
-        if (ToolSettingsStore(this).bubbleResultsInOverlay) runInlineInference(transcript)
-        else launchApp(transcript)
+        val route = ToolRouter.route(transcript)
+
+        // Tool requests need app chat flow where execution and permissions are handled.
+        if (route is ToolRoute.ToolOnly) {
+            launchApp(transcript)
+            return
+        }
+
+        if (ToolSettingsStore(this).bubbleResultsInOverlay) {
+            runInlineInference(transcript)
+        } else {
+            launchApp(transcript)
+        }
     }
 
     // ── Inline LLM inference ──────────────────────────────────────────────────
@@ -571,8 +589,37 @@ class OrbitBubbleService : Service() {
     }
 
     private fun updateResultText(text: String) {
-        resultTextView?.text = text
+        resultTextView?.text = parseSimpleMarkdown(text)
         resultScrollView?.post { resultScrollView?.fullScroll(View.FOCUS_DOWN) }
+    }
+
+    private fun parseSimpleMarkdown(text: String): android.text.Spanned {
+        // Convert markdown to Android Spanned for basic formatting
+        // Support: **bold**, *italic*, `code`, # heading
+        val pattern = Regex("""(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|^#+\s.+$)""", RegexOption.MULTILINE)
+        
+        val html = text
+            .replace(Regex("""^(#+)\s+(.+)$""", RegexOption.MULTILINE)) { match ->
+                val level = match.groupValues[1].length
+                val text = match.groupValues[2]
+                val size = when (level) {
+                    1 -> "1.5em"
+                    2 -> "1.3em"
+                    else -> "1.1em"
+                }
+                "<b style=\"font-size:$size\">$text</b><br>"
+            }
+            .replace(Regex("""\*\*([^*]+)\*\*"""), "<b>$1</b>")
+            .replace(Regex("""\*([^*]+)\*"""), "<i>$1</i>")
+            .replace(Regex("""`([^`]+)`"""), "<tt>$1</tt>")
+            .replace("\n", "<br>")
+        
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY)
+        } else {
+            @Suppress("DEPRECATION")
+            android.text.Html.fromHtml(html)
+        }
     }
 
     private fun updateBubbleUi(isActive: Boolean) {

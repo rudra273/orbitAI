@@ -14,7 +14,6 @@ class MediaPipeTaskEngine(
 ) : LlmInferenceEngine {
 
     private var engine: LlmInference? = null
-    private var session: LlmInferenceSession? = null
 
     init {
         val engineOptions = LlmInference.LlmInferenceOptions.builder()
@@ -23,59 +22,39 @@ class MediaPipeTaskEngine(
             .setPreferredBackend(LlmInference.Backend.CPU)
             .build()
         engine = LlmInference.createFromOptions(context, engineOptions)
+    }
 
+    override fun generateResponseStream(prompt: String, maxDecodedTokens: Int): Flow<String> = callbackFlow {
+        val eng = engine ?: throw IllegalStateException("No model loaded.")
         val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
             .setTopK(settings.topK)
             .setTopP(settings.topP)
             .setTemperature(settings.temperature)
             .build()
-        session = LlmInferenceSession.createFromOptions(engine!!, sessionOptions)
-    }
-
-    override fun generateResponseStream(prompt: String, maxDecodedTokens: Int): Flow<String> = callbackFlow {
-        val s = session ?: throw IllegalStateException("No model loaded.")
+        val session = LlmInferenceSession.createFromOptions(eng, sessionOptions)
 
         var tokenCount = 0
-        s.addQueryChunk(prompt)
-        s.generateResponseAsync { partial, done ->
+        session.addQueryChunk(prompt)
+        session.generateResponseAsync { partial, done ->
             tokenCount++
             trySend(partial ?: "")
             if (done || tokenCount >= maxDecodedTokens) close()
         }
 
-        awaitClose { recreateSession() }
-    }
-
-    private fun recreateSession() {
-        try {
-            session?.close()
-        } catch (_: Exception) {
-        }
-        session = null
-
-        val eng = engine ?: return
-        try {
-            val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-                .setTopK(settings.topK)
-                .setTopP(settings.topP)
-                .setTemperature(settings.temperature)
-                .build()
-            session = LlmInferenceSession.createFromOptions(eng, sessionOptions)
-        } catch (_: Exception) {
-            session = null
+        awaitClose {
+            try {
+                session.close()
+            } catch (_: Exception) {
+            }
         }
     }
 
     override fun close() {
         try {
-            session?.close()
-        } catch (_: Exception) {
-        }
-        try {
             engine?.close()
         } catch (_: Exception) {
         }
-        session = null
         engine = null
     }
+
 }

@@ -17,6 +17,19 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE id = :chatId LIMIT 1")
     suspend fun getChatById(chatId: String): ChatEntity?
 
+    @Query(
+        """
+        SELECT * FROM chats c
+        WHERE NOT EXISTS (
+            SELECT 1 FROM messages m
+            WHERE m.chatId = c.id AND m.role = 'USER'
+        )
+        ORDER BY c.createdAt DESC
+        LIMIT 1
+        """
+    )
+    suspend fun getLatestEmptyChatWithoutUserMessages(): ChatEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChat(chat: ChatEntity)
 
@@ -48,6 +61,9 @@ interface MessageDao {
         )
     """)
     suspend fun updateLastMessageContent(chatId: String, content: String)
+
+    @Query("UPDATE messages SET content = :content WHERE id = :messageId")
+    suspend fun updateMessageContentById(messageId: String, content: String)
 }
 
 @Dao
