@@ -1,5 +1,10 @@
 package com.example.orbitai.data
 
+import android.content.Context
+import android.net.Uri
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.util.Locale
 
 val SUPPORTED_DOCUMENT_MIME_TYPES = arrayOf(
@@ -12,6 +17,7 @@ val SUPPORTED_DOCUMENT_MIME_TYPES = arrayOf(
     "application/xml",
     "text/xml",
     "text/html",
+    "image/*",
 )
 
 private val extensionToMimeType = mapOf(
@@ -40,3 +46,44 @@ fun isTextLikeDocument(mimeType: String): Boolean =
     mimeType.startsWith("text/") ||
         mimeType == "application/json" ||
         mimeType == "application/xml"
+
+fun isImageDocument(mimeType: String): Boolean = mimeType.startsWith("image/")
+
+fun extractDocumentText(
+    context: Context,
+    uri: Uri,
+    mimeType: String,
+): String = when {
+    mimeType == "application/pdf" -> extractPdfText(context, uri)
+    isTextLikeDocument(mimeType) -> {
+        context.contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            .orEmpty()
+            .replace("\r\n", "\n")
+            .trim()
+    }
+    else -> ""
+}
+
+private fun extractPdfText(context: Context, uri: Uri): String = try {
+    PDFBoxResourceLoader.init(context)
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        PDDocument.load(input).use { document ->
+            val stripper = PDFTextStripper().apply { sortByPosition = true }
+            buildString {
+                for (pageNumber in 1..document.numberOfPages) {
+                    stripper.startPage = pageNumber
+                    stripper.endPage = pageNumber
+                    val pageText = stripper.getText(document).trim()
+                    if (pageText.isNotBlank()) {
+                        if (isNotEmpty()) append("\n\n")
+                        append("[Page ").append(pageNumber).append("]\n").append(pageText)
+                    }
+                }
+            }.trim()
+        }
+    }.orEmpty()
+} catch (_: Exception) {
+    ""
+}

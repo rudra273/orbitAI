@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -103,6 +105,13 @@ private val TAB_ROUTES = setOf(
     Screen.Settings.route,
 )
 
+private val SWIPE_NAV_ROUTES = listOf(
+    Screen.Chat.route,
+    Screen.Spaces.route,
+    Screen.Modes.route,
+    Screen.Settings.route,
+)
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ROOT NAV GRAPH
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -124,6 +133,16 @@ fun OrbitNavGraph(
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
     val initialChatId = rememberSaveable { overlayPromptRequest?.chatId ?: chatViewModel.createNewChat() }
+    val swipeModifier = rememberTabSwipeModifier(
+        currentRoute = currentRoute,
+        onNavigate = { route ->
+            navController.navigate(route) {
+                popUpTo(Screen.Chat.route) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        },
+    )
 
     LaunchedEffect(initialChatId) {
         navController.navigate(Screen.ChatDetail.go(initialChatId)) {
@@ -160,7 +179,9 @@ fun OrbitNavGraph(
         NavHost(
             navController    = navController,
             startDestination = Screen.Chat.route,
-            modifier         = Modifier.padding(innerPadding),
+            modifier         = Modifier
+                .padding(innerPadding)
+                .then(swipeModifier),
         ) {
 
             // ── Tab screens ────────────────────────────────────────────────
@@ -288,6 +309,39 @@ fun OrbitNavGraph(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun rememberTabSwipeModifier(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+): Modifier {
+    if (currentRoute !in SWIPE_NAV_ROUTES) return Modifier
+
+    return Modifier.pointerInput(currentRoute) {
+        var totalDrag = 0f
+        detectHorizontalDragGestures(
+            onHorizontalDrag = { _, dragAmount ->
+                totalDrag += dragAmount
+            },
+            onDragEnd = {
+                val threshold = 90f
+                val currentIndex = SWIPE_NAV_ROUTES.indexOf(currentRoute)
+                val targetRoute = when {
+                    totalDrag <= -threshold && currentIndex < SWIPE_NAV_ROUTES.lastIndex ->
+                        SWIPE_NAV_ROUTES[currentIndex + 1]
+                    totalDrag >= threshold && currentIndex > 0 ->
+                        SWIPE_NAV_ROUTES[currentIndex - 1]
+                    else -> null
+                }
+                totalDrag = 0f
+                targetRoute?.let(onNavigate)
+            },
+            onDragCancel = {
+                totalDrag = 0f
+            },
+        )
     }
 }
 

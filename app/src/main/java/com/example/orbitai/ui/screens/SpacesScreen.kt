@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,10 +24,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
@@ -40,8 +40,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -63,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.orbitai.data.db.RagDocument
 import com.example.orbitai.data.db.Space
 import com.example.orbitai.ui.theme.GlassBorder
@@ -78,9 +77,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
 import kotlin.math.absoluteValue
@@ -88,17 +84,101 @@ import kotlin.math.absoluteValue
 private val SpacesAccent = Color(0xFFFBBF24)
 private val SpacesAccentDim = Color(0xFFF59E0B)
 
+@Composable
+private fun SpacesTopBar(
+    spaceCount: Int,
+    onCreate: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "Spaces",
+                style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "$spaceCount space${if (spaceCount != 1) "s" else ""}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextMuted,
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(40.dp)
+                .drawBehind {
+                    drawIntoCanvas { canvas ->
+                        val paint = Paint().apply {
+                            asFrameworkPaint().apply {
+                                isAntiAlias = true
+                                color = android.graphics.Color.TRANSPARENT
+                                setShadowLayer(18f, 0f, 4f, SpacesAccent.copy(alpha = 0.18f).toArgb())
+                            }
+                        }
+                        canvas.drawRoundRect(0f, 0f, size.width, size.height, 14.dp.toPx(), 14.dp.toPx(), paint)
+                    }
+                }
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.09f else 0.88f),
+                            SpacesAccent.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.12f),
+                            Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.05f else 0.80f),
+                        )
+                    )
+                )
+                .border(
+                    1.dp,
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.62f),
+                            if (IsOrbitDarkTheme) {
+                                SpacesAccent.copy(alpha = 0.26f)
+                            } else {
+                                SpacesAccent.copy(alpha = 0.34f)
+                            },
+                        )
+                    ),
+                    RoundedCornerShape(12.dp),
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCreate,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "Create Space",
+                tint = SpacesAccent,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpacesScreen(
     viewModel: SpacesViewModel,
     onOpenSpace: (spaceId: String) -> Unit,
 ) {
+    val isDark = IsOrbitDarkTheme
     val spaces by viewModel.spaces.collectAsState()
     val semanticReady = remember(spaces) { viewModel.isSemanticModelReady() }
     var showCreateDialog by remember { mutableStateOf(false) }
-    val pagerState = rememberPagerState(pageCount = { spaces.size })
     var pendingPickerSpaceId by remember { mutableStateOf<String?>(null) }
+    val pagerState = rememberPagerState(pageCount = { spaces.size })
 
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -133,8 +213,8 @@ fun SpacesScreen(
                 .background(
                     Brush.radialGradient(
                         colorStops = arrayOf(
-                            0.0f to SpacesAccent.copy(alpha = 0.07f),
-                            0.5f to SpacesAccent.copy(alpha = 0.02f),
+                            0.0f to SpacesAccent.copy(alpha = if (isDark) 0.04f else 0.03f),
+                            0.5f to SpacesAccent.copy(alpha = if (isDark) 0.012f else 0.01f),
                             1.0f to Color.Transparent,
                         ),
                         radius = 800f,
@@ -145,61 +225,9 @@ fun SpacesScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
-                    windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-                    title = {
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(
-                                "Spaces",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = TextPrimary,
-                            )
-                            Text(
-                                "${spaces.size} space${if (spaces.size != 1) "s" else ""}",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color = TextMuted,
-                                    letterSpacing = 1.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                            )
-                        }
-                    },
-                    actions = {
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(40.dp)
-                                .drawBehind {
-                                    drawIntoCanvas { canvas ->
-                                        val paint = Paint().apply {
-                                            asFrameworkPaint().apply {
-                                                isAntiAlias = true
-                                                color = android.graphics.Color.TRANSPARENT
-                                                setShadowLayer(16f, 0f, 3f, SpacesAccent.copy(alpha = 0.35f).toArgb())
-                                            }
-                                        }
-                                        canvas.drawRoundRect(0f, 0f, size.width, size.height, 14.dp.toPx(), 14.dp.toPx(), paint)
-                                    }
-                                }
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim)))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { showCreateDialog = true },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Create Space",
-                                tint = SpaceDeep,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.padding(top = 4.dp),
+                SpacesTopBar(
+                    spaceCount = spaces.size,
+                    onCreate = { showCreateDialog = true },
                 )
             },
         ) { padding ->
@@ -207,7 +235,7 @@ fun SpacesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 2.dp),
             ) {
                 if (!semanticReady) {
                     Box(
@@ -216,6 +244,18 @@ fun SpacesScreen(
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(GlassWhite8)
+                            .background(
+                                if (isDark) {
+                                    Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                                } else {
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            SpacesAccent.copy(alpha = 0.10f),
+                                            Color.White.copy(alpha = 0.68f),
+                                        )
+                                    )
+                                }
+                            )
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                     ) {
                         Text(
@@ -227,67 +267,65 @@ fun SpacesScreen(
                 }
 
                 if (spaces.isEmpty()) {
-                SpacesEmptyState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 0.dp),
-                    onCreate = { showCreateDialog = true },
-                )
-            } else {
-                HorizontalPager(
-                    state = pagerState,
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    pageSpacing = 14.dp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                ) { page ->
-                    val space = spaces[page]
-                    val docs by remember(space.id) {
-                        viewModel.observeDocumentsInSpace(space.id)
-                    }.collectAsState(initial = emptyList())
-                    val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
-                    Box(
+                    SpacesEmptyState(
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer {
-                                val scale = 1f - 0.10f * pageOffset.coerceIn(0f, 1f)
-                                scaleX = scale
-                                scaleY = scale
-                                alpha = 1f - 0.38f * pageOffset.coerceIn(0f, 1f)
-                            },
-                    ) {
-                        SpaceFullCard(
-                            space = space,
-                            docs = docs,
-                            onOpenSpace = { onOpenSpace(space.id) },
-                            onAddDoc = { launchPickerForSpace(space.id) },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                }
-                if (spaces.size > 1) {
-                    Row(
+                            .padding(top = 0.dp),
+                        onCreate = { showCreateDialog = true },
+                    )
+                } else {
+                    BoxWithConstraints(
                         modifier = Modifier
+                            .weight(1f)
                             .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+                            .padding(top = 2.dp),
                     ) {
-                        spaces.forEachIndexed { index, _ ->
-                            val isSelected = pagerState.currentPage == index
+                        val topPeekHeight = 24.dp
+                        val bottomPeekHeight = 14.dp
+                        val pageHeight = (maxHeight - topPeekHeight - bottomPeekHeight - 8.dp).coerceAtLeast(296.dp)
+
+                        VerticalPager(
+                            state = pagerState,
+                            pageSize = PageSize.Fixed(pageHeight),
+                            contentPadding = PaddingValues(
+                                start = 20.dp,
+                                top = topPeekHeight,
+                                end = 20.dp,
+                                bottom = bottomPeekHeight,
+                            ),
+                            pageSpacing = 6.dp,
+                        ) { page ->
+                            val space = spaces[page]
+                            val docs by remember(space.id) {
+                                viewModel.observeDocumentsInSpace(space.id)
+                            }.collectAsState(initial = emptyList())
+                            val rawPageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                            val pageOffset = rawPageOffset.absoluteValue.coerceIn(0f, 1f)
+
                             Box(
                                 modifier = Modifier
-                                    .padding(horizontal = 3.dp)
-                                    .size(if (isSelected) 8.dp else 5.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) SpacesAccent else SpacesAccent.copy(alpha = 0.32f)),
-                            )
+                                    .fillMaxSize()
+                                    .padding(vertical = 2.dp)
+                                    .zIndex(1f - pageOffset)
+                                    .graphicsLayer {
+                                        val signedOffset = rawPageOffset.coerceIn(-1f, 1f)
+                                        scaleX = 1f - 0.022f * pageOffset
+                                        scaleY = 1f - 0.06f * pageOffset
+                                        alpha = 1f - 0.22f * pageOffset
+                                        translationY = 18f * signedOffset
+                                    },
+                            ) {
+                                SpaceFullCard(
+                                    space = space,
+                                    docs = docs,
+                                    onOpenSpace = { onOpenSpace(space.id) },
+                                    onAddDoc = { launchPickerForSpace(space.id) },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         }
                     }
                 }
-            }
             }
         }
     }
@@ -309,24 +347,36 @@ private fun SpaceDocRow(doc: RagDocument) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.White.copy(alpha = if (isDark) 0.05f else 0.04f))
+            .clip(RoundedCornerShape(6.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        SpacesAccent.copy(alpha = if (isDark) 0.06f else 0.10f),
+                        Color.White.copy(alpha = if (isDark) 0.035f else 0.18f),
+                    )
+                )
+            )
+            .border(
+                width = if (isDark) 0.dp else 0.8.dp,
+                color = if (isDark) Color.Transparent else SpacesAccent.copy(alpha = 0.26f),
+                shape = RoundedCornerShape(6.dp),
+            )
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(SpacesAccent.copy(alpha = if (isDark) 0.13f else 0.11f)),
+                .size(22.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(SpacesAccent.copy(alpha = if (isDark) 0.10f else 0.09f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Default.FolderOpen,
                 contentDescription = null,
                 tint = SpacesAccent,
-                modifier = Modifier.size(13.dp),
+                modifier = Modifier.size(11.dp),
             )
         }
         Text(
@@ -351,34 +401,59 @@ private fun SpaceFullCard(
     val dateStr = remember(space.createdAt) {
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(space.createdAt))
     }
-    val daysOld = remember(space.createdAt) {
-        ((System.currentTimeMillis() - space.createdAt).coerceAtLeast(0L) / (24L * 60L * 60L * 1000L)).toInt()
-    }
     val initial = space.name.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(20.dp)
 
     Column(
         modifier = modifier
             .clip(shape)
-            .background(SpacesAccent.copy(alpha = if (isDark) 0.10f else 0.12f))
+            .background(
+                if (isDark) {
+                    Brush.horizontalGradient(
+                        listOf(
+                            SpacesAccent.copy(alpha = 0.08f),
+                            Color.White.copy(alpha = 0.045f),
+                            SpaceNebula.copy(alpha = 0.94f),
+                        )
+                    )
+                } else {
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFFFF4D8).copy(alpha = 0.82f),
+                            SpacesAccent.copy(alpha = 0.10f),
+                            Color.White.copy(alpha = 0.78f),
+                        )
+                    )
+                }
+            )
             .background(
                 Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0.0f to Color.White.copy(alpha = if (isDark) 0.14f else 0.50f),
-                        0.30f to Color.White.copy(alpha = if (isDark) 0.03f else 0.10f),
+                        0.0f to Color.White.copy(alpha = if (isDark) 0.12f else 0.50f),
+                        0.30f to Color.White.copy(alpha = if (isDark) 0.028f else 0.10f),
                         1.0f to Color.Transparent,
                     )
                 )
             )
             .border(
-                width = 1.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to SpacesAccent.copy(alpha = if (isDark) 0.45f else 0.65f),
-                        0.5f to SpacesAccent.copy(alpha = if (isDark) 0.18f else 0.28f),
-                        1.0f to Color.White.copy(alpha = if (isDark) 0.07f else 0.18f),
+                width = if (isDark) 1.dp else 1.2.dp,
+                brush = if (isDark) {
+                    Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to SpacesAccent.copy(alpha = 0.26f),
+                            0.5f to SpacesAccent.copy(alpha = 0.10f),
+                            1.0f to Color.White.copy(alpha = 0.06f),
+                        )
                     )
-                ),
+                } else {
+                    Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to SpacesAccent.copy(alpha = 0.40f),
+                            0.5f to SpacesAccent.copy(alpha = 0.18f),
+                            1.0f to SpacesAccent.copy(alpha = 0.08f),
+                        )
+                    )
+                },
                 shape = shape,
             )
             .padding(horizontal = 22.dp, vertical = 24.dp),
@@ -391,15 +466,22 @@ private fun SpaceFullCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(SpacesAccent.copy(alpha = if (isDark) 0.20f else 0.18f))
-                    .border(1.5.dp, SpacesAccent.copy(alpha = if (isDark) 0.40f else 0.50f), RoundedCornerShape(18.dp)),
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                SpacesAccent.copy(alpha = if (isDark) 0.14f else 0.15f),
+                                Color.White.copy(alpha = if (isDark) 0.05f else 0.24f),
+                            )
+                        )
+                    )
+                    .border(1.dp, SpacesAccent.copy(alpha = if (isDark) 0.24f else 0.30f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = initial,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = SpacesAccent,
                 )
             }
@@ -424,8 +506,20 @@ private fun SpaceFullCard(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.10f))
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                SpacesAccent.copy(alpha = if (isDark) 0.10f else 0.13f),
+                                Color.White.copy(alpha = if (isDark) 0.04f else 0.18f),
+                            )
+                        )
+                    )
+                    .border(
+                        width = if (isDark) 0.dp else 0.8.dp,
+                        color = if (isDark) Color.Transparent else SpacesAccent.copy(alpha = 0.26f),
+                        shape = RoundedCornerShape(6.dp),
+                    )
                     .padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -435,20 +529,20 @@ private fun SpaceFullCard(
             }
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = if (isDark) 0.05f else 0.06f))
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-            ) {
-                Text(
-                    text = if (daysOld == 0) "Today" else "$daysOld day${if (daysOld == 1) "" else "s"} old",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.10f))
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                SpacesAccent.copy(alpha = if (isDark) 0.10f else 0.13f),
+                                Color.White.copy(alpha = if (isDark) 0.04f else 0.18f),
+                            )
+                        )
+                    )
+                    .border(
+                        width = if (isDark) 0.dp else 0.8.dp,
+                        color = if (isDark) Color.Transparent else SpacesAccent.copy(alpha = 0.26f),
+                        shape = RoundedCornerShape(6.dp),
+                    )
                     .padding(horizontal = 10.dp, vertical = 5.dp),
             ) {
                 Text(
@@ -535,8 +629,30 @@ private fun SpaceFullCard(
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim)))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (isDark) 0.10f else 0.88f),
+                                SpacesAccent.copy(alpha = if (isDark) 0.18f else 0.22f),
+                                Color.White.copy(alpha = if (isDark) 0.05f else 0.90f),
+                            )
+                        )
+                    )
+                    .border(
+                        if (isDark) 1.dp else 1.1.dp,
+                        Brush.linearGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (isDark) 0.18f else 0.56f),
+                                if (isDark) {
+                                    SpacesAccent.copy(alpha = 0.26f)
+                                } else {
+                                    SpacesAccent.copy(alpha = 0.34f)
+                                },
+                            )
+                        ),
+                        RoundedCornerShape(12.dp),
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -548,17 +664,32 @@ private fun SpaceFullCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Open", style = MaterialTheme.typography.titleSmall, color = SpaceDeep, fontWeight = FontWeight.Bold)
-                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = SpaceDeep, modifier = Modifier.size(12.dp))
+                    Text("Open", style = MaterialTheme.typography.titleSmall, color = SpacesAccent, fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = SpacesAccent, modifier = Modifier.size(12.dp))
                 }
             }
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (isDark) GlassWhite8 else Color.White.copy(alpha = 0.08f))
-                    .border(1.dp, SpacesAccent.copy(alpha = if (isDark) 0.35f else 0.32f), RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                SpacesAccent.copy(alpha = if (isDark) 0.08f else 0.14f),
+                                Color.White.copy(alpha = if (isDark) 0.05f else 0.88f),
+                            )
+                        )
+                    )
+                    .border(
+                        if (isDark) 1.dp else 1.1.dp,
+                        if (isDark) {
+                            SpacesAccent.copy(alpha = 0.24f)
+                        } else {
+                            SpacesAccent.copy(alpha = 0.32f)
+                        },
+                        RoundedCornerShape(12.dp),
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -570,11 +701,11 @@ private fun SpaceFullCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = SpacesAccent, modifier = Modifier.size(15.dp))
-                    Text("Add Doc", style = MaterialTheme.typography.titleSmall, color = SpacesAccent, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Default.Add, contentDescription = null, tint = SpacesAccent, modifier = Modifier.size(15.dp))
+                        Text("Add Doc", style = MaterialTheme.typography.titleSmall, color = SpacesAccent, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
-        }
     }
 }
 

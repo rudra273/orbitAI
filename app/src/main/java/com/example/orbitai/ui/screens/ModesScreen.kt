@@ -89,6 +89,7 @@ fun ModesScreen(viewModel: ModesViewModel) {
             )
             is ModesDestination.Edit -> ModeEditScreen(
                 mode      = dest.mode,
+                defaultInference = viewModel.defaultInference(),
                 initialInference = if (dest.mode == null) {
                     viewModel.defaultInference()
                 } else {
@@ -432,6 +433,7 @@ private fun ModeCard(
 @Composable
 private fun ModeEditScreen(
     mode:     Mode?,            // null = creating new
+    defaultInference: InferenceSettings,
     initialInference: InferenceSettings,
     onBack:   () -> Unit,
     onSave:   (name: String, prompt: String, inference: InferenceSettings) -> Unit,
@@ -448,6 +450,12 @@ private fun ModeEditScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val canSave = name.isNotBlank() && prompt.isNotBlank()
+    val resetInference = {
+        temperature = defaultInference.temperature
+        topK = defaultInference.topK
+        topP = defaultInference.topP
+        maxDecodedTokens = defaultInference.maxDecodedTokens
+    }
 
     Box(
         modifier = Modifier
@@ -512,45 +520,29 @@ private fun ModeEditScreen(
                     },
                     actions = {
                         // Save button — top right
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .height(36.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(
-                                    if (canSave)
-                                            Brush.linearGradient(listOf(ModesAccent, ModesAccentDim))
-                                    else
-                                        Brush.linearGradient(listOf(GlassWhite8, GlassWhite8))
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication        = null,
-                                    enabled           = canSave,
-                                ) {
-                                    if (canSave) {
-                                        onSave(
-                                            name.trim(),
-                                            prompt.trim(),
-                                            InferenceSettings(
-                                                temperature = temperature,
-                                                topK = topK,
-                                                topP = topP,
-                                                maxDecodedTokens = maxDecodedTokens,
-                                            ),
-                                        )
-                                    }
+                        GlassActionButton(
+                            label = "Save",
+                            onClick = {
+                                if (canSave) {
+                                    onSave(
+                                        name.trim(),
+                                        prompt.trim(),
+                                        InferenceSettings(
+                                            temperature = temperature,
+                                            topK = topK,
+                                            topP = topP,
+                                            maxDecodedTokens = maxDecodedTokens,
+                                        ),
+                                    )
                                 }
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                "Save",
-                                style      = MaterialTheme.typography.labelLarge,
-                                color      = if (canSave) Color.White else TextMuted,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
+                            },
+                            modifier = Modifier
+                                .padding(end = 12.dp),
+                            accent = ModesAccent,
+                            enabled = canSave,
+                            filled = true,
+                            compact = true,
+                        )
                     },
                     colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     modifier = Modifier.padding(top = 4.dp),
@@ -615,55 +607,6 @@ private fun ModeEditScreen(
                 }
 
                 item {
-                    ModeFieldLabel("Inference")
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "These settings apply only to this mode.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
-                    )
-                    Spacer(Modifier.height(10.dp))
-
-                    OrbitSlider(
-                        label = "Temperature",
-                        value = temperature,
-                        valueStr = "%.2f".format(temperature),
-                        range = 0.1f..2.0f,
-                        accent = ModesAccent,
-                        onChange = { temperature = it },
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OrbitSlider(
-                        label = "Top-K",
-                        value = topK.toFloat(),
-                        valueStr = topK.toString(),
-                        range = 1f..100f,
-                        steps = 98,
-                        accent = ModesAccent,
-                        onChange = { topK = it.toInt() },
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OrbitSlider(
-                        label = "Top-P",
-                        value = topP,
-                        valueStr = "%.2f".format(topP),
-                        range = 0.1f..1.0f,
-                        accent = ModesAccent,
-                        onChange = { topP = it },
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OrbitSlider(
-                        label = "Max output tokens",
-                        value = maxDecodedTokens.toFloat(),
-                        valueStr = maxDecodedTokens.toString(),
-                        range = 128f..2048f,
-                        steps = 14,
-                        accent = ModesAccent,
-                        onChange = { maxDecodedTokens = ((it / 128).toInt() * 128).coerceAtLeast(128) },
-                    )
-                }
-
-                item {
                     // ── System prompt field ────────────────────────────────
                     ModeFieldLabel("System Prompt")
                     Spacer(Modifier.height(6.dp))
@@ -723,41 +666,84 @@ private fun ModeEditScreen(
                     )
                 }
 
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ModeFieldLabel("Inference")
+                        GlassActionButton(
+                            label = "Reset Default",
+                            onClick = resetInference,
+                            accent = ModesAccent,
+                            enabled = true,
+                            filled = false,
+                            compact = true,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "These settings apply only to this mode.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                    )
+                    Spacer(Modifier.height(10.dp))
+
+                    CompactModeSlider(
+                        label = "Temperature",
+                        value = temperature,
+                        valueStr = "%.2f".format(temperature),
+                        range = 0.1f..2.0f,
+                        accent = ModesAccent,
+                        onChange = { temperature = it },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    CompactModeSlider(
+                        label = "Top-K",
+                        value = topK.toFloat(),
+                        valueStr = topK.toString(),
+                        range = 1f..100f,
+                        steps = 98,
+                        accent = ModesAccent,
+                        onChange = { topK = it.toInt() },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    CompactModeSlider(
+                        label = "Top-P",
+                        value = topP,
+                        valueStr = "%.2f".format(topP),
+                        range = 0.1f..1.0f,
+                        accent = ModesAccent,
+                        onChange = { topP = it },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    CompactModeSlider(
+                        label = "Max output tokens",
+                        value = maxDecodedTokens.toFloat(),
+                        valueStr = maxDecodedTokens.toString(),
+                        range = 128f..2048f,
+                        steps = 14,
+                        accent = ModesAccent,
+                        onChange = { maxDecodedTokens = ((it / 128).toInt() * 128).coerceAtLeast(128) },
+                    )
+                }
+
                 // Delete button — only for non-default existing modes
                 if (!isNew && !isDefault) {
                     item {
                         Spacer(Modifier.height(8.dp))
-                        Box(
+                        GlassActionButton(
+                            label = "Delete Mode",
+                            onClick = { showDeleteConfirm = true },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(DestructiveSoft)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication        = null,
-                                    onClick           = { showDeleteConfirm = true },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Row(
-                                verticalAlignment    = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    null,
-                                    tint     = Destructive,
-                                    modifier = Modifier.size(17.dp),
-                                )
-                                Text(
-                                    "Delete Mode",
-                                    style      = MaterialTheme.typography.titleSmall,
-                                    color      = Destructive,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
+                                .fillMaxWidth(),
+                            accent = Destructive,
+                            enabled = true,
+                            filled = false,
+                            compact = false,
+                            leadingIcon = Icons.Default.Delete,
+                        )
                     }
                 }
             }
@@ -945,4 +931,158 @@ private fun ModeFieldLabel(text: String) {
         ),
         color = ModesAccent.copy(0.8f),
     )
+}
+
+@Composable
+private fun CompactModeSlider(
+    label: String,
+    value: Float,
+    valueStr: String,
+    range: ClosedFloatingPointRange<Float>,
+    accent: Color,
+    steps: Int = 0,
+    onChange: (Float) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        accent.copy(alpha = if (IsOrbitDarkTheme) 0.10f else 0.10f),
+                        Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.035f else 0.70f),
+                    )
+                )
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.14f else 0.32f),
+                        accent.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.14f),
+                    )
+                ),
+                shape = RoundedCornerShape(12.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TextPrimary,
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(accent.copy(alpha = 0.12f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = valueStr,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accent,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+            Slider(
+                value = value,
+                onValueChange = onChange,
+                valueRange = range,
+                steps = steps,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(26.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = accent,
+                    activeTrackColor = accent.copy(alpha = 0.78f),
+                    inactiveTrackColor = Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.08f else 0.18f),
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlassActionButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accent: Color,
+    enabled: Boolean,
+    filled: Boolean,
+    compact: Boolean,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
+    val shape = RoundedCornerShape(if (compact) 14.dp else 12.dp)
+    Box(
+        modifier = modifier
+            .height(if (compact) 34.dp else 46.dp)
+            .clip(shape)
+            .background(
+                if (filled) {
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = if (enabled) 0.12f else 0.06f),
+                            accent.copy(alpha = if (enabled) 0.36f else 0.08f),
+                            Color.White.copy(alpha = if (enabled) 0.05f else 0.04f),
+                        )
+                    )
+                } else {
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = if (enabled) 0.10f else 0.04f),
+                            Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.035f else 0.70f),
+                        )
+                    )
+                }
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = if (enabled) 0.16f else 0.08f),
+                        accent.copy(alpha = if (enabled) 0.22f else 0.08f),
+                    )
+                ),
+                shape = shape,
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            )
+            .padding(horizontal = if (compact) 12.dp else 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            leadingIcon?.let {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    tint = if (enabled) accent else TextMuted,
+                    modifier = Modifier.size(if (compact) 14.dp else 16.dp),
+                )
+            }
+            Text(
+                text = label,
+                style = if (compact) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,
+                color = if (enabled) accent else TextMuted,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
 }
