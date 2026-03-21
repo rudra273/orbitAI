@@ -117,12 +117,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val events: SharedFlow<ChatUiEvent> = _events.asSharedFlow()
 
     private var generationJob: Job? = null
+    private var activeGenerationToken: Long = 0L
     private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
     private var pendingReminderExecution: PendingReminderExecution? = null
     private val reminderTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, hh:mm a")
 
+    private fun beginNewGenerationToken(): Long {
+        activeGenerationToken += 1
+        return activeGenerationToken
+    }
+
+    private fun isGenerationTokenActive(token: Long): Boolean = activeGenerationToken == token
+
     fun stopGeneration() {
+        beginNewGenerationToken()
         generationJob?.cancel()
+        generationJob = null
+        // Force-stop any in-engine generation so next ask can start cleanly.
+        viewModelScope.launch(Dispatchers.IO) {
+            llmRepo.close()
+        }
+        _uiState.update { it.copy(isGenerating = false) }
     }
 
     fun onContactsPermissionResult(granted: Boolean) {
@@ -192,7 +207,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun createNewChat(): String {
         // Navigation needs the ID synchronously; Room insert on IO is fast (< 1 ms).
         return kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            chatRepo.createChat().id
+            chatRepo.findReusableEmptyChatId() ?: chatRepo.createChat().id
         }
     }
 
@@ -207,6 +222,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // ── Inference ─────────────────────────────────────────────────────────────
 
     fun sendMessage(chatId: String, userText: String) {
+        if (generationJob?.isActive == true) {
+            beginNewGenerationToken()
+            generationJob?.cancel()
+            generationJob = null
+            // Ensure old backend stream is torn down before starting a new one.
+            viewModelScope.launch(Dispatchers.IO) {
+                llmRepo.close()
+            }
+        }
+
         val chat = chatRepo.chats.value.find { it.id == chatId } ?: return
         val trimmedText = userText.trim()
 
@@ -226,6 +251,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val settings = settingsStore.get()
+        val generationToken = beginNewGenerationToken()
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(loadError = null, infoMessage = null) }
@@ -304,20 +330,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 5. Stream response
             var accumulated = ""
+            var wasCancelled = false
             try {
                 llmRepo.generateResponseStream(prompt, settings.maxDecodedTokens).collect { token ->
+                    if (!isGenerationTokenActive(generationToken)) {
+                        throw CancellationException("Stale generation request")
+                    }
                     accumulated += token
-                    chatRepo.updateLastMessage(chatId, accumulated, isStreaming = true)
+                    chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = true)
                 }
             } catch (e: CancellationException) {
-                // Stopped by user — keep accumulated partial text, re-throw for coroutine framework
-                throw e
+                wasCancelled = true
             } catch (e: Exception) {
                 accumulated = "Error: ${e.message}"
             } finally {
-                chatRepo.updateLastMessage(chatId, accumulated, isStreaming = false)
+                val isActiveRequest = isGenerationTokenActive(generationToken)
+                if (isActiveRequest) {
+                    chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = false)
+                }
 
-                if (!accumulated.startsWith("Error:")) {
+                if (isActiveRequest && !wasCancelled && !accumulated.startsWith("Error:")) {
                     when (toolRequest) {
                         is IntentToolRequest.DraftEmail -> {
                             when (
@@ -419,7 +451,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                _uiState.update { it.copy(isGenerating = false) }
+                if (isActiveRequest) {
+                    _uiState.update { it.copy(isGenerating = false) }
+                    generationJob = null
+                }
             }
         }
     }

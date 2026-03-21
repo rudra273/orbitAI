@@ -41,6 +41,10 @@ class ChatRepository(context: Context) {
             chat
         }
 
+    suspend fun findReusableEmptyChatId(): String? = withContext(Dispatchers.IO) {
+        chatDao.getLatestEmptyChatWithoutUserMessages()?.id
+    }
+
     suspend fun getChat(chatId: String): Chat? = withContext(Dispatchers.IO) {
         val entity = chatDao.getChatById(chatId) ?: return@withContext null
         val msgs   = messageDao.getMessages(chatId)
@@ -64,6 +68,11 @@ class ChatRepository(context: Context) {
     suspend fun updateLastMessage(chatId: String, newContent: String, isStreaming: Boolean) =
         withContext(Dispatchers.IO) {
             messageDao.updateLastMessageContent(chatId, newContent)
+        }
+
+    suspend fun updateMessage(messageId: String, newContent: String, isStreaming: Boolean) =
+        withContext(Dispatchers.IO) {
+            messageDao.updateMessageContentById(messageId, newContent)
         }
 
     suspend fun deleteChat(chatId: String) = withContext(Dispatchers.IO) {

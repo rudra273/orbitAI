@@ -127,6 +127,12 @@ fun OrbitNavGraph(
     val showBottomBar  = currentRoute in TAB_ROUTES
     val initialChatId = rememberSaveable { overlayPromptRequest?.chatId ?: chatViewModel.createNewChat() }
 
+    LaunchedEffect(initialChatId) {
+        navController.navigate(Screen.ChatDetail.go(initialChatId)) {
+            launchSingleTop = true
+        }
+    }
+
     LaunchedEffect(overlayPromptRequest?.id) {
         val request = overlayPromptRequest ?: return@LaunchedEffect
         navController.navigate(Screen.ChatDetail.go(request.chatId)) {
@@ -155,7 +161,7 @@ fun OrbitNavGraph(
     ) { innerPadding ->
         NavHost(
             navController    = navController,
-            startDestination = Screen.ChatDetail.go(initialChatId),
+            startDestination = Screen.Chat.route,
             modifier         = Modifier.padding(innerPadding),
         ) {
 
@@ -200,11 +206,9 @@ fun OrbitNavGraph(
                     chatId    = chatId,
                     viewModel = chatViewModel,
                     onBack    = {
-                        if (!navController.popBackStack()) {
-                            navController.navigate(Screen.Chat.route) {
-                                popUpTo(Screen.ChatDetail.go(chatId)) { inclusive = true }
-                                launchSingleTop = true
-                            }
+                        navController.navigate(Screen.Chat.route) {
+                            popUpTo(Screen.ChatDetail.go(chatId)) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                 )
