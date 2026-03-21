@@ -4,6 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.orbitai.data.GECKO_EMBEDDING
+import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.SpaceRepository
 import com.example.orbitai.data.db.RagDocument
 import com.example.orbitai.data.db.Space
@@ -15,6 +17,7 @@ import kotlinx.coroutines.launch
 class SpacesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = SpaceRepository(application)
+    private val modelDownloader = ModelDownloader(application)
 
     val spaces: StateFlow<List<Space>> = repository.spaces
 
@@ -36,6 +39,8 @@ class SpacesViewModel(application: Application) : AndroidViewModel(application) 
     fun addDocumentToSpace(uri: Uri, spaceId: String) {
         repository.addDocumentToSpace(uri, spaceId)
     }
+
+    fun isSemanticModelReady(): Boolean = modelDownloader.isEmbeddingDownloaded(GECKO_EMBEDDING)
 
     fun deleteDocument(id: String) {
         viewModelScope.launch(Dispatchers.IO) {

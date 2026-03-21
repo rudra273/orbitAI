@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.orbitai.data.InferenceSettings
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
@@ -88,12 +89,17 @@ fun ModesScreen(viewModel: ModesViewModel) {
             )
             is ModesDestination.Edit -> ModeEditScreen(
                 mode      = dest.mode,
+                initialInference = if (dest.mode == null) {
+                    viewModel.defaultInference()
+                } else {
+                    viewModel.inferenceForMode(dest.mode.id)
+                },
                 onBack    = { destination = ModesDestination.List },
-                onSave    = { name, prompt ->
+                onSave    = { name, prompt, inference ->
                     if (dest.mode == null) {
-                        viewModel.createMode(name, prompt)
+                        viewModel.createMode(name, prompt, inference)
                     } else {
-                        viewModel.updateMode(dest.mode.id, name, prompt)
+                        viewModel.updateMode(dest.mode.id, name, prompt, inference)
                     }
                     destination = ModesDestination.List
                 },
@@ -426,12 +432,17 @@ private fun ModeCard(
 @Composable
 private fun ModeEditScreen(
     mode:     Mode?,            // null = creating new
+    initialInference: InferenceSettings,
     onBack:   () -> Unit,
-    onSave:   (name: String, prompt: String) -> Unit,
+    onSave:   (name: String, prompt: String, inference: InferenceSettings) -> Unit,
     onDelete: () -> Unit,
 ) {
     var name   by remember { mutableStateOf(mode?.name ?: "") }
     var prompt by remember { mutableStateOf(mode?.systemPrompt ?: "") }
+    var temperature by remember(mode?.id) { mutableFloatStateOf(initialInference.temperature) }
+    var topK by remember(mode?.id) { mutableIntStateOf(initialInference.topK) }
+    var topP by remember(mode?.id) { mutableFloatStateOf(initialInference.topP) }
+    var maxDecodedTokens by remember(mode?.id) { mutableIntStateOf(initialInference.maxDecodedTokens) }
     val isNew  = mode == null
     val isDefault = mode?.isDefault == true
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -516,7 +527,20 @@ private fun ModeEditScreen(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication        = null,
                                     enabled           = canSave,
-                                ) { if (canSave) onSave(name.trim(), prompt.trim()) }
+                                ) {
+                                    if (canSave) {
+                                        onSave(
+                                            name.trim(),
+                                            prompt.trim(),
+                                            InferenceSettings(
+                                                temperature = temperature,
+                                                topK = topK,
+                                                topP = topP,
+                                                maxDecodedTokens = maxDecodedTokens,
+                                            ),
+                                        )
+                                    }
+                                }
                                 .padding(horizontal = 16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -587,6 +611,55 @@ private fun ModeEditScreen(
                         textStyle  = MaterialTheme.typography.bodyLarge,
                         singleLine = true,
                         readOnly   = isDefault,
+                    )
+                }
+
+                item {
+                    ModeFieldLabel("Inference")
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "These settings apply only to this mode.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                    )
+                    Spacer(Modifier.height(10.dp))
+
+                    OrbitSlider(
+                        label = "Temperature",
+                        value = temperature,
+                        valueStr = "%.2f".format(temperature),
+                        range = 0.1f..2.0f,
+                        accent = ModesAccent,
+                        onChange = { temperature = it },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OrbitSlider(
+                        label = "Top-K",
+                        value = topK.toFloat(),
+                        valueStr = topK.toString(),
+                        range = 1f..100f,
+                        steps = 98,
+                        accent = ModesAccent,
+                        onChange = { topK = it.toInt() },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OrbitSlider(
+                        label = "Top-P",
+                        value = topP,
+                        valueStr = "%.2f".format(topP),
+                        range = 0.1f..1.0f,
+                        accent = ModesAccent,
+                        onChange = { topP = it },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OrbitSlider(
+                        label = "Max output tokens",
+                        value = maxDecodedTokens.toFloat(),
+                        valueStr = maxDecodedTokens.toString(),
+                        range = 128f..2048f,
+                        steps = 14,
+                        accent = ModesAccent,
+                        onChange = { maxDecodedTokens = ((it / 128).toInt() * 128).coerceAtLeast(128) },
                     )
                 }
 

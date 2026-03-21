@@ -36,14 +36,14 @@ fun ToolsSettingsScreen(
     SettingsSubScreen(
         title = "Tools",
         icon = Icons.Default.Build,
-        accent = Color(0xFFF59E0B),
+        accent = Color(0xFF22D3EE),
         onBack = onBack,
     ) {
         SettingsDescription(
             "Available tools in Orbit. Turn automation on only for tools that support automatic execution."
         )
 
-        GlassCard(accent = Color(0xFFF59E0B)) {
+        GlassCard(accent = Color(0xFF22D3EE)) {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 RowSetting(
                     title = "Gmail",
@@ -75,7 +75,7 @@ fun ToolsSettingsScreen(
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFFF59E0B),
+                                checkedTrackColor = Color(0xFF22D3EE),
                                 uncheckedThumbColor = Color.White,
                                 uncheckedTrackColor = GlassWhite20,
                             ),

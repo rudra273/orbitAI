@@ -77,6 +77,12 @@ import com.example.orbitai.viewmodel.SpacesViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.absoluteValue
 
 private val SpacesAccent = Color(0xFFFBBF24)
 private val SpacesAccentDim = Color(0xFFF59E0B)
@@ -88,8 +94,9 @@ fun SpacesScreen(
     onOpenSpace: (spaceId: String) -> Unit,
 ) {
     val spaces by viewModel.spaces.collectAsState()
+    val semanticReady = remember(spaces) { viewModel.isSemanticModelReady() }
     var showCreateDialog by remember { mutableStateOf(false) }
-    var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    val pagerState = rememberPagerState(pageCount = { spaces.size })
     var pendingPickerSpaceId by remember { mutableStateOf<String?>(null) }
 
     val documentPicker = rememberLauncherForActivityResult(
@@ -115,11 +122,9 @@ fun SpacesScreen(
         )
     }
 
-    LaunchedEffect(spaces) {
-        if (spaces.isEmpty()) {
-            selectedSpaceId = null
-        } else if (selectedSpaceId == null || spaces.none { it.id == selectedSpaceId }) {
-            selectedSpaceId = spaces.first().id
+    LaunchedEffect(spaces.size) {
+        if (spaces.isNotEmpty() && pagerState.currentPage >= spaces.size) {
+            pagerState.scrollToPage((spaces.size - 1).coerceAtLeast(0))
         }
     }
 
@@ -159,10 +164,44 @@ fun SpacesScreen(
                             Text(
                                 "${spaces.size} space${if (spaces.size != 1) "s" else ""}",
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    color = SpacesAccent,
+                                    color = TextMuted,
                                     letterSpacing = 1.sp,
                                     fontWeight = FontWeight.SemiBold,
                                 ),
+                            )
+                        }
+                    },
+                    actions = {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .size(40.dp)
+                                .drawBehind {
+                                    drawIntoCanvas { canvas ->
+                                        val paint = Paint().apply {
+                                            asFrameworkPaint().apply {
+                                                isAntiAlias = true
+                                                color = android.graphics.Color.TRANSPARENT
+                                                setShadowLayer(16f, 0f, 3f, SpacesAccent.copy(alpha = 0.35f).toArgb())
+                                            }
+                                        }
+                                        canvas.drawRoundRect(0f, 0f, size.width, size.height, 14.dp.toPx(), 14.dp.toPx(), paint)
+                                    }
+                                }
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim)))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { showCreateDialog = true },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Create Space",
+                                tint = SpaceDeep,
+                                modifier = Modifier.size(22.dp),
                             )
                         }
                     },
@@ -170,46 +209,92 @@ fun SpacesScreen(
                     modifier = Modifier.padding(top = 4.dp),
                 )
             },
-            floatingActionButton = { SpacesFAB(onClick = { showCreateDialog = true }) },
         ) { padding ->
-            if (spaces.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(bottom = 16.dp),
+            ) {
+                if (!semanticReady) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(GlassWhite8)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            "Semantic model is not downloaded. First download it in Settings > Model.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextMuted,
+                        )
+                    }
+                }
+
+                if (spaces.isEmpty()) {
                 SpacesEmptyState(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(top = 0.dp),
                     onCreate = { showCreateDialog = true },
                 )
             } else {
-                val selectedSpace = spaces.find { it.id == selectedSpaceId } ?: spaces.first()
-                val docs by remember(selectedSpace.id) {
-                    viewModel.observeDocumentsInSpace(selectedSpace.id)
-                }.collectAsState(initial = emptyList())
-
-                Row(
+                HorizontalPager(
+                    state = pagerState,
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    pageSpacing = 14.dp,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 100.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    SpaceSelectorRail(
-                        spaces = spaces,
-                        selectedSpaceId = selectedSpace.id,
-                        onSelect = { selectedSpaceId = it },
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                ) { page ->
+                    val space = spaces[page]
+                    val docs by remember(space.id) {
+                        viewModel.observeDocumentsInSpace(space.id)
+                    }.collectAsState(initial = emptyList())
+                    val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+                    Box(
                         modifier = Modifier
-                            .weight(2f)
-                            .fillMaxHeight(),
-                    )
-                    SpacePreviewCard(
-                        space = selectedSpace,
-                        docs = docs,
-                        onOpenSpace = { onOpenSpace(selectedSpace.id) },
-                        onAddDoc = { launchPickerForSpace(selectedSpace.id) },
-                        modifier = Modifier
-                            .weight(4f)
-                            .fillMaxHeight(),
-                    )
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                val scale = 1f - 0.10f * pageOffset.coerceIn(0f, 1f)
+                                scaleX = scale
+                                scaleY = scale
+                                alpha = 1f - 0.38f * pageOffset.coerceIn(0f, 1f)
+                            },
+                    ) {
+                        SpaceFullCard(
+                            space = space,
+                            docs = docs,
+                            onOpenSpace = { onOpenSpace(space.id) },
+                            onAddDoc = { launchPickerForSpace(space.id) },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
+                if (spaces.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        spaces.forEachIndexed { index, _ ->
+                            val isSelected = pagerState.currentPage == index
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .size(if (isSelected) 8.dp else 5.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) SpacesAccent else SpacesAccent.copy(alpha = 0.32f)),
+                            )
+                        }
+                    }
+                }
+            }
             }
         }
     }
@@ -221,103 +306,6 @@ fun SpacesScreen(
                 viewModel.createSpace(name)
                 showCreateDialog = false
             },
-        )
-    }
-}
-
-@Composable
-private fun SpacesFAB(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(24f, 0f, 4f, SpacesAccent.copy(alpha = 0.4f).toArgb())
-                        }
-                    }
-                    canvas.drawRoundRect(0f, 0f, size.width, size.height, 18.dp.toPx(), 18.dp.toPx(), paint)
-                }
-            }
-            .clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim)))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Icons.Default.Add,
-            contentDescription = "Create Space",
-            tint = SpaceDeep,
-            modifier = Modifier.size(26.dp),
-        )
-    }
-}
-
-@Composable
-private fun SpaceSelectorRail(
-    spaces: List<Space>,
-    selectedSpaceId: String,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = "MY SPACES",
-            style = MaterialTheme.typography.labelSmall.copy(
-                letterSpacing = 1.5.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-            color = TextMuted.copy(alpha = 0.50f),
-            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-        )
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            itemsIndexed(spaces, key = { _, s -> s.id }) { _, space ->
-                SpaceSelectorItem(
-                    space = space,
-                    selected = space.id == selectedSpaceId,
-                    onClick = { onSelect(space.id) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SpaceSelectorItem(
-    space: Space,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val shape = RoundedCornerShape(10.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(
-                if (selected) Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim))
-                else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 12.dp, vertical = 11.dp),
-    ) {
-        Text(
-            text = space.name,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            ),
-            color = if (selected) SpaceDeep else TextPrimary.copy(alpha = 0.72f),
-            maxLines = 1,
         )
     }
 }
@@ -359,7 +347,7 @@ private fun SpaceDocRow(doc: RagDocument) {
 }
 
 @Composable
-private fun SpacePreviewCard(
+private fun SpaceFullCard(
     space: Space,
     docs: List<RagDocument>,
     onOpenSpace: () -> Unit,
@@ -373,25 +361,18 @@ private fun SpacePreviewCard(
     val daysOld = remember(space.createdAt) {
         ((System.currentTimeMillis() - space.createdAt).coerceAtLeast(0L) / (24L * 60L * 60L * 1000L)).toInt()
     }
-
-    val cardShape = RoundedCornerShape(18.dp)
     val initial = space.name.firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+    val shape = RoundedCornerShape(26.dp)
 
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(cardShape)
-            // Glassy base — dark: white shimmer, light: warm amber tint
-            .background(
-                if (isDark) Color.White.copy(alpha = 0.06f)
-                else SpacesAccent.copy(alpha = 0.08f)
-            )
-            // Frosted highlight sweep on top
+            .clip(shape)
+            .background(SpacesAccent.copy(alpha = if (isDark) 0.10f else 0.12f))
             .background(
                 Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0.0f to Color.White.copy(alpha = if (isDark) 0.10f else 0.40f),
-                        0.30f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
+                        0.0f to Color.White.copy(alpha = if (isDark) 0.14f else 0.50f),
+                        0.30f to Color.White.copy(alpha = if (isDark) 0.03f else 0.10f),
                         1.0f to Color.Transparent,
                     )
                 )
@@ -400,100 +381,69 @@ private fun SpacePreviewCard(
                 width = 1.dp,
                 brush = Brush.linearGradient(
                     colorStops = arrayOf(
-                        0.0f to SpacesAccent.copy(alpha = if (isDark) 0.35f else 0.50f),
-                        0.5f to SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.22f),
-                        1.0f to Color.White.copy(alpha = if (isDark) 0.08f else 0.20f),
+                        0.0f to SpacesAccent.copy(alpha = if (isDark) 0.45f else 0.65f),
+                        0.5f to SpacesAccent.copy(alpha = if (isDark) 0.18f else 0.28f),
+                        1.0f to Color.White.copy(alpha = if (isDark) 0.07f else 0.18f),
                     )
                 ),
-                shape = cardShape,
-            ),
+                shape = shape,
+            )
+            .padding(horizontal = 22.dp, vertical = 24.dp),
     ) {
-        // ── Amber gradient header ──────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .background(
-                    Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to SpacesAccentDim.copy(alpha = 0.90f),
-                            1.0f to SpacesAccent.copy(alpha = 0.75f),
-                        ),
-                    )
-                )
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.CenterStart,
+        // ── Avatar + space name ─────────────────────────────────────────
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SpacesAccent.copy(alpha = if (isDark) 0.20f else 0.18f))
+                    .border(1.5.dp, SpacesAccent.copy(alpha = if (isDark) 0.40f else 0.50f), RoundedCornerShape(18.dp)),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(Color.Black.copy(alpha = 0.22f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = initial,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                        ),
-                        color = Color.White,
-                    )
-                }
-                Column {
-                    Text(
-                        text = space.name,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                        ),
-                        color = SpaceDeep,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = "Knowledge Space",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                        color = SpaceDeep.copy(alpha = 0.55f),
-                    )
-                }
+                Text(
+                    text = initial,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = SpacesAccent,
+                )
+            }
+            Column {
+                Text(
+                    text = space.name,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = TextPrimary,
+                    maxLines = 1,
+                )
+                Text(
+                    text = "Knowledge Space",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SpacesAccent.copy(alpha = 0.70f),
+                )
             }
         }
 
-        // ── Meta info row ──────────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Date chip
+        Spacer(Modifier.height(20.dp))
+
+        // ── Meta chips ──────────────────────────────────────────────────
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(SpacesAccent.copy(alpha = if (isDark) 0.10f else 0.08f))
+                    .background(SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.10f))
                     .padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Icon(
-                    Icons.Default.FolderOpen,
-                    contentDescription = null,
-                    tint = SpacesAccent,
-                    modifier = Modifier.size(12.dp),
-                )
-                Text(
-                    text = dateStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SpacesAccent,
-                )
+                Icon(Icons.Default.FolderOpen, contentDescription = null, tint = SpacesAccent, modifier = Modifier.size(11.dp))
+                Text(dateStr, style = MaterialTheme.typography.labelSmall, color = SpacesAccent)
             }
-            // Age chip
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = if (isDark) 0.05f else 0.04f))
+                    .background(Color.White.copy(alpha = if (isDark) 0.05f else 0.06f))
                     .padding(horizontal = 10.dp, vertical = 5.dp),
             ) {
                 Text(
@@ -502,75 +452,97 @@ private fun SpacePreviewCard(
                     color = TextMuted,
                 )
             }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.10f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+            ) {
+                Text(
+                    text = "${docs.size} doc${if (docs.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SpacesAccent,
+                )
+            }
         }
 
-        // ── Divider ────────────────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(SpacesAccent.copy(alpha = if (isDark) 0.08f else 0.10f))
-                .padding(horizontal = 14.dp),
+        Spacer(Modifier.height(18.dp))
+
+        // ── Divider ─────────────────────────────────────────────────────
+        Box(Modifier.fillMaxWidth().height(1.dp).background(SpacesAccent.copy(alpha = if (isDark) 0.12f else 0.15f)))
+
+        Spacer(Modifier.height(14.dp))
+
+        // ── Documents ───────────────────────────────────────────────────
+        Text(
+            text = "DOCUMENTS",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp, fontWeight = FontWeight.Medium),
+            color = TextMuted.copy(alpha = 0.55f),
+            modifier = Modifier.padding(bottom = 8.dp),
         )
 
-        // ── Documents ──────────────────────────────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            if (docs.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
+        if (docs.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.FolderOpen,
-                            contentDescription = null,
-                            tint = SpacesAccent.copy(alpha = 0.22f),
-                            modifier = Modifier.size(28.dp),
-                        )
-                        Text(
-                            text = "No documents yet\nTap \"+Add Doc\" to get started",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted.copy(alpha = 0.45f),
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
-            } else {
-                docs.take(4).forEach { doc ->
-                    SpaceDocRow(doc = doc)
-                }
-                if (docs.size > 4) {
+                    Icon(
+                        Icons.Default.FolderOpen,
+                        contentDescription = null,
+                        tint = SpacesAccent.copy(alpha = 0.25f),
+                        modifier = Modifier.size(32.dp),
+                    )
                     Text(
-                        text = "+${docs.size - 4} more  •  Open to see all",
+                        text = "No documents yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextMuted.copy(alpha = 0.50f),
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "Tap \"Add Doc\" below to get started",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted.copy(alpha = 0.38f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                docs.take(5).forEach { doc -> SpaceDocRow(doc = doc) }
+                if (docs.size > 5) {
+                    Text(
+                        text = "+${docs.size - 5} more  •  Open to see all",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted.copy(alpha = 0.45f),
-                        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+                        modifier = Modifier.padding(start = 4.dp, top = 3.dp),
                     )
                 }
             }
         }
 
-        // ── Action buttons ─────────────────────────────────────────────
+        Spacer(Modifier.height(18.dp))
+
+        // ── Action buttons ──────────────────────────────────────────────
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim)))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -583,32 +555,17 @@ private fun SpacePreviewCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        text = "Open",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = SpaceDeep,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForwardIos,
-                        contentDescription = null,
-                        tint = SpaceDeep,
-                        modifier = Modifier.size(12.dp),
-                    )
+                    Text("Open", style = MaterialTheme.typography.titleSmall, color = SpaceDeep, fontWeight = FontWeight.Bold)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = SpaceDeep, modifier = Modifier.size(12.dp))
                 }
             }
-
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isDark) GlassWhite8 else Color.White.copy(alpha = 0.07f))
-                    .border(
-                        width = 1.dp,
-                        color = SpacesAccent.copy(alpha = if (isDark) 0.30f else 0.28f),
-                        shape = RoundedCornerShape(12.dp),
-                    )
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (isDark) GlassWhite8 else Color.White.copy(alpha = 0.08f))
+                    .border(1.dp, SpacesAccent.copy(alpha = if (isDark) 0.35f else 0.32f), RoundedCornerShape(14.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -620,18 +577,8 @@ private fun SpacePreviewCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        tint = SpacesAccent,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = "Add Doc",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = SpacesAccent,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Icon(Icons.Default.Add, contentDescription = null, tint = SpacesAccent, modifier = Modifier.size(15.dp))
+                    Text("Add Doc", style = MaterialTheme.typography.titleSmall, color = SpacesAccent, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

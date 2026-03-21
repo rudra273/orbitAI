@@ -303,29 +303,6 @@ private fun ChatListCard(
                 .padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment    = Alignment.CenterVertically,
         ) {
-            // Icon badge — glass
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(VioletFrost)
-                    .border(
-                        width = 0.5.dp,
-                        color = VioletCore.copy(alpha = if (isDark) 0.20f else 0.25f),
-                        shape = RoundedCornerShape(13.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector        = Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = null,
-                    tint               = VioletBright,
-                    modifier           = Modifier.size(20.dp),
-                )
-            }
-
-            Spacer(Modifier.width(14.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text      = chat.title,

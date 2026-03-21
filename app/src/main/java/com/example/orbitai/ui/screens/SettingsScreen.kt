@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,19 +12,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.DeveloperBoard
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +32,12 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.orbitai.R
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.DownloadViewModel
 
@@ -67,6 +66,7 @@ private data class SettingsCategory(
     val title: String,
     val subtitle: String,
     val accentColor: Color,
+    val iconResId: Int? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,15 +82,8 @@ private fun SettingsHub(
             destination = "settings/model",
             icon = Icons.Default.DeveloperBoard,
             title = "Model",
-            subtitle = "Download & select on-device models",
+            subtitle = "Download, configure on-device & cloud models",
             accentColor = VioletCore,
-        ),
-        SettingsCategory(
-            destination = "settings/inference",
-            icon = Icons.Default.Tune,
-            title = "Inference",
-            subtitle = "Temperature, top-K, top-P, token limits",
-            accentColor = Color(0xFF60A5FA),
         ),
         SettingsCategory(
             destination = "settings/memory",
@@ -100,32 +93,19 @@ private fun SettingsHub(
             accentColor = Color(0xFF34D399),
         ),
         SettingsCategory(
-            destination = "settings/rag",
-            icon = Icons.Default.Search,
-            title = "Knowledge / RAG",
-            subtitle = "Semantic search & embedding model",
-            accentColor = Color(0xFFFBBF24),
-        ),
-        SettingsCategory(
-            destination = "settings/developer",
-            icon = Icons.Default.Code,
-            title = "Developer",
-            subtitle = "HuggingFace token, custom model URL",
-            accentColor = Color(0xFFF472B6),
-        ),
-        SettingsCategory(
             destination = "settings/tools",
             icon = Icons.Default.Build,
             title = "Tools",
             subtitle = "Available tools and automation support",
-            accentColor = Color(0xFFF59E0B),
+            accentColor = Color(0xFF22D3EE),
         ),
         SettingsCategory(
             destination = "settings/orbit_bubble",
             icon = Icons.Default.ChatBubble,
             title = "Orbit Bubble",
-            subtitle = "Floating bubble toggle and behavior",
-            accentColor = Color(0xFFF59E0B),
+            subtitle = "Floating bubble toggle, model and behavior",
+            accentColor = Color(0xFFF97316),
+            iconResId = R.drawable.vector_logo,
         ),
     )
 
@@ -341,12 +321,20 @@ private fun SettingsCategoryCard(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = category.icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(22.dp),
-                )
+                if (category.iconResId != null) {
+                    Image(
+                        painter = painterResource(category.iconResId),
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                    )
+                } else {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
             }
 
             Column(modifier = Modifier.weight(1f)) {

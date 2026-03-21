@@ -51,7 +51,7 @@ import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.data.TokenStore
 import com.example.orbitai.ui.screens.ModesScreen
 import com.example.orbitai.ui.screens.ChatScreen
-import com.example.orbitai.ui.screens.DeveloperSettingsScreen
+import com.example.orbitai.ui.screens.ModelSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
 import com.example.orbitai.ui.screens.InferenceSettingsScreen
 import com.example.orbitai.ui.screens.MemorySettingsScreen
@@ -227,8 +227,11 @@ fun OrbitNavGraph(
             }
 
             composable(Screen.SettingsModel.route) {
+                val context = LocalContext.current
+                val tokenStore = remember { TokenStore(context) }
                 ModelSettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -256,11 +259,12 @@ fun OrbitNavGraph(
                 )
             }
             composable(Screen.SettingsDeveloper.route) {
+                // Developer settings merged into Model settings
                 val context = LocalContext.current
                 val tokenStore = remember { TokenStore(context) }
-                DeveloperSettingsScreen(
-                    tokenStore = tokenStore,
+                ModelSettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -275,8 +279,13 @@ fun OrbitNavGraph(
             composable(Screen.SettingsOrbitBubble.route) {
                 val context = LocalContext.current
                 val toolSettingsStore = remember { ToolSettingsStore(context) }
+                val tokenStore = remember { TokenStore(context) }
+                val availableModels by chatViewModel.availableModels.collectAsState()
+                LaunchedEffect(Unit) { chatViewModel.refreshAvailableModels() }
                 OrbitBubbleSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
+                    tokenStore = tokenStore,
+                    availableModels = availableModels,
                     onBack = { navController.popBackStack() },
                 )
             }
