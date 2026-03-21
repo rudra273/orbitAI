@@ -82,6 +82,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
 import kotlin.math.absoluteValue
 
 private val SpacesAccent = Color(0xFFFBBF24)
@@ -111,15 +112,7 @@ fun SpacesScreen(
 
     val launchPickerForSpace: (String) -> Unit = { spaceId ->
         pendingPickerSpaceId = spaceId
-        documentPicker.launch(
-            arrayOf(
-                "application/pdf",
-                "text/plain",
-                "text/markdown",
-                "text/csv",
-                "text/x-markdown",
-            )
-        )
+        documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
     }
 
     LaunchedEffect(spaces.size) {
