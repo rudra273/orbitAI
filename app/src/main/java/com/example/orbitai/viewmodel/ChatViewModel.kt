@@ -3,7 +3,6 @@ package com.example.orbitai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.Chat
 import com.example.orbitai.data.ChatRepository
 import com.example.orbitai.data.InferenceSettingsStore
@@ -15,7 +14,9 @@ import com.example.orbitai.data.Role
 import com.example.orbitai.data.ModeRepository
 import com.example.orbitai.data.ModelDownloader
 import com.example.orbitai.data.SpaceRepository
+import com.example.orbitai.data.TokenStore
 import com.example.orbitai.data.ToolSettingsStore
+import com.example.orbitai.data.availableChatModels
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.Space
@@ -77,6 +78,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val chatRepo = ChatRepository(application)
     private val llmRepo = LlmRepository(application)
     private val modelDownloader = ModelDownloader(application)
+    private val tokenStore = TokenStore(application)
     private val settingsStore = InferenceSettingsStore(application)
     private val spaceRepo = SpaceRepository(application)
     private val modeRepo = ModeRepository(application)
@@ -111,6 +113,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     val chats: StateFlow<List<Chat>> = chatRepo.chats
 
+    private val _availableModels = MutableStateFlow<List<LlmModel>>(emptyList())
+    val availableModels: StateFlow<List<LlmModel>> = _availableModels.asStateFlow()
+
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<ChatUiEvent>()
@@ -121,6 +126,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
     private var pendingReminderExecution: PendingReminderExecution? = null
     private val reminderTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, hh:mm a")
+
+    init {
+        refreshAvailableModels()
+    }
+
+    fun refreshAvailableModels() {
+        _availableModels.value = availableChatModels(modelDownloader, tokenStore)
+    }
 
     private fun beginNewGenerationToken(): Long {
         activeGenerationToken += 1
@@ -216,7 +229,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectModel(chatId: String, model: LlmModel) {
-        viewModelScope.launch(Dispatchers.IO) { chatRepo.updateChatModel(chatId, model.id) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentAvailable = availableChatModels(modelDownloader, tokenStore)
+            _availableModels.value = currentAvailable
+            if (currentAvailable.none { it.id == model.id }) return@launch
+            tokenStore.lastSelectedModelId = model.id
+            chatRepo.updateChatModel(chatId, model.id)
+        }
     }
 
     // ── Inference ─────────────────────────────────────────────────────────────
@@ -234,19 +253,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         val chat = chatRepo.chats.value.find { it.id == chatId } ?: return
         val trimmedText = userText.trim()
+        val currentAvailableModels = availableChatModels(modelDownloader, tokenStore)
+        _availableModels.value = currentAvailableModels
 
         if (trimmedText.isEmpty()) return
 
         val route = ToolRouter.route(trimmedText)
         val toolRequest = (route as? ToolRoute.ToolOnly)?.request
 
-        val selectedModel = AVAILABLE_MODELS.find { it.id == chat.modelId }
-        val model = when {
-            selectedModel != null && modelDownloader.isDownloaded(selectedModel) -> selectedModel
-            else -> AVAILABLE_MODELS.firstOrNull { modelDownloader.isDownloaded(it) }
-        } ?: run {
+        val preferredModelId = when {
+            chat.modelId.isNotBlank() -> chat.modelId
+            tokenStore.lastSelectedModelId.isNotBlank() -> tokenStore.lastSelectedModelId
+            else -> ""
+        }
+
+        if (currentAvailableModels.isEmpty()) {
             _uiState.update {
-                it.copy(loadError = "No downloaded model found. Go to Settings > Model and download one.")
+                it.copy(loadError = "No available model found. Download one in Settings > Model or configure Gemini in Settings > Developer.")
+            }
+            return
+        }
+
+        if (preferredModelId.isBlank()) {
+            _uiState.update {
+                it.copy(loadError = "Select a model first from the model picker.")
+            }
+            return
+        }
+
+        val model = currentAvailableModels.find { it.id == preferredModelId } ?: run {
+            _uiState.update {
+                it.copy(loadError = "Selected model is no longer available. Please choose another model.")
             }
             return
         }

@@ -71,13 +71,22 @@ android {
     }
 
     packaging {
-        resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/NOTICE"
+        }
         jniLibs { pickFirsts += "**/*.so" }
     }
 }
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.genai:google-genai:1.44.0") {
+        exclude(group = "com.google.protobuf", module = "protobuf-java")
+    }
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
