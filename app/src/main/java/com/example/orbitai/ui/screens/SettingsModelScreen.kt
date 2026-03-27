@@ -166,16 +166,14 @@ private fun DropdownSection(
     var expanded by remember { mutableStateOf(initiallyExpanded) }
 
     GlassCard(accent = accent) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { expanded = !expanded },
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -224,6 +222,7 @@ private fun DropdownSection(
 private fun HuggingFaceTokenCompact(tokenStore: TokenStore) {
     var token by remember { mutableStateOf(tokenStore.huggingFaceToken) }
     var show by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(tokenStore.hasToken()) }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -231,7 +230,10 @@ private fun HuggingFaceTokenCompact(tokenStore: TokenStore) {
     ) {
         TextField(
             value = token,
-            onValueChange = { token = it },
+            onValueChange = { 
+                token = it
+                saved = false
+            },
             modifier = Modifier.weight(1f),
             placeholder = { Text("hf_xxx", color = TextMuted, style = MaterialTheme.typography.bodySmall) },
             colors = TextFieldDefaults.colors(
@@ -252,10 +254,17 @@ private fun HuggingFaceTokenCompact(tokenStore: TokenStore) {
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         )
-        CompactActionButton("Save", enabled = token.isNotBlank()) { tokenStore.huggingFaceToken = token }
+        CompactActionButton(
+            label = if (saved) "Saved" else "Save",
+            enabled = token.isNotBlank() && !saved
+        ) {
+            tokenStore.huggingFaceToken = token
+            saved = true
+        }
         CompactActionButton("Clear", accent = Destructive) {
             token = ""
             tokenStore.huggingFaceToken = ""
+            saved = false
         }
     }
 }
@@ -310,6 +319,10 @@ private fun CompactModelDownloadRow(
                     )
                 }
             }
+
+            if (status == DownloadStatus.FAILED && progress?.error != null) {
+                Text(progress.error, color = Destructive, style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
@@ -325,15 +338,13 @@ private fun CompactCustomModelRow(onDownload: (url: String, fileName: String) ->
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(GlassWhite8)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) { expanded = !expanded }
             .padding(10.dp),
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -428,6 +439,11 @@ private fun CompactEmbeddingDownloadRow(
                     else -> CompactActionButton("Download", accent = RagAccent, onClick = onDownload)
                 }
             }
+
+            if (status == DownloadStatus.FAILED && progress?.error != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(progress.error, color = Destructive, style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
@@ -437,6 +453,7 @@ private fun GeminiCompactConfig(tokenStore: TokenStore) {
     var modelName by remember { mutableStateOf(tokenStore.geminiModelName) }
     var apiKey by remember { mutableStateOf(tokenStore.geminiApiKey) }
     var show by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
 
     var expanded by remember { mutableStateOf(true) }
 
@@ -445,15 +462,13 @@ private fun GeminiCompactConfig(tokenStore: TokenStore) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(GlassWhite8)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) { expanded = !expanded }
             .padding(10.dp),
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -465,7 +480,10 @@ private fun GeminiCompactConfig(tokenStore: TokenStore) {
                 Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextField(
                         value = modelName,
-                        onValueChange = { modelName = it.lowercase() },
+                        onValueChange = { 
+                            modelName = it.lowercase()
+                            saved = false
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("gemini-2.0-flash", style = MaterialTheme.typography.bodySmall, color = TextMuted) },
                         colors = TextFieldDefaults.colors(
@@ -479,7 +497,10 @@ private fun GeminiCompactConfig(tokenStore: TokenStore) {
                     )
                     TextField(
                         value = apiKey,
-                        onValueChange = { apiKey = it },
+                        onValueChange = { 
+                            apiKey = it
+                            saved = false
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("api key", style = MaterialTheme.typography.bodySmall, color = TextMuted) },
                         colors = TextFieldDefaults.colors(
@@ -500,15 +521,21 @@ private fun GeminiCompactConfig(tokenStore: TokenStore) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CompactActionButton("Save", accent = CloudAccent, enabled = modelName.isNotBlank() && apiKey.isNotBlank()) {
+                        CompactActionButton(
+                            label = if (saved) "Saved" else "Save",
+                            accent = CloudAccent,
+                            enabled = modelName.isNotBlank() && apiKey.isNotBlank() && !saved
+                        ) {
                             tokenStore.geminiModelName = modelName
                             tokenStore.geminiApiKey = apiKey
+                            saved = true
                         }
                         CompactActionButton("Clear", accent = Destructive) {
                             modelName = ""
                             apiKey = ""
                             tokenStore.geminiModelName = ""
                             tokenStore.geminiApiKey = ""
+                            saved = false
                         }
                     }
                 }
@@ -572,8 +599,6 @@ private fun CompactActionButton(
             .clip(RoundedCornerShape(10.dp))
             .background(if (enabled) accent.copy(alpha = 0.2f) else GlassWhite4)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
                 enabled = enabled,
                 onClick = onClick,
             )

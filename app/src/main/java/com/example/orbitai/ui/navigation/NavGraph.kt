@@ -55,7 +55,6 @@ import com.example.orbitai.ui.screens.ModelSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
 import com.example.orbitai.ui.screens.InferenceSettingsScreen
 import com.example.orbitai.ui.screens.MemorySettingsScreen
-import com.example.orbitai.ui.screens.ModelSettingsScreen
 import com.example.orbitai.ui.screens.RagSettingsScreen
 import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
