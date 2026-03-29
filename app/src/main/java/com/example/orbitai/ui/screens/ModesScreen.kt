@@ -40,14 +40,22 @@ import com.example.orbitai.data.db.Mode
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 
-private val ModesSurface = Color(0xFFF9F8F5)
-private val ModesCard = Color(0xFFFFFFFF)
-private val ModesInk = Color(0xFF0D0D0D)
+private val ModesSurfaceLight = Color(0xFFF9F8F5)
+private val ModesCardLight = Color(0xFFFFFFFF)
+private val ModesCardDark = Color(0xFF1E1E1C)
+private val ModesInkLight = Color(0xFF0D0D0D)
 private val ModesActiveGreen = Color(0xFF17A865)
 private val ModesDeleteRed = Color(0xFFD94F4F)
 private val ModesSans = FontFamily.SansSerif
 private val ModesMono = FontFamily.Monospace
 private val ModeCardHeight = 152.dp
+
+private val ModesSurface: Color
+    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else ModesSurfaceLight
+private val ModesCard: Color
+    @Composable get() = if (IsOrbitDarkTheme) ModesCardDark else ModesCardLight
+private val ModesInk: Color
+    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else ModesInkLight
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MODES SCREEN — list + inline edit destination

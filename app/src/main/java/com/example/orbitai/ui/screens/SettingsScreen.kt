@@ -1,47 +1,78 @@
 package com.example.orbitai.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.R
-import com.example.orbitai.ui.theme.*
+import com.example.orbitai.ui.theme.IsOrbitDarkTheme
+import com.example.orbitai.ui.theme.SpaceDeep
+import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.viewmodel.DownloadViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val SettingsSurfaceLight = Color(0xFFF9F8F5)
+private val SettingsCardLight = Color(0xFFFFFFFF)
+private val SettingsCardDark = Color(0xFF1E1E1C)
+private val SettingsInkLight = Color(0xFF0D0D0D)
+private val SettingsSans = FontFamily.SansSerif
+private val SettingsMono = FontFamily.Monospace
+
+private val SettingsSurface: Color
+    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
+private val SettingsCard: Color
+    @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
+private val SettingsInk: Color
+    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
+
+private data class SettingsRow(
+    val icon: ImageVector,
+    val title: String,
+    val description: String,
+    val onClick: (() -> Unit)? = null,
+    val showChevron: Boolean = true,
+    val trailing: (@Composable () -> Unit)? = null,
+)
+
 @Composable
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
@@ -51,314 +82,302 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
+    val context = LocalContext.current
+    val appVersion = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull().orEmpty()
+    }
 
-    SettingsHub(
-        isDarkTheme = isDarkTheme,
-        onThemeChanged = onThemeChanged,
-        onOpenSection = onNavigate,
-        onBack = onBack,
+    val aiRows = remember {
+        listOf(
+            SettingsRow(
+                icon = Icons.Default.DeveloperBoard,
+                title = "Models",
+                description = "Download, configure & manage",
+            ),
+            SettingsRow(
+                icon = Icons.Default.Psychology,
+                title = "Memory",
+                description = "Stored memories and controls",
+            ),
+            SettingsRow(
+                icon = Icons.Default.Build,
+                title = "Tools",
+                description = "Tool availability and support",
+            ),
+        )
+    }
+
+    val aboutRows = remember {
+        listOf(
+            SettingsRow(
+                icon = Icons.Default.Tag,
+                title = "Version",
+                description = if (appVersion.isNotBlank()) appVersion else "Unknown",
+                showChevron = false,
+                onClick = null,
+            ),
+            SettingsRow(
+                icon = Icons.Default.Gavel,
+                title = "Privacy policy",
+                description = "Read our data and privacy terms",
+                onClick = { },
+            ),
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SettingsSurface),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 0.dp, top = 18.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.displaySmall.copy(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = (-0.5).sp,
+                        ),
+                        color = SettingsInk,
+                        fontFamily = SettingsSans,
+                    )
+                    Text(
+                        text = "OrbitAI · On-device LLM",
+                        color = SettingsInk.copy(alpha = 0.35f),
+                        fontFamily = SettingsMono,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+        }
+
+        item { SettingsSectionHeader("AI") }
+        item {
+            GroupedCard {
+                SettingsGroupRow(
+                    row = aiRows[0],
+                    onClick = { onNavigate("settings/model") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = aiRows[1],
+                    onClick = { onNavigate("settings/memory") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = aiRows[2],
+                    onClick = { onNavigate("settings/tools") },
+                )
+            }
+        }
+
+        item { SettingsSectionHeader("SYSTEM") }
+        item {
+            GroupedCard {
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.ChatBubble,
+                        title = "Orbit Bubble",
+                        description = "Floating assistant behavior",
+                    ),
+                    onClick = { onNavigate("settings/orbit_bubble") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.NightsStay,
+                        title = "Dark mode",
+                        description = "App theme preference",
+                        showChevron = false,
+                        trailing = {
+                            InkToggle(
+                                checked = isDarkTheme,
+                                onCheckedChange = onThemeChanged,
+                            )
+                        },
+                    ),
+                    onClick = { onThemeChanged(!isDarkTheme) },
+                )
+            }
+        }
+
+        item { SettingsSectionHeader("ABOUT") }
+        item {
+            GroupedCard {
+                SettingsGroupRow(row = aboutRows[0], onClick = null)
+                HairlineDivider()
+                SettingsGroupRow(row = aboutRows[1], onClick = aboutRows[1].onClick)
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "OrbitAI · On-device LLM",
+                modifier = Modifier.fillMaxWidth(),
+                color = SettingsInk.copy(alpha = 0.20f),
+                fontFamily = SettingsMono,
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupedCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(SettingsCard)
+            .border(
+                width = 1.dp,
+                color = SettingsInk.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(14.dp),
+            )
+            .padding(horizontal = 10.dp),
+        content = content,
     )
 }
 
-private data class SettingsCategory(
-    val destination: String,
-    val icon: ImageVector,
-    val title: String,
-    val subtitle: String,
-    val accentColor: Color,
-    val iconResId: Int? = null,
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsHub(
-    isDarkTheme: Boolean,
-    onThemeChanged: (Boolean) -> Unit,
-    onOpenSection: (String) -> Unit,
-    onBack: () -> Unit,
-) {
-    val categories = listOf(
-        SettingsCategory(
-            destination = "settings/model",
-            icon = Icons.Default.DeveloperBoard,
-            title = "Model",
-            subtitle = "Download, configure on-device & cloud models",
-            accentColor = VioletCore,
-        ),
-        SettingsCategory(
-            destination = "settings/memory",
-            icon = Icons.Default.Psychology,
-            title = "Memory",
-            subtitle = "View, edit & toggle stored memories",
-            accentColor = Color(0xFF34D399),
-        ),
-        SettingsCategory(
-            destination = "settings/tools",
-            icon = Icons.Default.Build,
-            title = "Tools",
-            subtitle = "Available tools and automation support",
-            accentColor = Color(0xFF22D3EE),
-        ),
-        SettingsCategory(
-            destination = "settings/orbit_bubble",
-            icon = Icons.Default.ChatBubble,
-            title = "Orbit Bubble",
-            subtitle = "Floating bubble toggle, model and behavior",
-            accentColor = Color(0xFFF97316),
-            iconResId = R.drawable.vector_logo,
-        ),
+private fun SettingsSectionHeader(text: String) {
+    Text(
+        text = text,
+        color = SettingsInk.copy(alpha = 0.30f),
+        fontFamily = SettingsMono,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 1.2.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
     )
+}
 
-    Box(
+@Composable
+private fun SettingsGroupRow(
+    row: SettingsRow,
+    onClick: (() -> Unit)?,
+) {
+    val clickModifier = if (onClick != null) {
+        Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        )
+    } else {
+        Modifier
+    }
+
+    Row(
         modifier = Modifier
-            .fillMaxSize()
-            .background(SpaceDeep),
+            .fillMaxWidth()
+            .then(clickModifier)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(260.dp)
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to VioletGlowSoft.copy(alpha = 0.07f),
-                            1.0f to Color.Transparent,
-                        ),
-                        radius = 600f,
-                    ),
+                .size(36.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(SettingsInk.copy(alpha = 0.06f))
+                .border(
+                    width = 1.dp,
+                    color = SettingsInk.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(9.dp),
                 ),
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = row.icon,
+                contentDescription = null,
+                tint = SettingsInk.copy(alpha = 0.72f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
 
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = TextSecondary,
-                            )
-                        }
-                    },
-                    title = {
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(
-                                "Settings",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = TextPrimary,
-                            )
-                            Text(
-                                "OrbitAI",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color = VioletBright,
-                                    letterSpacing = 1.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                            )
-                        }
-                    },
-                    actions = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Contrast,
-                                contentDescription = null,
-                                tint = VioletBright,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Switch(
-                                checked = isDarkTheme,
-                                onCheckedChange = onThemeChanged,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = VioletCore,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = GlassWhite20,
-                                ),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.padding(top = 4.dp),
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                text = row.title,
+                color = SettingsInk,
+                fontFamily = SettingsSans,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+            )
+            Text(
+                text = row.description,
+                color = SettingsInk.copy(alpha = 0.38f),
+                fontFamily = SettingsSans,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        when {
+            row.trailing != null -> row.trailing()
+            row.showChevron -> {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = SettingsInk.copy(alpha = 0.45f),
+                    modifier = Modifier.size(13.dp),
                 )
-            },
-        ) { padding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(categories.indices.toList()) { index ->
-                    StaggeredFadeSlide(index = index) {
-                        SettingsCategoryCard(
-                            category = categories[index],
-                            onClick = { onOpenSection(categories[index].destination) },
-                        )
-                    }
-                }
-
-                item {
-                    Spacer(Modifier.height(16.dp))
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "OrbitAI • On-device • MediaPipe LLM",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted.copy(alpha = 0.4f),
-                        )
-                    }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun SettingsCategoryCard(
-    category: SettingsCategory,
-    onClick: () -> Unit,
+private fun InkToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
-    val isDark = IsOrbitDarkTheme
-    val cardShape = RoundedCornerShape(18.dp)
-    val accent = category.accentColor
-
-    // Light mode: tinted glass per accent
-    val lightGlassTint = when {
-        accent == VioletCore                       -> Color(0xFFF0ECFF)
-        accent == Color(0xFF60A5FA)                -> Color(0xFFEBF2FF)
-        accent == Color(0xFF34D399)                -> Color(0xFFE8FFF5)
-        accent == Color(0xFFFBBF24)                -> Color(0xFFFFF8E7)
-        accent == Color(0xFFF472B6)                -> Color(0xFFFFF0F7)
-        else                                       -> Color(0xFFF5F5FF)
-    }
+    val checkedTrack = if (IsOrbitDarkTheme) Color(0xFFE8E6E1) else SettingsInk
+    val uncheckedTrack = if (IsOrbitDarkTheme) Color(0xFF2A2A28) else SettingsInk.copy(alpha = 0.18f)
+    val knobColor = if (checked && IsOrbitDarkTheme) SpaceDeep else Color.White
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(
-                                if (isDark) 24f else 16f,
-                                0f, 4f,
-                                (if (isDark) Color.Black else accent)
-                                    .copy(alpha = if (isDark) 0.25f else 0.08f)
-                                    .toArgb(),
-                            )
-                        }
-                    }
-                    canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
-                    )
-                }
-            }
-            .clip(cardShape)
-            .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else lightGlassTint.copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
-            .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else accent)
-                                     .copy(alpha = if (isDark) 0.18f else 0.40f),
-                        0.5f to accent.copy(alpha = if (isDark) 0.12f else 0.18f),
-                        1.0f to (if (isDark) Color.White else accent)
-                                     .copy(alpha = if (isDark) 0.05f else 0.08f),
-                    ),
-                    start = Offset.Zero,
-                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                ),
-                shape = cardShape,
-            )
+            .size(width = 38.dp, height = 22.dp)
+            .clip(CircleShape)
+            .background(if (checked) checkedTrack else uncheckedTrack)
             .clickable(
-                interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(accent.copy(alpha = 0.12f))
-                    .border(
-                        width = 0.5.dp,
-                        color = accent.copy(alpha = if (isDark) 0.22f else 0.28f),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (category.iconResId != null) {
-                    Image(
-                        painter = painterResource(category.iconResId),
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                    )
-                } else {
-                    Icon(
-                        imageVector = category.icon,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = category.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = category.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = null,
-                tint = TextMuted.copy(alpha = 0.5f),
-                modifier = Modifier.size(14.dp),
+                onClick = { onCheckedChange(!checked) },
             )
-        }
+            .padding(horizontal = 3.dp),
+        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .clip(CircleShape)
+                .background(knobColor),
+        )
     }
+}
+
+@Composable
+private fun HairlineDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(0.5.dp)
+            .background(SettingsInk.copy(alpha = 0.08f)),
+    )
 }

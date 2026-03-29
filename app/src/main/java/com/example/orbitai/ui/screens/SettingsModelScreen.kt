@@ -1,32 +1,30 @@
 package com.example.orbitai.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
@@ -48,30 +46,38 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.orbitai.data.AVAILABLE_EMBEDDING_MODELS
+import androidx.compose.ui.unit.sp
 import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.DownloadProgress
 import com.example.orbitai.data.DownloadStatus
-import com.example.orbitai.data.EmbeddingModelConfig
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.TokenStore
-import com.example.orbitai.ui.theme.Destructive
-import com.example.orbitai.ui.theme.GlassWhite4
-import com.example.orbitai.ui.theme.GlassWhite8
-import com.example.orbitai.ui.theme.TextMuted
+import com.example.orbitai.ui.theme.IsOrbitDarkTheme
+import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
-import com.example.orbitai.ui.theme.VioletBright
-import com.example.orbitai.ui.theme.VioletCore
 import com.example.orbitai.viewmodel.DownloadViewModel
 
-private val HfAccent = Color(0xFF8B5CF6)
-private val RagAccent = Color(0xFFFBBF24)
-private val CloudAccent = Color(0xFF60A5FA)
+private val SettingsSurfaceLight = Color(0xFFF9F8F5)
+private val SettingsCardLight = Color(0xFFFFFFFF)
+private val SettingsCardDark = Color(0xFF1E1E1C)
+private val SettingsInkLight = Color(0xFF0D0D0D)
+private val SettingsGreen = Color(0xFF17A865)
+private val SettingsRed = Color(0xFFD94F4F)
+private val SettingsSans = FontFamily.SansSerif
+private val SettingsMono = FontFamily.Monospace
+
+private val SettingsSurface: Color
+    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
+private val SettingsCard: Color
+    @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
+private val SettingsInk: Color
+    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
 
 @Composable
 fun ModelSettingsScreen(
@@ -80,316 +86,361 @@ fun ModelSettingsScreen(
     onBack: () -> Unit,
 ) {
     val progressMap by downloadViewModel.progress.collectAsState()
-    val embeddingProgressMap by downloadViewModel.embeddingProgress.collectAsState()
 
-    SettingsSubScreen(
-        title = "Model",
-        icon = Icons.Default.Memory,
-        accent = VioletCore,
-        onBack = onBack,
+    var token by remember { mutableStateOf(tokenStore.huggingFaceToken) }
+    var tokenSaved by remember { mutableStateOf(tokenStore.hasToken()) }
+    var showToken by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SettingsSurface),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        SettingsDescription("Model controls grouped in compact dropdown sections.")
-
-        // 1) HuggingFace + local model downloads
-        DropdownSection(
-            title = "HuggingFace Config",
-            subtitle = "Token + on-device model downloads",
-            accent = HfAccent,
-            initiallyExpanded = true,
-        ) {
-            HuggingFaceTokenCompact(tokenStore)
-            Spacer(Modifier.height(10.dp))
-            AVAILABLE_MODELS.forEach { model ->
-                CompactModelDownloadRow(
-                    model = model,
-                    progress = progressMap[model.id],
-                    onDownload = { downloadViewModel.startDownload(model) },
-                    onCancel = { downloadViewModel.cancelDownload(model) },
-                    onDelete = { downloadViewModel.deleteModel(model) },
-                )
-                Spacer(Modifier.height(6.dp))
-            }
-            CompactCustomModelRow(
-                onDownload = { url, fileName ->
-                    val normalized = normalizeModelFileName(fileName)
-                    val custom = LlmModel(
-                        id = "custom-${System.currentTimeMillis()}",
-                        displayName = normalized.removeSuffix(".litertlm").removeSuffix(".task"),
-                        fileName = normalized,
-                        description = "Custom model",
-                        paramCount = "?",
-                        format = inferModelFormat(normalized),
-                    )
-                    downloadViewModel.startDownload(custom, url)
-                },
-            )
-        }
-
-        // 2) Semantic model download
-        DropdownSection(
-            title = "Semantic Model Download",
-            subtitle = "Needed for semantic RAG search in Spaces",
-            accent = RagAccent,
-        ) {
-            AVAILABLE_EMBEDDING_MODELS.forEach { model ->
-                CompactEmbeddingDownloadRow(
-                    model = model,
-                    progress = embeddingProgressMap[model.id],
-                    onDownload = { downloadViewModel.startEmbeddingDownload(model) },
-                    onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
-                    onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
-                )
-            }
-        }
-
-        // 3) Cloud API
-        DropdownSection(
-            title = "Cloud API",
-            subtitle = "Gemini now, GPT template coming soon",
-            accent = CloudAccent,
-        ) {
-            GeminiCompactConfig(tokenStore)
-            Spacer(Modifier.height(8.dp))
-            GptComingSoonTemplate()
-        }
-    }
-}
-
-@Composable
-private fun DropdownSection(
-    title: String,
-    subtitle: String,
-    accent: Color,
-    initiallyExpanded: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    var expanded by remember { mutableStateOf(initiallyExpanded) }
-
-    GlassCard(accent = accent) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(start = 4.dp, top = 16.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { expanded = !expanded },
+                        onClick = onBack,
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = SettingsInk.copy(alpha = 0.40f),
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    text = "Settings",
+                    color = SettingsInk.copy(alpha = 0.40f),
+                    fontFamily = SettingsMono,
+                    fontSize = 13.sp,
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = "Models",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(GlassWhite8),
-                    contentAlignment = Alignment.Center,
+                        letterSpacing = (-0.5).sp,
+                    ),
+                    color = SettingsInk,
+                    fontFamily = SettingsSans,
+                )
+                Text(
+                    text = "Download, configure & manage",
+                    color = SettingsInk.copy(alpha = 0.35f),
+                    fontFamily = SettingsMono,
+                    fontSize = 11.sp,
+                )
+            }
+        }
+
+        item {
+            FlatCard {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "HuggingFace Config",
+                            color = SettingsInk,
+                            fontFamily = SettingsSans,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp,
+                        )
+                        Text(
+                            text = "Token · on-device model downloads",
+                            color = SettingsInk.copy(alpha = 0.35f),
+                            fontFamily = SettingsMono,
+                            fontSize = 10.sp,
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextField(
+                            value = token,
+                            onValueChange = {
+                                token = it
+                                tokenSaved = false
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(7.dp)),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = SettingsMono,
+                                color = SettingsInk,
+                                fontSize = 11.sp,
+                            ),
+                            placeholder = {
+                                Text(
+                                    "••••••••••",
+                                    color = SettingsInk.copy(alpha = 0.30f),
+                                    fontFamily = SettingsMono,
+                                    fontSize = 11.sp,
+                                )
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = { showToken = !showToken }) {
+                                    Icon(
+                                        imageVector = if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = null,
+                                        tint = SettingsInk.copy(alpha = 0.55f),
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            },
+                            visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done,
+                            ),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = SettingsInk.copy(alpha = 0.06f),
+                                unfocusedContainerColor = SettingsInk.copy(alpha = 0.06f),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = SettingsInk,
+                                unfocusedTextColor = SettingsInk,
+                            ),
+                        )
+
+                        SmallFilledButton(
+                            label = if (tokenSaved) "Saved" else "Save",
+                            color = SettingsInk,
+                            enabled = token.isNotBlank() && !tokenSaved,
+                            onClick = {
+                                tokenStore.huggingFaceToken = token
+                                tokenSaved = true
+                            },
+                        )
+
+                        SmallOutlineButton(
+                            label = "Clear",
+                            color = SettingsRed,
+                            onClick = {
+                                token = ""
+                                tokenStore.huggingFaceToken = ""
+                                tokenSaved = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader("ON-DEVICE") }
+
+        item {
+            FlatCard(padding = 0.dp) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    AVAILABLE_MODELS.forEachIndexed { index, model ->
+                        ModelRow(
+                            model = model,
+                            progress = progressMap[model.id],
+                            onDownload = { downloadViewModel.startDownload(model) },
+                            onDelete = { downloadViewModel.deleteModel(model) },
+                            onCancel = { downloadViewModel.cancelDownload(model) },
+                        )
+                        if (index != AVAILABLE_MODELS.lastIndex) HairlineDivider()
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader("CLOUD") }
+
+        item {
+            FlatCard(padding = 0.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            text = "Gemini API",
+                            color = SettingsInk,
+                            fontFamily = SettingsSans,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                        )
+                        Text(
+                            text = "Cloud provider integration",
+                            color = SettingsInk.copy(alpha = 0.38f),
+                            fontFamily = SettingsSans,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Icon(
-                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                         contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(20.dp),
+                        tint = SettingsInk.copy(alpha = 0.45f),
+                        modifier = Modifier.size(13.dp),
                     )
                 }
             }
+        }
 
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
-                Column(modifier = Modifier.padding(top = 14.dp)) { content() }
-            }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "OrbitAI · On-device LLM",
+                modifier = Modifier.fillMaxWidth(),
+                color = SettingsInk.copy(alpha = 0.20f),
+                fontFamily = SettingsMono,
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
 @Composable
-private fun HuggingFaceTokenCompact(tokenStore: TokenStore) {
-    var token by remember { mutableStateOf(tokenStore.huggingFaceToken) }
-    var show by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(tokenStore.hasToken()) }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        TextField(
-            value = token,
-            onValueChange = { 
-                token = it
-                saved = false
-            },
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("hf_xxx", color = TextMuted, style = MaterialTheme.typography.bodySmall) },
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = GlassWhite8,
-                unfocusedContainerColor = GlassWhite8,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary,
-            ),
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-            singleLine = true,
-            visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { show = !show }) {
-                    Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, tint = TextMuted)
-                }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        )
-        CompactActionButton(
-            label = if (saved) "Saved" else "Save",
-            enabled = token.isNotBlank() && !saved
-        ) {
-            tokenStore.huggingFaceToken = token
-            saved = true
-        }
-        CompactActionButton("Clear", accent = Destructive) {
-            token = ""
-            tokenStore.huggingFaceToken = ""
-            saved = false
-        }
-    }
-}
-
-@Composable
-private fun CompactModelDownloadRow(
+private fun ModelRow(
     model: LlmModel,
     progress: DownloadProgress?,
     onDownload: () -> Unit,
-    onCancel: () -> Unit,
     onDelete: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     val status = progress?.status ?: DownloadStatus.IDLE
-    val isDownloaded = status == DownloadStatus.COMPLETED
-    val isActive = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
+    val isInstalled = status == DownloadStatus.COMPLETED
+    val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
 
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(GlassWhite8)
-            .padding(10.dp),
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(model.displayName, style = MaterialTheme.typography.labelLarge, color = TextPrimary)
-                    Text("${model.paramCount} · ${model.description}", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                }
-                when {
-                    isDownloaded -> Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF34D399), modifier = Modifier.size(18.dp))
-                    isActive -> Text("${progress?.progressPercent ?: 0}%", style = MaterialTheme.typography.labelSmall, color = VioletBright)
-                    else -> Icon(Icons.Default.CloudDownload, null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                }
+                Text(
+                    text = model.displayName,
+                    color = SettingsInk,
+                    fontFamily = SettingsSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                )
+                Text(
+                    text = "· ${model.paramCount}",
+                    color = SettingsInk.copy(alpha = 0.30f),
+                    fontFamily = SettingsMono,
+                    fontSize = 10.sp,
+                )
             }
+            Text(
+                text = model.description,
+                color = SettingsInk.copy(alpha = 0.38f),
+                fontFamily = SettingsSans,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when {
-                    isDownloaded -> CompactActionButton("Delete", accent = Destructive, onClick = onDelete)
-                    isActive -> CompactActionButton("Cancel", onClick = onCancel)
-                    else -> CompactActionButton("Download", onClick = onDownload)
-                }
-                if (isActive && progress != null && progress.totalBytes > 0) {
+        when {
+            isInstalled -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(SettingsGreen),
+                    )
                     Text(
-                        "${formatBytes(progress.bytesDownloaded)} / ${formatBytes(progress.totalBytes)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted,
-                        modifier = Modifier.align(Alignment.CenterVertically),
+                        text = "Delete",
+                        color = SettingsRed,
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDelete,
+                        ),
                     )
                 }
             }
 
-            if (status == DownloadStatus.FAILED && progress?.error != null) {
-                Text(progress.error, color = Destructive, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompactCustomModelRow(onDownload: (url: String, fileName: String) -> Unit) {
-    var url by remember { mutableStateOf("") }
-    var fileName by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(GlassWhite8)
-            .padding(10.dp),
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Link, null, tint = TextMuted, modifier = Modifier.size(14.dp))
-                    Text("Custom model URL", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+            isDownloading -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "${progress?.progressPercent ?: 0}%",
+                        color = SettingsInk.copy(alpha = 0.55f),
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                    )
+                    Text(
+                        text = "Cancel",
+                        color = SettingsRed,
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onCancel,
+                        ),
+                    )
                 }
-                Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = TextMuted)
             }
 
-            AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextField(
-                        value = url,
-                        onValueChange = { url = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("https://...", style = MaterialTheme.typography.bodySmall, color = TextMuted) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = GlassWhite4,
-                            unfocusedContainerColor = GlassWhite4,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SettingsInk.copy(alpha = 0.06f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDownload,
                         ),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        maxLines = 2,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = "Download ${model.displayName}",
+                        tint = SettingsInk.copy(alpha = 0.62f),
+                        modifier = Modifier.size(16.dp),
                     )
-                    TextField(
-                        value = fileName,
-                        onValueChange = { fileName = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("mymodel.task", style = MaterialTheme.typography.bodySmall, color = TextMuted) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = GlassWhite4,
-                            unfocusedContainerColor = GlassWhite4,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
-                    )
-                    CompactActionButton("Download custom", enabled = url.isNotBlank() && fileName.isNotBlank()) {
-                        onDownload(url.trim(), fileName.trim())
-                    }
                 }
             }
         }
@@ -397,219 +448,104 @@ private fun CompactCustomModelRow(onDownload: (url: String, fileName: String) ->
 }
 
 @Composable
-private fun CompactEmbeddingDownloadRow(
-    model: EmbeddingModelConfig,
-    progress: DownloadProgress?,
-    onDownload: () -> Unit,
-    onCancel: () -> Unit,
-    onDelete: () -> Unit,
+private fun FlatCard(
+    padding: androidx.compose.ui.unit.Dp = 12.dp,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    val status = progress?.status ?: DownloadStatus.IDLE
-    val isDownloaded = status == DownloadStatus.COMPLETED
-    val isActive = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
-
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(GlassWhite8)
-            .padding(10.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(model.displayName, style = MaterialTheme.typography.labelLarge, color = TextPrimary)
-                    Text(model.description, style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                }
-                when {
-                    isDownloaded -> Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF34D399), modifier = Modifier.size(18.dp))
-                    isActive -> Text("${progress?.progressPercent ?: 0}%", style = MaterialTheme.typography.labelSmall, color = RagAccent)
-                    else -> Icon(Icons.Default.SettingsEthernet, null, tint = RagAccent, modifier = Modifier.size(16.dp))
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when {
-                    isDownloaded -> CompactActionButton("Delete", accent = Destructive, onClick = onDelete)
-                    isActive -> CompactActionButton("Cancel", onClick = onCancel)
-                    else -> CompactActionButton("Download", accent = RagAccent, onClick = onDownload)
-                }
-            }
-
-            if (status == DownloadStatus.FAILED && progress?.error != null) {
-                Spacer(Modifier.height(4.dp))
-                Text(progress.error, color = Destructive, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-}
-
-@Composable
-private fun GeminiCompactConfig(tokenStore: TokenStore) {
-    var modelName by remember { mutableStateOf(tokenStore.geminiModelName) }
-    var apiKey by remember { mutableStateOf(tokenStore.geminiApiKey) }
-    var show by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
-
-    var expanded by remember { mutableStateOf(true) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(GlassWhite8)
-            .padding(10.dp),
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("Gemini", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
-                Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = CloudAccent)
-            }
-
-            AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextField(
-                        value = modelName,
-                        onValueChange = { 
-                            modelName = it.lowercase()
-                            saved = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("gemini-2.0-flash", style = MaterialTheme.typography.bodySmall, color = TextMuted) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = GlassWhite4,
-                            unfocusedContainerColor = GlassWhite4,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        singleLine = true,
-                    )
-                    TextField(
-                        value = apiKey,
-                        onValueChange = { 
-                            apiKey = it
-                            saved = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("api key", style = MaterialTheme.typography.bodySmall, color = TextMuted) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = GlassWhite4,
-                            unfocusedContainerColor = GlassWhite4,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        singleLine = true,
-                        visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
-                        leadingIcon = { Icon(Icons.Default.Key, null, tint = TextMuted, modifier = Modifier.size(15.dp)) },
-                        trailingIcon = {
-                            IconButton(onClick = { show = !show }) {
-                                Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, tint = TextMuted)
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CompactActionButton(
-                            label = if (saved) "Saved" else "Save",
-                            accent = CloudAccent,
-                            enabled = modelName.isNotBlank() && apiKey.isNotBlank() && !saved
-                        ) {
-                            tokenStore.geminiModelName = modelName
-                            tokenStore.geminiApiKey = apiKey
-                            saved = true
-                        }
-                        CompactActionButton("Clear", accent = Destructive) {
-                            modelName = ""
-                            apiKey = ""
-                            tokenStore.geminiModelName = ""
-                            tokenStore.geminiApiKey = ""
-                            saved = false
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GptComingSoonTemplate() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(GlassWhite8)
-            .padding(10.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("GPT API", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
-            Text("Template ready • Coming soon", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-            TextField(
-                value = "model name",
-                onValueChange = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                    disabledContainerColor = GlassWhite4,
-                    disabledIndicatorColor = Color.Transparent,
-                    disabledTextColor = TextMuted,
-                ),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                singleLine = true,
+            .clip(RoundedCornerShape(14.dp))
+            .background(SettingsCard)
+            .border(
+                width = 1.dp,
+                color = SettingsInk.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(14.dp),
             )
-            TextField(
-                value = "api key",
-                onValueChange = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                    disabledContainerColor = GlassWhite4,
-                    disabledIndicatorColor = Color.Transparent,
-                    disabledTextColor = TextMuted,
-                ),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                singleLine = true,
-            )
-        }
-    }
+            .padding(padding),
+        content = content,
+    )
 }
 
 @Composable
-private fun CompactActionButton(
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        color = SettingsInk.copy(alpha = 0.30f),
+        fontFamily = SettingsMono,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 1.2.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+    )
+}
+
+@Composable
+private fun SmallFilledButton(
     label: String,
-    accent: Color = VioletCore,
-    enabled: Boolean = true,
+    color: Color,
+    enabled: Boolean,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .height(32.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (enabled) accent.copy(alpha = 0.2f) else GlassWhite4)
+            .clip(RoundedCornerShape(7.dp))
+            .background(if (enabled) color else color.copy(alpha = 0.32f))
             .clickable(
                 enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (enabled) accent else TextMuted,
-            fontWeight = FontWeight.SemiBold,
+            text = label,
+            color = Color.White,
+            fontFamily = SettingsMono,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
         )
     }
+}
+
+@Composable
+private fun SmallOutlineButton(
+    label: String,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(color.copy(alpha = 0.10f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = color,
+            fontFamily = SettingsMono,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun HairlineDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(0.5.dp)
+            .background(SettingsInk.copy(alpha = 0.08f)),
+    )
 }
