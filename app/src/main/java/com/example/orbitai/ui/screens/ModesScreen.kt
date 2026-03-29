@@ -13,16 +13,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,15 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import com.example.orbitai.R
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,10 +39,14 @@ import com.example.orbitai.data.db.Mode
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 
-// Modes accent — teal/emerald
-private val ModesAccent    = Color(0xFF10B981)
-private val ModesAccentDim = Color(0xFF059669)
-private val ModesFrost     = Color(0x1A10B981)   // 10% teal glass fill
+private val ModesSurface = Color(0xFFF9F8F5)
+private val ModesCard = Color(0xFFFFFFFF)
+private val ModesInk = Color(0xFF0D0D0D)
+private val ModesActiveGreen = Color(0xFF17A865)
+private val ModesDeleteRed = Color(0xFFD94F4F)
+private val ModesSans = FontFamily.SansSerif
+private val ModesMono = FontFamily.Monospace
+private val ModeCardHeight = 152.dp
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MODES SCREEN — list + inline edit destination
@@ -86,6 +80,7 @@ fun ModesScreen(viewModel: ModesViewModel) {
                 modes      = modes,
                 onEditMode = { destination = ModesDestination.Edit(it) },
                 onCreateNew = { destination = ModesDestination.Edit(null) },
+                inferenceForMode = { modeId -> viewModel.inferenceForMode(modeId) },
             )
             is ModesDestination.Edit -> ModeEditScreen(
                 mode      = dest.mode,
@@ -123,90 +118,135 @@ private fun ModeListScreen(
     modes:      List<Mode>,
     onEditMode: (Mode) -> Unit,
     onCreateNew: () -> Unit,
+    inferenceForMode: (String) -> InferenceSettings,
 ) {
-    Box(
+    val customModes = remember(modes) { modes.filterNot { it.isDefault } }
+    val builtInModes = remember(modes) { modes.filter { it.isDefault } }
+    val activeMode = remember(customModes, builtInModes) { customModes.firstOrNull() ?: builtInModes.firstOrNull() }
+    val gridEntries = remember(customModes) { customModes + listOf<Mode?>(null) }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SpaceDeep),
+            .background(ModesSurface)
+            .padding(horizontal = 16.dp),
     ) {
-        // Ambient teal glow
-        Box(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to ModesAccent.copy(alpha = 0.04f),
-                            0.0f to ModesAccent.copy(alpha = 0.04f),
-                            1.0f to Color.Transparent,
-                        ),
-                        radius = 700f,
-                    )
+                .fillMaxWidth()
+                .padding(top = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Modes",
+                color = ModesInk,
+                fontFamily = ModesSans,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 28.sp,
+            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(ModesInk)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCreateNew,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "+",
+                    color = Color.White,
+                    fontFamily = ModesSans,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
                 )
+            }
+        }
+
+        Text(
+            text = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
+            color = ModesInk.copy(alpha = 0.35f),
+            fontFamily = ModesMono,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(top = 2.dp),
         )
 
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    title = {
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(
-                                "Modes",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = TextPrimary,
-                            )
-                            Text(
-                                "${modes.size} mode${if (modes.size != 1) "s" else ""}",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color        = ModesAccent,
-                                    letterSpacing = 1.sp,
-                                    fontWeight   = FontWeight.SemiBold,
-                                ),
-                            )
+        activeMode?.let { mode ->
+            ModeActiveBanner(
+                mode = mode,
+                description = compactPrompt(mode.systemPrompt),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 10.dp),
+            contentPadding = PaddingValues(bottom = 26.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    gridEntries.chunked(2).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            rowItems.forEach { mode ->
+                                if (mode == null) {
+                                    NewModeCell(
+                                        modifier = Modifier.weight(1f),
+                                        onClick = onCreateNew,
+                                    )
+                                } else {
+                                    FlatModeCard(
+                                        mode = mode,
+                                        inference = inferenceForMode(mode.id),
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onEditMode(mode) },
+                                    )
+                                }
+                            }
+                            if (rowItems.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
-                    },
-                    colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            },
-            floatingActionButton = {
-                ModesFAB(onClick = onCreateNew)
-            },
-        ) { padding ->
-            if (modes.isEmpty()) {
-                ModesEmptyState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    onCreate = onCreateNew,
-                )
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 156.dp),
-                    modifier        = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding  = PaddingValues(
-                        start  = 16.dp,
-                        end    = 16.dp,
-                        top    = 8.dp,
-                        bottom = 100.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    itemsIndexed(
-                        items = modes,
-                        key   = { _, m -> m.id },
-                    ) { index, mode ->
-                        StaggeredFadeSlide(index = index) {
-                            ModeCard(
-                                mode     = mode,
-                                onClick  = { onEditMode(mode) },
+                    }
+                }
+            }
+
+            if (builtInModes.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "BUILT-IN",
+                        color = ModesInk.copy(alpha = 0.30f),
+                        fontFamily = ModesMono,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                item {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        builtInModes.forEachIndexed { index, mode ->
+                            BuiltInModeRow(
+                                mode = mode,
+                                onClick = { onEditMode(mode) },
                             )
+                            if (index != builtInModes.lastIndex) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(ModesInk.copy(alpha = 0.06f)),
+                                )
+                            }
                         }
                     }
                 }
@@ -215,214 +255,309 @@ private fun ModeListScreen(
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// FAB
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 @Composable
-private fun ModesFAB(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color       = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(
-                                24f, 0f, 4f,
-                                ModesAccent.copy(alpha = 0.4f).toArgb(),
-                            )
-                        }
-                    }
-                    canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
-                    )
-                }
-            }
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.linearGradient(listOf(ModesAccent, ModesAccentDim))
+private fun ModeActiveBanner(
+    mode: Mode,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(ModesActiveGreen.copy(alpha = 0.06f))
+            .border(
+                width = 1.dp,
+                color = ModesActiveGreen.copy(alpha = 0.22f),
+                shape = RoundedCornerShape(10.dp),
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Default.Add,
-            contentDescription = "Create Mode",
-            tint     = Color.White,
-            modifier = Modifier.size(26.dp),
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(ModesActiveGreen),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = mode.name,
+            color = ModesInk,
+            fontFamily = ModesSans,
+            fontWeight = FontWeight.Medium,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = " · ",
+            color = ModesInk.copy(alpha = 0.4f),
+            fontFamily = ModesMono,
+            fontSize = 11.sp,
+        )
+        Text(
+            text = description,
+            color = ModesInk.copy(alpha = 0.4f),
+            fontFamily = ModesSans,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "ACTIVE",
+            color = ModesActiveGreen,
+            fontFamily = ModesMono,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium,
         )
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MODE CARD
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 @Composable
-private fun ModeCard(
-    mode:     Mode,
-    onClick:  () -> Unit,
+private fun FlatModeCard(
+    mode: Mode,
+    inference: InferenceSettings,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
-    // Default mode gets violet, custom modes get teal
-    val cardAccent = if (mode.isDefault) VioletCore else ModesAccent
-    val cardFrost  = if (mode.isDefault) VioletFrost else ModesFrost
-    val isDark = IsOrbitDarkTheme
-    val cardShape = RoundedCornerShape(18.dp)
-
-    // Light mode tinted glass color per accent
-    val lightGlassTint = if (mode.isDefault) Color(0xFFF0ECFF) else Color(0xFFE8FFF5)
-
+    val emoji = extractLeadingEmoji(mode.name) ?: "🙂"
+    val title = stripLeadingEmoji(mode.name)
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color       = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(
-                                if (isDark) 24f else 16f,
-                                0f, 4f,
-                                (if (isDark) Color.Black else cardAccent)
-                                    .copy(alpha = if (isDark) 0.30f else 0.08f)
-                                    .toArgb(),
-                            )
-                        }
-                    }
-                    canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
-                    )
-                }
-            }
-            .clip(cardShape)
-            .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else lightGlassTint.copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(ModesCard)
             .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else cardAccent)
-                                     .copy(alpha = if (isDark) 0.18f else 0.40f),
-                        0.5f to cardAccent.copy(alpha = if (isDark) 0.12f else 0.18f),
-                        1.0f to (if (isDark) Color.White else cardAccent)
-                                     .copy(alpha = if (isDark) 0.05f else 0.08f),
-                    ),
-                    start = Offset.Zero,
-                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                ),
-                shape = cardShape,
+                width = 1.dp,
+                color = ModesInk.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(14.dp),
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
-            ),
+                indication = null,
+                onClick = onClick,
+            )
+            .height(ModeCardHeight)
+            .padding(12.dp),
     ) {
         Column(
-            modifier             = Modifier
-                .fillMaxSize()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(cardFrost)
-                        .border(
-                            width = 0.5.dp,
-                            color = cardAccent.copy(alpha = if (isDark) 0.22f else 0.28f),
-                            shape = RoundedCornerShape(14.dp),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (mode.isDefault) {
-                        Image(
-                            painter = painterResource(R.drawable.vector_logo),
-                            contentDescription = "OrbitAI",
-                            modifier = Modifier.size(26.dp),
-                        )
-                    } else {
-                        Text(
-                            text       = mode.name.take(1).uppercase(),
-                            fontSize   = 18.sp,
-                            color      = cardAccent,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = null,
-                    tint     = TextMuted.copy(0.35f),
-                    modifier = Modifier.size(12.dp),
+                Text(
+                    text = emoji,
+                    fontFamily = ModesSans,
+                    fontSize = 18.sp,
+                )
+                Text(
+                    text = title,
+                    color = ModesInk,
+                    fontFamily = ModesSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-
-            Spacer(Modifier.height(12.dp))
-
             Text(
-                mode.name,
-                style     = MaterialTheme.typography.titleMedium,
-                color     = TextPrimary,
-                maxLines = 1,
+                text = compactPrompt(mode.systemPrompt),
+                color = ModesInk.copy(alpha = 0.42f),
+                fontFamily = ModesSans,
+                fontSize = 11.sp,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-
-            if (mode.isDefault) {
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(VioletGlow)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        "default",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = VioletBright,
-                    )
-                }
+            Spacer(modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MetaPill("T ${"%.2f".format(inference.temperature)}")
+                MetaPill("TOK ${inference.maxDecodedTokens}")
             }
+        }
+    }
+}
 
-            Spacer(Modifier.height(8.dp))
+@Composable
+private fun MetaPill(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(ModesInk.copy(alpha = 0.06f))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
+    ) {
+        Text(
+            text = text,
+            color = ModesInk.copy(alpha = 0.55f),
+            fontFamily = ModesMono,
+            fontSize = 9.sp,
+        )
+    }
+}
 
+@Composable
+private fun NewModeCell(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .dashedRoundedBorder(
+                color = ModesInk.copy(alpha = 0.18f),
+                cornerRadius = 14.dp,
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .height(ModeCardHeight)
+            .padding(12.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Text(
-                mode.systemPrompt,
-                style    = MaterialTheme.typography.bodySmall,
-                color    = TextMuted,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
+                text = "+",
+                color = ModesInk.copy(alpha = 0.30f),
+                fontFamily = ModesSans,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = "New mode",
+                color = ModesInk.copy(alpha = 0.35f),
+                fontFamily = ModesSans,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+            )
+            Text(
+                text = "Prompt + tuning",
+                color = ModesInk.copy(alpha = 0.30f),
+                fontFamily = ModesSans,
+                fontSize = 11.sp,
+            )
+            Text(
+                text = "Add emoji, prompt, and parameters",
+                color = ModesInk.copy(alpha = 0.24f),
+                fontFamily = ModesSans,
+                fontSize = 10.sp,
             )
         }
     }
+}
+
+@Composable
+private fun BuiltInModeRow(
+    mode: Mode,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = mode.name,
+                color = ModesInk,
+                fontFamily = ModesSans,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = compactPrompt(mode.systemPrompt),
+                color = ModesInk.copy(alpha = 0.38f),
+                fontFamily = ModesSans,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = "›",
+            color = ModesInk.copy(alpha = 0.55f),
+            fontFamily = ModesSans,
+            fontSize = 16.sp,
+        )
+    }
+}
+
+private fun compactPrompt(prompt: String): String {
+    return prompt
+        .replace("\n", " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .ifBlank { "No prompt" }
+}
+
+private fun extractLeadingEmoji(text: String): String? {
+    val trimmed = text.trimStart()
+    if (trimmed.isBlank()) return null
+    val firstCodePoint = trimmed.codePointAt(0)
+    val isEmoji = firstCodePoint in 0x1F300..0x1FAFF ||
+        firstCodePoint in 0x2600..0x27BF ||
+        firstCodePoint in 0x1F1E6..0x1F1FF
+    if (!isEmoji) return null
+    return String(Character.toChars(firstCodePoint))
+}
+
+private fun stripLeadingEmoji(text: String): String {
+    val trimmed = text.trim()
+    val emoji = extractLeadingEmoji(trimmed) ?: return trimmed
+    return trimmed.removePrefix(emoji).trim().ifBlank { trimmed }
+}
+
+private fun normalizeModeNameInput(input: String): String {
+    val trimmed = input.trimStart()
+    if (trimmed.isBlank()) return ""
+
+    val leadingEmoji = extractLeadingEmoji(trimmed)
+    var titlePart = if (leadingEmoji != null) {
+        trimmed.removePrefix(leadingEmoji).trimStart()
+    } else {
+        trimmed
+    }
+
+    while (true) {
+        val extraEmoji = extractLeadingEmoji(titlePart) ?: break
+        titlePart = titlePart.removePrefix(extraEmoji).trimStart()
+    }
+
+    val normalizedTitle = titlePart.replace(Regex("\\s+"), " ").trim()
+    return when {
+        leadingEmoji == null -> normalizedTitle
+        normalizedTitle.isBlank() -> leadingEmoji
+        else -> "$leadingEmoji $normalizedTitle"
+    }
+}
+
+private fun Modifier.dashedRoundedBorder(
+    color: Color,
+    cornerRadius: androidx.compose.ui.unit.Dp,
+): Modifier = drawBehind {
+    drawRoundRect(
+        color = color,
+        style = Stroke(
+            width = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
+        ),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+    )
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -460,26 +595,10 @@ private fun ModeEditScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SpaceDeep),
+            .background(ModesSurface),
     ) {
-        // Ambient teal glow
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to ModesAccent.copy(alpha = 0.05f),
-                            1.0f to Color.Transparent,
-                        ),
-                        radius = 600f,
-                    )
-                )
-        )
-
         Scaffold(
-            containerColor = Color.Transparent,
+            containerColor = ModesSurface,
             topBar = {
                 TopAppBar(
                     windowInsets = WindowInsets(0, 0, 0, 0),
@@ -488,44 +607,26 @@ private fun ModeEditScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
-                                tint = TextSecondary,
+                                tint = ModesInk,
                             )
                         }
                     },
                     title = {
-                        Row(
-                            verticalAlignment    = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(ModesFrost),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Default.SmartToy,
-                                    null,
-                                    tint     = ModesAccent,
-                                    modifier = Modifier.size(17.dp),
-                                )
-                            }
-                            Text(
-                                if (isNew) "New Mode" else if (isDefault) "Edit Orbit" else "Edit Mode",
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = TextPrimary,
-                            )
-                        }
+                        Text(
+                            text = if (isNew) "New Mode" else if (isDefault) "Edit Orbit" else "Edit Mode",
+                            color = ModesInk,
+                            fontFamily = ModesSans,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 18.sp,
+                        )
                     },
                     actions = {
-                        // Save button — top right
-                        GlassActionButton(
+                        FlatActionButton(
                             label = "Save",
                             onClick = {
                                 if (canSave) {
                                     onSave(
-                                        name.trim(),
+                                        normalizeModeNameInput(name),
                                         prompt.trim(),
                                         InferenceSettings(
                                             temperature = temperature,
@@ -538,14 +639,11 @@ private fun ModeEditScreen(
                             },
                             modifier = Modifier
                                 .padding(end = 12.dp),
-                            accent = ModesAccent,
                             enabled = canSave,
                             filled = true,
-                            compact = true,
                         )
                     },
-                    colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    modifier = Modifier.padding(top = 4.dp),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = ModesSurface),
                 )
             },
         ) { padding ->
@@ -556,111 +654,122 @@ private fun ModeEditScreen(
                 contentPadding  = PaddingValues(
                     start  = 16.dp,
                     end    = 16.dp,
-                    top    = 8.dp,
-                    bottom = 40.dp,
+                    top    = 4.dp,
+                    bottom = 20.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 item {
                     // ── Name field ─────────────────────────────────────────
                     ModeFieldLabel("Mode Name")
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     TextField(
                         value         = name,
-                        onValueChange = { if (!isDefault) name = it },
+                        onValueChange = { if (!isDefault) name = normalizeModeNameInput(it) },
                         modifier      = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 46.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(GlassWhite8)
-                            .background(
-                                brush = Brush.linearGradient(
-                                    if (name.isNotBlank())
-                                        listOf(ModesAccent.copy(0.25f), ModesAccent.copy(0.05f))
-                                    else
-                                        listOf(GlassBorder, GlassBorder.copy(0.02f))
-                                ),
+                            .background(ModesCard)
+                            .border(
+                                width = 1.dp,
+                                color = ModesInk.copy(alpha = 0.08f),
                                 shape = RoundedCornerShape(14.dp),
                             ),
                         placeholder   = {
                             Text(
-                                "e.g. Code Reviewer, Tutor…",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = TextMuted,
+                                "e.g. 🤖 Code Reviewer",
+                                fontFamily = ModesSans,
+                                fontSize = 14.sp,
+                                color = ModesInk.copy(alpha = 0.38f),
                             )
                         },
                         colors        = TextFieldDefaults.colors(
-                            focusedContainerColor   = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor   = ModesCard,
+                            unfocusedContainerColor = ModesCard,
                             focusedIndicatorColor   = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor        = TextPrimary,
-                            unfocusedTextColor      = TextPrimary,
-                            cursorColor             = ModesAccent,
-                            disabledContainerColor  = Color.Transparent,
+                            focusedTextColor        = ModesInk,
+                            unfocusedTextColor      = ModesInk,
+                            cursorColor             = ModesInk,
+                            disabledContainerColor  = ModesCard,
                             disabledIndicatorColor  = Color.Transparent,
-                            disabledTextColor       = TextSecondary,
+                            disabledTextColor       = ModesInk.copy(alpha = 0.45f),
                         ),
-                        textStyle  = MaterialTheme.typography.bodyLarge,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = ModesSans,
+                            fontSize = 14.sp,
+                            color = ModesInk,
+                        ),
                         singleLine = true,
                         readOnly   = isDefault,
+                    )
+                    Text(
+                        text = "Tip: add emoji in the mode name, e.g. 🤖 Code Reviewer",
+                        fontFamily = ModesSans,
+                        fontSize = 10.sp,
+                        color = ModesInk.copy(alpha = 0.38f),
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
 
                 item {
                     // ── System prompt field ────────────────────────────────
                     ModeFieldLabel("System Prompt")
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         "Defines how this mode behaves and responds.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
+                        fontFamily = ModesSans,
+                        fontSize = 11.sp,
+                        color = ModesInk.copy(alpha = 0.42f),
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     TextField(
                         value         = prompt,
                         onValueChange = { prompt = it },
                         modifier      = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 200.dp)
+                            .defaultMinSize(minHeight = 148.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(GlassWhite8)
-                            .background(
-                                brush = Brush.linearGradient(
-                                    if (prompt.isNotBlank())
-                                        listOf(ModesAccent.copy(0.2f), ModesAccent.copy(0.03f))
-                                    else
-                                        listOf(GlassBorder, GlassBorder.copy(0.02f))
-                                ),
+                            .background(ModesCard)
+                            .border(
+                                width = 1.dp,
+                                color = ModesInk.copy(alpha = 0.08f),
                                 shape = RoundedCornerShape(14.dp),
                             ),
                         placeholder   = {
                             Text(
                                 "You are a helpful assistant that…",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextMuted,
+                                fontFamily = ModesSans,
+                                fontSize = 13.sp,
+                                color = ModesInk.copy(alpha = 0.38f),
                             )
                         },
                         colors        = TextFieldDefaults.colors(
-                            focusedContainerColor   = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor   = ModesCard,
+                            unfocusedContainerColor = ModesCard,
                             focusedIndicatorColor   = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor        = TextPrimary,
-                            unfocusedTextColor      = TextPrimary,
-                            cursorColor             = ModesAccent,
+                            focusedTextColor        = ModesInk,
+                            unfocusedTextColor      = ModesInk,
+                            cursorColor             = ModesInk,
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            lineHeight = 22.sp,
+                            fontFamily = ModesSans,
+                            fontSize = 13.sp,
+                            color = ModesInk,
+                            lineHeight = 19.sp,
                         ),
                         maxLines  = 20,
                     )
 
                     // Character count
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         "${prompt.length} characters",
-                        style    = MaterialTheme.typography.labelSmall,
-                        color    = TextMuted.copy(0.5f),
+                        fontFamily = ModesMono,
+                        fontSize = 10.sp,
+                        color    = ModesInk.copy(alpha = 0.42f),
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.End,
                     )
@@ -673,58 +782,53 @@ private fun ModeEditScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ModeFieldLabel("Inference")
-                        GlassActionButton(
+                        FlatActionButton(
                             label = "Reset Default",
                             onClick = resetInference,
-                            accent = ModesAccent,
                             enabled = true,
                             filled = false,
-                            compact = true,
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         "These settings apply only to this mode.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
+                        fontFamily = ModesSans,
+                        fontSize = 11.sp,
+                        color = ModesInk.copy(alpha = 0.42f),
                     )
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(6.dp))
 
                     CompactModeSlider(
                         label = "Temperature",
                         value = temperature,
                         valueStr = "%.2f".format(temperature),
                         range = 0.1f..2.0f,
-                        accent = ModesAccent,
                         onChange = { temperature = it },
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
                         label = "Top-K",
                         value = topK.toFloat(),
                         valueStr = topK.toString(),
                         range = 1f..100f,
                         steps = 98,
-                        accent = ModesAccent,
                         onChange = { topK = it.toInt() },
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
                         label = "Top-P",
                         value = topP,
                         valueStr = "%.2f".format(topP),
                         range = 0.1f..1.0f,
-                        accent = ModesAccent,
                         onChange = { topP = it },
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
                         label = "Max output tokens",
                         value = maxDecodedTokens.toFloat(),
                         valueStr = maxDecodedTokens.toString(),
                         range = 128f..2048f,
                         steps = 14,
-                        accent = ModesAccent,
                         onChange = { maxDecodedTokens = ((it / 128).toInt() * 128).coerceAtLeast(128) },
                     )
                 }
@@ -732,17 +836,15 @@ private fun ModeEditScreen(
                 // Delete button — only for non-default existing modes
                 if (!isNew && !isDefault) {
                     item {
-                        Spacer(Modifier.height(8.dp))
-                        GlassActionButton(
+                        Spacer(Modifier.height(4.dp))
+                        FlatActionButton(
                             label = "Delete Mode",
                             onClick = { showDeleteConfirm = true },
                             modifier = Modifier
                                 .fillMaxWidth(),
-                            accent = Destructive,
                             enabled = true,
                             filled = false,
-                            compact = false,
-                            leadingIcon = Icons.Default.Delete,
+                            destructive = true,
                         )
                     }
                 }
@@ -795,74 +897,27 @@ private fun ModesEmptyState(
     modifier: Modifier = Modifier,
     onCreate: () -> Unit,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "mode_pulse")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue  = 0.1f,
-        targetValue   = 0.3f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse,
-        ),
-        label = "glow",
-    )
-
     Column(
         modifier            = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        val isDark = IsOrbitDarkTheme
-        val iconShape = RoundedCornerShape(24.dp)
         Box(
             modifier = Modifier
                 .size(80.dp)
-                .drawBehind {
-                    drawIntoCanvas { canvas ->
-                        val paint = Paint().apply {
-                            asFrameworkPaint().apply {
-                                isAntiAlias = true
-                                color       = android.graphics.Color.TRANSPARENT
-                                setShadowLayer(
-                                    40f, 0f, 0f,
-                                    ModesAccent.copy(alpha = glowAlpha).toArgb(),
-                                )
-                            }
-                        }
-                        canvas.drawCircle(
-                            androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f),
-                            size.minDimension / 2f, paint,
-                        )
-                    }
-                }
-                .clip(iconShape)
-                .background(
-                    if (isDark) ModesFrost
-                    else Color.White.copy(alpha = 0.80f)
-                )
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color.White.copy(alpha = if (isDark) 0.08f else 0.40f),
-                            0.5f to Color.Transparent,
-                        ),
-                    )
-                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(ModesCard)
                 .border(
                     width = 1.dp,
-                    brush = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to ModesAccent.copy(alpha = if (isDark) 0.35f else 0.45f),
-                            1.0f to ModesAccent.copy(alpha = if (isDark) 0.08f else 0.12f),
-                        ),
-                    ),
-                    shape = iconShape,
+                    color = ModesInk.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(24.dp),
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Default.SmartToy,
                 contentDescription = null,
-                tint     = ModesAccent,
+                tint     = ModesInk.copy(alpha = 0.55f),
                 modifier = Modifier.size(36.dp),
             )
         }
@@ -871,16 +926,19 @@ private fun ModesEmptyState(
 
         Text(
             "No modes yet",
-            style = MaterialTheme.typography.headlineMedium,
-            color = TextPrimary,
+            color = ModesInk,
+            fontFamily = ModesSans,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 22.sp,
         )
 
         Spacer(Modifier.height(8.dp))
 
         Text(
             "Create custom modes with different\nsystem prompts for any purpose",
-            style     = MaterialTheme.typography.bodyMedium,
-            color     = TextMuted,
+            color     = ModesInk.copy(alpha = 0.42f),
+            fontFamily = ModesSans,
+            fontSize = 13.sp,
             textAlign = TextAlign.Center,
         )
 
@@ -888,11 +946,9 @@ private fun ModesEmptyState(
 
         Box(
             modifier = Modifier
-                .height(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.linearGradient(listOf(ModesAccent, ModesAccentDim))
-                )
+                .height(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(ModesInk)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication        = null,
@@ -908,9 +964,10 @@ private fun ModesEmptyState(
                 Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Text(
                     "Create Mode",
-                    style      = MaterialTheme.typography.titleMedium,
+                    fontFamily = ModesSans,
+                    fontSize = 13.sp,
                     color      = Color.White,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }
@@ -925,11 +982,10 @@ private fun ModesEmptyState(
 private fun ModeFieldLabel(text: String) {
     Text(
         text.uppercase(),
-        style = MaterialTheme.typography.labelMedium.copy(
-            letterSpacing = 1.5.sp,
-            fontWeight    = FontWeight.Bold,
-        ),
-        color = ModesAccent.copy(0.8f),
+        color = ModesInk.copy(alpha = 0.32f),
+        fontFamily = ModesMono,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Medium,
     )
 }
 
@@ -939,7 +995,6 @@ private fun CompactModeSlider(
     value: Float,
     valueStr: String,
     range: ClosedFloatingPointRange<Float>,
-    accent: Color,
     steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
@@ -947,25 +1002,13 @@ private fun CompactModeSlider(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        accent.copy(alpha = if (IsOrbitDarkTheme) 0.10f else 0.10f),
-                        Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.035f else 0.70f),
-                    )
-                )
-            )
+            .background(ModesCard)
             .border(
                 width = 1.dp,
-                brush = Brush.linearGradient(
-                    listOf(
-                        Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.14f else 0.32f),
-                        accent.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.14f),
-                    )
-                ),
+                color = ModesInk.copy(alpha = 0.08f),
                 shape = RoundedCornerShape(12.dp),
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(
@@ -975,20 +1018,22 @@ private fun CompactModeSlider(
             ) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = TextPrimary,
+                    color = ModesInk,
+                    fontFamily = ModesSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
                 )
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(7.dp))
-                        .background(accent.copy(alpha = 0.12f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                        .background(ModesInk.copy(alpha = 0.06f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
                 ) {
                     Text(
                         text = valueStr,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accent,
-                        fontWeight = FontWeight.SemiBold,
+                        color = ModesInk.copy(alpha = 0.58f),
+                        fontFamily = ModesMono,
+                        fontSize = 9.sp,
                     )
                 }
             }
@@ -999,11 +1044,11 @@ private fun CompactModeSlider(
                 steps = steps,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(26.dp),
+                    .height(22.dp),
                 colors = SliderDefaults.colors(
-                    thumbColor = accent,
-                    activeTrackColor = accent.copy(alpha = 0.78f),
-                    inactiveTrackColor = Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.08f else 0.18f),
+                    thumbColor = ModesInk,
+                    activeTrackColor = ModesInk.copy(alpha = 0.78f),
+                    inactiveTrackColor = ModesInk.copy(alpha = 0.15f),
                     activeTickColor = Color.Transparent,
                     inactiveTickColor = Color.Transparent,
                 ),
@@ -1013,47 +1058,24 @@ private fun CompactModeSlider(
 }
 
 @Composable
-private fun GlassActionButton(
+private fun FlatActionButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    accent: Color,
     enabled: Boolean,
     filled: Boolean,
-    compact: Boolean,
-    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    destructive: Boolean = false,
 ) {
-    val shape = RoundedCornerShape(if (compact) 14.dp else 12.dp)
+    val buttonColor = if (destructive) ModesDeleteRed else ModesInk
+    val shape = RoundedCornerShape(12.dp)
     Box(
         modifier = modifier
-            .height(if (compact) 34.dp else 46.dp)
+            .height(32.dp)
             .clip(shape)
-            .background(
-                if (filled) {
-                    Brush.linearGradient(
-                        listOf(
-                            Color.White.copy(alpha = if (enabled) 0.12f else 0.06f),
-                            accent.copy(alpha = if (enabled) 0.36f else 0.08f),
-                            Color.White.copy(alpha = if (enabled) 0.05f else 0.04f),
-                        )
-                    )
-                } else {
-                    Brush.linearGradient(
-                        listOf(
-                            accent.copy(alpha = if (enabled) 0.10f else 0.04f),
-                            Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.035f else 0.70f),
-                        )
-                    )
-                }
-            )
+            .background(if (filled) buttonColor else ModesCard)
             .border(
                 width = 1.dp,
-                brush = Brush.linearGradient(
-                    listOf(
-                        Color.White.copy(alpha = if (enabled) 0.16f else 0.08f),
-                        accent.copy(alpha = if (enabled) 0.22f else 0.08f),
-                    )
-                ),
+                color = if (filled) buttonColor else buttonColor.copy(alpha = 0.20f),
                 shape = shape,
             )
             .clickable(
@@ -1062,27 +1084,15 @@ private fun GlassActionButton(
                 enabled = enabled,
                 onClick = onClick,
             )
-            .padding(horizontal = if (compact) 12.dp else 16.dp),
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            leadingIcon?.let {
-                Icon(
-                    imageVector = it,
-                    contentDescription = null,
-                    tint = if (enabled) accent else TextMuted,
-                    modifier = Modifier.size(if (compact) 14.dp else 16.dp),
-                )
-            }
-            Text(
-                text = label,
-                style = if (compact) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,
-                color = if (enabled) accent else TextMuted,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        Text(
+            text = label,
+            color = if (filled) Color.White else buttonColor,
+            fontFamily = ModesSans,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }

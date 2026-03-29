@@ -4,7 +4,9 @@ import android.content.Context
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ModeEntity
 import com.example.orbitai.data.db.AppDatabase
+import com.example.orbitai.data.db.CONCISE_MODE_ID
 import com.example.orbitai.data.db.ORBIT_MODE_ID
+import com.example.orbitai.data.db.STEP_BY_STEP_MODE_ID
 import com.example.orbitai.data.db.toDomain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,19 +30,35 @@ class ModeRepository(private val context: Context) {
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     init {
-        // Ensure the default Orbit mode always exists (for fresh installs prior to migration)
+        // Ensure built-in default modes always exist (fresh installs and pre-migration users)
         scope.launch {
-            val existing = dao.getModeById(ORBIT_MODE_ID)
-            if (existing == null) {
-                dao.insertMode(
-                    ModeEntity(
-                        id           = ORBIT_MODE_ID,
-                        name         = "Orbit",
-                        systemPrompt = "You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.",
-                        isDefault    = true,
-                        createdAt    = System.currentTimeMillis(),
-                    )
-                )
+            val defaults = listOf(
+                ModeEntity(
+                    id = ORBIT_MODE_ID,
+                    name = "Orbit",
+                    systemPrompt = "You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.",
+                    isDefault = true,
+                    createdAt = System.currentTimeMillis(),
+                ),
+                ModeEntity(
+                    id = CONCISE_MODE_ID,
+                    name = "Concise",
+                    systemPrompt = "You are a concise assistant. Give short, direct answers. Use only essential details and avoid extra explanation unless asked.",
+                    isDefault = true,
+                    createdAt = System.currentTimeMillis() + 1,
+                ),
+                ModeEntity(
+                    id = STEP_BY_STEP_MODE_ID,
+                    name = "Step-by-step",
+                    systemPrompt = "You are a step-by-step assistant. Break solutions into clear numbered steps, explain each step briefly, and keep progression logical.",
+                    isDefault = true,
+                    createdAt = System.currentTimeMillis() + 2,
+                ),
+            )
+            defaults.forEach { mode ->
+                if (dao.getModeById(mode.id) == null) {
+                    dao.insertMode(mode)
+                }
             }
         }
     }

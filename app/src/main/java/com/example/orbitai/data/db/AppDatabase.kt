@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class],
-    version   = 7,
+    version   = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -112,13 +112,46 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, createdAt)
+                    VALUES (
+                        'concise_default',
+                        'Concise',
+                        'You are a concise assistant. Give short, direct answers. Use only essential details and avoid extra explanation unless asked.',
+                        1,
+                        ${System.currentTimeMillis()}
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, createdAt)
+                    VALUES (
+                        'step_by_step_default',
+                        'Step-by-step',
+                        'You are a step-by-step assistant. Break solutions into clear numbered steps, explain each step briefly, and keep progression logical.',
+                        1,
+                        ${System.currentTimeMillis() + 1}
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "orbitai.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
+                ).addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7,
+                    MIGRATION_7_8,
+                ).build().also { INSTANCE = it }
             }
     }
 }
