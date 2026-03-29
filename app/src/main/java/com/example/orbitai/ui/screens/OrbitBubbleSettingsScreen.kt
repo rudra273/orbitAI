@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -514,6 +515,8 @@ private fun BubbleToggle(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val knobColor = if (checked && IsOrbitDarkTheme) SpaceDeep else Color.White
+
     Box(
         modifier = Modifier
             .size(width = 40.dp, height = 24.dp)
@@ -531,7 +534,7 @@ private fun BubbleToggle(
             modifier = Modifier
                 .size(18.dp)
                 .clip(CircleShape)
-                .background(Color.White),
+                .background(knobColor),
         )
     }
 }
@@ -601,7 +604,11 @@ private fun SegmentedChip(
     ) {
         Text(
             text = label,
-            color = if (selected) Color.White else BubbleInk.copy(alpha = 0.45f),
+            color = if (selected) {
+                if (IsOrbitDarkTheme) SpaceDeep else Color.White
+            } else {
+                BubbleInk.copy(alpha = 0.45f)
+            },
             fontFamily = BubbleMono,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
@@ -609,6 +616,7 @@ private fun SegmentedChip(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppearanceSliderRow(
     title: String,
@@ -627,8 +635,8 @@ private fun AppearanceSliderRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -657,6 +665,14 @@ private fun AppearanceSliderRow(
                 onValueChange(it)
             },
             valueRange = range,
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(BubbleInk),
+                )
+            },
             colors = SliderDefaults.colors(
                 thumbColor = BubbleInk,
                 activeTrackColor = BubbleInk,

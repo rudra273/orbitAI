@@ -180,12 +180,11 @@ private fun ModeListScreen(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "+",
-                    color = Color.White,
-                    fontFamily = ModesSans,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium,
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Create mode",
+                    tint = if (IsOrbitDarkTheme) SpaceDeep else Color.White,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
@@ -1104,7 +1103,11 @@ private fun FlatActionButton(
     ) {
         Text(
             text = label,
-            color = if (filled) Color.White else buttonColor,
+            color = if (filled) {
+                if (IsOrbitDarkTheme) SpaceDeep else Color.White
+            } else {
+                buttonColor
+            },
             fontFamily = ModesSans,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,

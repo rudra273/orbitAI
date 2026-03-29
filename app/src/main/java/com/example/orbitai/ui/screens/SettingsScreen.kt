@@ -132,13 +132,13 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(SettingsSurface),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 0.dp, top = 18.dp, bottom = 10.dp),
+                    .padding(start = 4.dp, end = 0.dp, top = 18.dp, bottom = 0.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,8 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,12 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -90,6 +88,11 @@ fun ModelSettingsScreen(
     var token by remember { mutableStateOf(tokenStore.huggingFaceToken) }
     var tokenSaved by remember { mutableStateOf(tokenStore.hasToken()) }
     var showToken by remember { mutableStateOf(false) }
+    var geminiExpanded by remember { mutableStateOf(false) }
+    var geminiModelName by remember { mutableStateOf(tokenStore.geminiModelName) }
+    var geminiApiKey by remember { mutableStateOf(tokenStore.geminiApiKey) }
+    var geminiSaved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
+    var showGeminiKey by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -177,31 +180,56 @@ fun ModelSettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TextField(
-                            value = token,
-                            onValueChange = {
-                                token = it
-                                tokenSaved = false
-                            },
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(32.dp)
-                                .clip(RoundedCornerShape(7.dp)),
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = SettingsMono,
-                                color = SettingsInk,
-                                fontSize = 11.sp,
-                            ),
-                            placeholder = {
-                                Text(
-                                    "••••••••••",
-                                    color = SettingsInk.copy(alpha = 0.30f),
-                                    fontFamily = SettingsMono,
-                                    fontSize = 11.sp,
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(SettingsInk.copy(alpha = 0.06f))
+                                .padding(start = 10.dp, end = 4.dp),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            val displayToken = if (showToken) token else "*".repeat(token.length)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                BasicTextField(
+                                    value = displayToken,
+                                    onValueChange = { entered ->
+                                        if (showToken) {
+                                            token = entered
+                                            tokenSaved = false
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = showToken,
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = SettingsMono,
+                                        color = SettingsInk,
+                                        fontSize = 11.sp,
+                                    ),
+                                    cursorBrush = SolidColor(SettingsInk),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Done,
+                                    ),
+                                    decorationBox = { innerTextField ->
+                                        if (displayToken.isEmpty()) {
+                                            Text(
+                                                "hf_xxx...",
+                                                color = SettingsInk.copy(alpha = 0.45f),
+                                                fontFamily = SettingsMono,
+                                                fontSize = 11.sp,
+                                            )
+                                        }
+                                        innerTextField()
+                                    },
                                 )
-                            },
-                            trailingIcon = {
+
                                 IconButton(onClick = { showToken = !showToken }) {
                                     Icon(
                                         imageVector = if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
@@ -210,21 +238,8 @@ fun ModelSettingsScreen(
                                         modifier = Modifier.size(16.dp),
                                     )
                                 }
-                            },
-                            visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done,
-                            ),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = SettingsInk.copy(alpha = 0.06f),
-                                unfocusedContainerColor = SettingsInk.copy(alpha = 0.06f),
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedTextColor = SettingsInk,
-                                unfocusedTextColor = SettingsInk,
-                            ),
-                        )
+                            }
+                        }
 
                         SmallFilledButton(
                             label = if (tokenSaved) "Saved" else "Save",
@@ -273,37 +288,107 @@ fun ModelSettingsScreen(
 
         item {
             FlatCard(padding = 0.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(
-                            text = "Gemini API",
-                            color = SettingsInk,
-                            fontFamily = SettingsSans,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                        )
-                        Text(
-                            text = "Cloud provider integration",
-                            color = SettingsInk.copy(alpha = 0.38f),
-                            fontFamily = SettingsSans,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { geminiExpanded = !geminiExpanded },
+                            )
+                            .heightIn(min = 56.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text(
+                                text = "Gemini API",
+                                color = SettingsInk,
+                                fontFamily = SettingsSans,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                text = "Cloud provider integration",
+                                color = SettingsInk.copy(alpha = 0.38f),
+                                fontFamily = SettingsSans,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                            contentDescription = null,
+                            tint = SettingsInk.copy(alpha = 0.45f),
+                            modifier = Modifier.size(13.dp),
                         )
                     }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                        contentDescription = null,
-                        tint = SettingsInk.copy(alpha = 0.45f),
-                        modifier = Modifier.size(13.dp),
-                    )
+
+                    if (geminiExpanded) {
+                        HairlineDivider()
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            CompactInputField(
+                                value = geminiModelName,
+                                placeholder = "gemini-flash-latest",
+                                onValueChange = {
+                                    geminiModelName = it
+                                    geminiSaved = false
+                                },
+                            )
+                            CompactInputField(
+                                value = if (showGeminiKey) geminiApiKey else "*".repeat(geminiApiKey.length),
+                                placeholder = "api key",
+                                readOnly = !showGeminiKey,
+                                onValueChange = {
+                                    if (showGeminiKey) {
+                                        geminiApiKey = it
+                                        geminiSaved = false
+                                    }
+                                },
+                                trailing = {
+                                    IconButton(onClick = { showGeminiKey = !showGeminiKey }) {
+                                        Icon(
+                                            imageVector = if (showGeminiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = null,
+                                            tint = SettingsInk.copy(alpha = 0.55f),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                },
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                SmallFilledButton(
+                                    label = if (geminiSaved) "Saved" else "Save",
+                                    color = SettingsInk,
+                                    enabled = geminiModelName.isNotBlank() && geminiApiKey.isNotBlank() && !geminiSaved,
+                                    onClick = {
+                                        tokenStore.geminiModelName = geminiModelName
+                                        tokenStore.geminiApiKey = geminiApiKey
+                                        geminiSaved = true
+                                    },
+                                )
+                                SmallOutlineButton(
+                                    label = "Clear",
+                                    color = SettingsRed,
+                                    onClick = {
+                                        geminiModelName = ""
+                                        geminiApiKey = ""
+                                        tokenStore.geminiModelName = ""
+                                        tokenStore.geminiApiKey = ""
+                                        geminiSaved = false
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -503,11 +588,67 @@ private fun SmallFilledButton(
     ) {
         Text(
             text = label,
-            color = Color.White,
+            color = if (IsOrbitDarkTheme) SpaceDeep else Color.White,
             fontFamily = SettingsMono,
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
         )
+    }
+}
+
+@Composable
+private fun CompactInputField(
+    value: String,
+    placeholder: String,
+    onValueChange: (String) -> Unit,
+    readOnly: Boolean = false,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(32.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(SettingsInk.copy(alpha = 0.06f))
+            .padding(start = 10.dp, end = 4.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                enabled = !readOnly,
+                readOnly = readOnly,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = SettingsMono,
+                    color = SettingsInk,
+                    fontSize = 11.sp,
+                ),
+                cursorBrush = SolidColor(SettingsInk),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done,
+                ),
+                decorationBox = { innerTextField ->
+                    if (value.isEmpty()) {
+                        Text(
+                            placeholder,
+                            color = SettingsInk.copy(alpha = 0.45f),
+                            fontFamily = SettingsMono,
+                            fontSize = 11.sp,
+                        )
+                    }
+                    innerTextField()
+                },
+            )
+            trailing?.invoke()
+        }
     }
 }
 

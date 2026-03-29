@@ -24,12 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -337,7 +337,7 @@ private fun SpaceCard(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = { expanded = !expanded },
+                    onClick = onOpenSpace,
                 )
                 .padding(start = 14.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -375,13 +375,13 @@ private fun SpaceCard(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = onOpenSpace,
+                        onClick = { expanded = !expanded },
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Open Space",
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Show documents",
                     tint = TextSecondary.copy(alpha = if (isActive) 1f else 0.5f),
                     modifier = Modifier.size(14.dp),
                 )

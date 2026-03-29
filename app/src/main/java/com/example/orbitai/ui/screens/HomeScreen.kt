@@ -22,8 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.data.Chat
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
+import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.viewmodel.ChatViewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -54,7 +55,7 @@ import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 
 private val SurfaceLight = Color(0xFFF9F8F5)
-private val SurfaceDark = Color(0xFF0F0F0D)
+private val SurfaceDark = SpaceDeep
 private val InkLight = Color(0xFF0D0D0D)
 private val InkDark = Color(0xFFF0EFE9)
 private val Violet = Color(0xFF5B4FE8)
@@ -183,8 +184,8 @@ private fun ChatHistoryTopBar(chatCount: Int) {
                     modifier = Modifier.size(20.dp),
                 )
                 Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More options",
                     tint = inkColor,
                     modifier = Modifier.size(20.dp),
                 )
