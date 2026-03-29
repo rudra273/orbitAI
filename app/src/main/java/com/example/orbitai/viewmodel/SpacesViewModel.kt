@@ -36,6 +36,12 @@ class SpacesViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun renameSpace(id: String, name: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.renameSpace(id, name)
+        }
+    }
+
     fun addDocumentToSpace(uri: Uri, spaceId: String) {
         repository.addDocumentToSpace(uri, spaceId)
     }

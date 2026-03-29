@@ -2,150 +2,174 @@ package com.example.orbitai.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Article
-import androidx.compose.material.icons.automirrored.filled.TextSnippet
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
 import com.example.orbitai.data.db.RagDocument
 import com.example.orbitai.data.db.RagStatus
-import com.example.orbitai.ui.theme.*
+import com.example.orbitai.ui.theme.IsOrbitDarkTheme
+import com.example.orbitai.ui.theme.SpaceDeep
+import com.example.orbitai.ui.theme.TextMuted
+import com.example.orbitai.ui.theme.TextPrimary
+import com.example.orbitai.ui.theme.TextSecondary
 import com.example.orbitai.viewmodel.SpacesViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val SpacesAccent    = Color(0xFFFBBF24)
-private val SpacesAccentDim = Color(0xFFF59E0B)
+private val CardSurfaceLight = Color(0xFFFFFFFF)
+private val CardSurfaceDark = Color(0xFF1E1E1C)
+private val CardBorderLight = Color(0xFFE8E5E0)
+private val CardBorderDark = Color(0xFF2A2A28)
+private val RecessedLight = Color(0xFFF5F4F0)
+private val RecessedDark = Color(0xFF252523)
+private val ProcessingLight = Color(0xFF5B4FE8)
+private val ProcessingDark = Color(0xFFA89EFF)
+private val IndexedGreen = Color(0xFF17A865)
+private val AddButtonBgLight = Color(0xFFEDE9FE)
+private val AddButtonTextLight = Color(0xFF5B4FE8)
+private val AddButtonBgDark = Color(0xFF252340)
+private val AddButtonTextDark = Color(0xFFA89EFF)
+private val DeleteBorderLight = Color(0xFFF0C4C4)
+private val DeleteTextLight = Color(0xFFC0392B)
+private val DeleteBorderDark = Color(0xFF5A2A2A)
+private val DeleteTextDark = Color(0xFFE74C3C)
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SPACE DETAIL SCREEN
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+private val cardSurface @Composable get() = if (IsOrbitDarkTheme) CardSurfaceDark else CardSurfaceLight
+private val cardBorder @Composable get() = if (IsOrbitDarkTheme) CardBorderDark else CardBorderLight
+private val recessedBg @Composable get() = if (IsOrbitDarkTheme) RecessedDark else RecessedLight
+private val processingTint @Composable get() = if (IsOrbitDarkTheme) ProcessingDark else ProcessingLight
+private val addButtonBg @Composable get() = if (IsOrbitDarkTheme) AddButtonBgDark else AddButtonBgLight
+private val addButtonText @Composable get() = if (IsOrbitDarkTheme) AddButtonTextDark else AddButtonTextLight
+private val deleteBorder @Composable get() = if (IsOrbitDarkTheme) DeleteBorderDark else DeleteBorderLight
+private val deleteText @Composable get() = if (IsOrbitDarkTheme) DeleteTextDark else DeleteTextLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpaceDetailScreen(
-    spaceId:   String,
+    spaceId: String,
     viewModel: SpacesViewModel,
-    onBack:    () -> Unit,
+    onBack: () -> Unit,
 ) {
     val spaces by viewModel.spaces.collectAsState()
-    val space  = spaces.find { it.id == spaceId }
-    val docs   by viewModel.observeDocumentsInSpace(spaceId).collectAsState(initial = emptyList())
+    val space = spaces.find { it.id == spaceId }
+    val docs by viewModel.observeDocumentsInSpace(spaceId).collectAsState(initial = emptyList())
+    var menuExpanded by remember { mutableStateOf(false) }
     var showDeleteSpaceConfirm by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
-    val documentPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
+    val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.addDocumentToSpace(it, spaceId) }
     }
 
-    val launchPicker = {
-        documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
-    }
+    val totalSizeBytes = remember(docs) { docs.sumOf { it.sizeBytes } }
+    val totalSizeLabel = remember(totalSizeBytes) { formatSize(totalSizeBytes) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SpaceDeep),
-    ) {
-        // Ambient glow
-        Box(
+    Scaffold(
+        containerColor = SpaceDeep,
+        topBar = {
+            SpaceDetailHeader(
+                spaceName = space?.name ?: "Space",
+                onBack = onBack,
+                menuExpanded = menuExpanded,
+                onMenuExpandedChange = { menuExpanded = it },
+                onRename = { showRenameDialog = true },
+                onDelete = { showDeleteSpaceConfirm = true },
+            )
+        },
+    ) { padding ->
+        LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to SpacesAccent.copy(alpha = 0.04f),
-                            1.0f to Color.Transparent,
-                        ),
-                        radius = 600f,
-                    )
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                StatsRow(
+                    documentCount = docs.size,
+                    totalSize = totalSizeLabel,
                 )
-        )
+            }
 
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                SpaceDetailTopBar(
-                    spaceName  = space?.name ?: "Space",
-                    docCount   = docs.size,
-                    onBack     = onBack,
-                    onAddDoc   = launchPicker,
-                    onDeleteSpace = {
-                        if (space != null) {
-                            showDeleteSpaceConfirm = true
-                        }
-                    },
-                )
-            },
-            floatingActionButton = {
-                SpaceDetailFAB(onClick = launchPicker)
-            },
-        ) { padding ->
+            item {
+                DocumentsHeader(onAdd = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) })
+            }
+
             if (docs.isEmpty()) {
-                SpaceDetailEmptyState(
-                    modifier       = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    onPickDocument = launchPicker,
-                )
-            } else {
-                LazyColumn(
-                    modifier        = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding  = PaddingValues(
-                        start  = 16.dp,
-                        end    = 16.dp,
-                        top    = 8.dp,
-                        bottom = 100.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    itemsIndexed(
-                        items = docs,
-                        key   = { _, doc -> doc.id },
-                    ) { index, doc ->
-                        StaggeredFadeSlide(index = index) {
-                            SpaceDocumentCard(
-                                doc      = doc,
-                                onDelete = { viewModel.deleteDocument(doc.id) },
-                            )
-                        }
-                    }
+                item {
+                    EmptyDocumentsCard()
                 }
+            } else {
+                items(docs, key = { it.id }) { doc ->
+                    SwipeableDocumentRow(
+                        doc = doc,
+                        onDelete = { viewModel.deleteDocument(doc.id) },
+                    )
+                }
+            }
+
+            item {
+                DeleteSpaceButton(onClick = { showDeleteSpaceConfirm = true })
             }
         }
     }
@@ -153,17 +177,10 @@ fun SpaceDetailScreen(
     if (showDeleteSpaceConfirm && space != null) {
         AlertDialog(
             onDismissRequest = { showDeleteSpaceConfirm = false },
-            title = {
-                Text(
-                    text = "Delete space?",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
-                )
-            },
+            title = { Text("Delete this Space?", color = TextPrimary) },
             text = {
                 Text(
-                    text = "This will permanently remove this space and all of its documents.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "This removes the Space and all documents inside it.",
                     color = TextMuted,
                 )
             },
@@ -174,492 +191,468 @@ fun SpaceDetailScreen(
                         viewModel.deleteSpace(space.id)
                         onBack()
                     },
-                ) {
-                    Text("Delete", color = Destructive)
-                }
+                ) { Text("Delete", color = deleteText) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteSpaceConfirm = false }) {
                     Text("Cancel", color = TextMuted)
                 }
             },
+            containerColor = cardSurface,
+        )
+    }
+
+    if (showRenameDialog && space != null) {
+        RenameSpaceDialog(
+            initialName = space.name,
+            onDismiss = { showRenameDialog = false },
+            onConfirm = { newName ->
+                viewModel.renameSpace(space.id, newName)
+                showRenameDialog = false
+            },
         )
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// TOP BAR
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SpaceDetailTopBar(
+private fun SpaceDetailHeader(
     spaceName: String,
-    docCount:  Int,
-    onBack:    () -> Unit,
-    onAddDoc:  () -> Unit,
-    onDeleteSpace: () -> Unit,
-) {
-    TopAppBar(
-        windowInsets = WindowInsets(0, 0, 0, 0),
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = TextSecondary,
-                )
-            }
-        },
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(
-                    spaceName,
-                    style    = MaterialTheme.typography.headlineMedium,
-                    color    = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    "$docCount document${if (docCount != 1) "s" else ""}",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color      = SpacesAccent,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onDeleteSpace) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete space",
-                    tint = TextMuted.copy(alpha = 0.75f),
-                )
-            }
-            IconButton(onClick = onAddDoc) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Add document",
-                    tint = TextSecondary,
-                )
-            }
-        },
-        colors   = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-        modifier = Modifier.padding(top = 4.dp),
-    )
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// FAB
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Composable
-private fun SpaceDetailFAB(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color       = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(
-                                24f, 0f, 4f,
-                                SpacesAccent.copy(alpha = 0.4f).toArgb(),
-                            )
-                        }
-                    }
-                    canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
-                    )
-                }
-            }
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim))
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Icons.Default.Add,
-            contentDescription = "Add Document",
-            tint     = SpaceDeep,
-            modifier = Modifier.size(26.dp),
-        )
-    }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// DOCUMENT CARD
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Composable
-private fun SpaceDocumentCard(
-    doc:      RagDocument,
+    onBack: () -> Unit,
+    menuExpanded: Boolean,
+    onMenuExpandedChange: (Boolean) -> Unit,
+    onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val dateStr = remember(doc.addedAt) {
-        SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(doc.addedAt))
-    }
-    val sizeStr = remember(doc.sizeBytes) {
-        when {
-            doc.sizeBytes >= 1_048_576 -> "%.1f MB".format(doc.sizeBytes / 1_048_576f)
-            doc.sizeBytes >= 1_024     -> "%.1f KB".format(doc.sizeBytes / 1_024f)
-            else                       -> "${doc.sizeBytes} B"
-        }
-    }
-
-    // Accent per file type
-    val fileAccent = when {
-        doc.mimeType == "application/pdf"      -> Color(0xFFEF4444)   // red for PDF
-        doc.mimeType.startsWith("text/")       -> Color(0xFF60A5FA)   // blue for text
-        else                                   -> SpacesAccent
-    }
-
-    val isDark = IsOrbitDarkTheme
-    val cardShape = RoundedCornerShape(18.dp)
-
-    val lightGlassTint = when {
-        fileAccent == Color(0xFFEF4444) -> Color(0xFFFFF0F0)
-        fileAccent == Color(0xFF60A5FA) -> Color(0xFFEBF2FF)
-        else                           -> Color(0xFFFFF8E7)
-    }
-
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .drawBehind {
-                drawIntoCanvas { canvas ->
-                    val paint = Paint().apply {
-                        asFrameworkPaint().apply {
-                            isAntiAlias = true
-                            color       = android.graphics.Color.TRANSPARENT
-                            setShadowLayer(
-                                if (isDark) 20f else 14f,
-                                0f, 4f,
-                                (if (isDark) Color.Black else fileAccent)
-                                    .copy(alpha = if (isDark) 0.22f else 0.07f)
-                                    .toArgb(),
-                            )
-                        }
-                    }
-                    canvas.drawRoundRect(
-                        0f, 0f, size.width, size.height,
-                        18.dp.toPx(), 18.dp.toPx(), paint,
-                    )
-                }
-            }
-            .clip(cardShape)
-            .background(
-                if (isDark) Color.White.copy(alpha = 0.05f)
-                else lightGlassTint.copy(alpha = 0.82f)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f  to Color.White.copy(alpha = if (isDark) 0.07f else 0.50f),
-                        0.25f to Color.White.copy(alpha = if (isDark) 0.02f else 0.10f),
-                        0.5f  to Color.Transparent,
-                    ),
-                )
-            )
-            .border(
-                width = if (isDark) 1.dp else 1.5.dp,
-                brush = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0.0f to (if (isDark) Color.White else fileAccent)
-                                     .copy(alpha = if (isDark) 0.18f else 0.35f),
-                        0.5f to fileAccent.copy(alpha = if (isDark) 0.10f else 0.15f),
-                        1.0f to (if (isDark) Color.White else fileAccent)
-                                     .copy(alpha = if (isDark) 0.05f else 0.06f),
-                    ),
-                    start = Offset.Zero,
-                    end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                ),
-                shape = cardShape,
-            ),
-    ) {
-        // Left stripe removed — glass border replaces it
-
-        Row(
-            modifier             = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment    = Alignment.CenterVertically,
-        ) {
-            // File type icon badge
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(fileAccent.copy(alpha = 0.1f))
-                    .border(
-                        width = 0.5.dp,
-                        color = fileAccent.copy(alpha = if (isDark) 0.22f else 0.25f),
-                        shape = RoundedCornerShape(13.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                val icon = when {
-                    doc.mimeType == "application/pdf"     -> Icons.Default.PictureAsPdf
-                    doc.mimeType.startsWith("text/")      -> Icons.AutoMirrored.Filled.TextSnippet
-                    else                                  -> Icons.AutoMirrored.Filled.Article
-                }
-                Icon(icon, null, tint = fileAccent, modifier = Modifier.size(20.dp))
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    doc.name,
-                    style    = MaterialTheme.typography.titleSmall,
-                    color    = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(3.dp))
-                Row(
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(sizeStr, style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                    Box(
-                        Modifier
-                            .size(3.dp)
-                            .clip(CircleShape)
-                            .background(TextMuted.copy(0.4f))
-                    )
-                    Text(dateStr, style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                }
-                Spacer(Modifier.height(6.dp))
-                DocStatusChip(status = doc.status, chunkCount = doc.chunkCount)
-            }
-
-            IconButton(
-                onClick  = onDelete,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete document",
-                    tint     = TextMuted.copy(0.4f),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-    }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// STATUS CHIP
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Composable
-private fun DocStatusChip(status: RagStatus, chunkCount: Int) {
-    val infiniteTransition = rememberInfiniteTransition(label = "spin")
-    val angle by infiniteTransition.animateFloat(
-        initialValue  = 0f,
-        targetValue   = 360f,
-        animationSpec = infiniteRepeatable(tween(1200)),
-        label         = "spin",
-    )
-
-    val (icon, label, chipBg, chipText) = when (status) {
-        RagStatus.PENDING    -> DocChipStyle(
-            Icons.Default.HourglassEmpty,
-            "Pending",
-            Color(0xFF2A2000),
-            Color(0xFFFBBF24),
-        )
-        RagStatus.PROCESSING -> DocChipStyle(
-            Icons.Default.HourglassEmpty,
-            "Processing",
-            VioletGlowSoft,
-            VioletBright,
-        )
-        RagStatus.DONE       -> DocChipStyle(
-            Icons.Default.Verified,
-            if (chunkCount > 0) "$chunkCount chunks" else "Indexed",
-            Color(0xFF002010),
-            Color(0xFF34D399),
-        )
-        RagStatus.ERROR      -> DocChipStyle(
-            Icons.Default.ErrorOutline,
-            "Error",
-            DestructiveSoft,
-            Destructive,
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(chipBg)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-    ) {
-        Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint     = chipText,
-                modifier = Modifier
-                    .size(11.dp)
-                    .then(
-                        if (status == RagStatus.PROCESSING) Modifier.rotate(angle)
-                        else Modifier
-                    ),
-            )
-            Text(
-                label,
-                style      = MaterialTheme.typography.labelSmall,
-                color      = chipText,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-private data class DocChipStyle(
-    val icon:   androidx.compose.ui.graphics.vector.ImageVector,
-    val label:  String,
-    val bg:     Color,
-    val text:   Color,
-)
-
-// Destructuring operator to match old code pattern
-private operator fun DocChipStyle.component1() = icon
-private operator fun DocChipStyle.component2() = label
-private operator fun DocChipStyle.component3() = bg
-private operator fun DocChipStyle.component4() = text
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// EMPTY STATE
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Composable
-private fun SpaceDetailEmptyState(
-    modifier:       Modifier = Modifier,
-    onPickDocument: () -> Unit,
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "doc_pulse")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue  = 0.08f,
-        targetValue   = 0.25f,
-        animationSpec = infiniteRepeatable(
-            tween(2400, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse,
-        ),
-        label = "doc_glow",
-    )
-
-    Column(
-        modifier            = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(80.dp)
-                .drawBehind {
-                    drawIntoCanvas { canvas ->
-                        val paint = Paint().apply {
-                            asFrameworkPaint().apply {
-                                isAntiAlias = true
-                                color       = android.graphics.Color.TRANSPARENT
-                                setShadowLayer(
-                                    40f, 0f, 0f,
-                                    SpacesAccent.copy(alpha = glowAlpha).toArgb(),
-                                )
-                            }
-                        }
-                        canvas.drawCircle(
-                            androidx.compose.ui.geometry.Offset(
-                                size.width / 2f, size.height / 2f
-                            ),
-                            size.minDimension / 2f, paint,
-                        )
-                    }
-                }
-                .clip(RoundedCornerShape(24.dp))
-                .background(SpacesAccent.copy(alpha = 0.08f))
-                .border(
-                    width = 1.dp,
-                    brush = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to SpacesAccent.copy(alpha = 0.25f),
-                            1.0f to SpacesAccent.copy(alpha = 0.05f),
-                        ),
-                    ),
-                    shape = RoundedCornerShape(24.dp),
-                ),
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color.Transparent)
+                .combinedClickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.Article,
-                contentDescription = null,
-                tint     = SpacesAccent,
-                modifier = Modifier.size(36.dp),
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = TextSecondary,
             )
         }
 
-        Spacer(Modifier.height(28.dp))
-
         Text(
-            "No documents yet",
-            style = MaterialTheme.typography.headlineMedium,
+            text = spaceName,
+            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall.copy(
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
             color = TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 2.dp),
         )
 
-        Spacer(Modifier.height(8.dp))
+        Box {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(onClick = { onMenuExpandedChange(true) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = "More",
+                    tint = TextSecondary,
+                )
+            }
 
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { onMenuExpandedChange(false) },
+                containerColor = cardSurface,
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Rename", color = TextPrimary) },
+                    onClick = {
+                        onMenuExpandedChange(false)
+                        onRename()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete", color = deleteText) },
+                    onClick = {
+                        onMenuExpandedChange(false)
+                        onDelete()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatsRow(
+    documentCount: Int,
+    totalSize: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        StatCard(
+            modifier = Modifier.weight(1f),
+            value = documentCount.toString(),
+            label = "Documents",
+        )
+        StatCard(
+            modifier = Modifier.weight(1f),
+            value = totalSize,
+            label = "Total size",
+        )
+    }
+}
+
+@Composable
+private fun StatCard(
+    modifier: Modifier = Modifier,
+    value: String,
+    label: String,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(recessedBg)
+            .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Text(
-            "Add PDFs or text files to this space\nfor context-aware responses",
-            style     = MaterialTheme.typography.bodyMedium,
-            color     = TextMuted,
-            textAlign = TextAlign.Center,
+            text = value,
+            style = androidx.compose.material3.MaterialTheme.typography.titleLarge.copy(
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
+        Text(
+            text = label,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp,
+                letterSpacing = 0.3.sp,
+            ),
+            color = TextMuted,
+        )
+    }
+}
 
-        Spacer(Modifier.height(36.dp))
+@Composable
+private fun DocumentsHeader(onAdd: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "DOCUMENTS",
+            style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(
+                fontSize = 12.sp,
+                letterSpacing = 1.2.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = TextMuted,
+        )
 
         Box(
             modifier = Modifier
-                .height(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.linearGradient(listOf(SpacesAccent, SpacesAccentDim))
-                )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                    onClick           = onPickDocument,
-                )
-                .padding(horizontal = 28.dp),
+                .clip(RoundedCornerShape(10.dp))
+                .background(addButtonBg)
+                .combinedClickable(onClick = onAdd)
+                .padding(horizontal = 12.dp, vertical = 7.dp),
             contentAlignment = Alignment.Center,
         ) {
             Row(
-                verticalAlignment    = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Icon(Icons.Default.Add, null, tint = SpaceDeep, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Add, contentDescription = null, tint = addButtonText, modifier = Modifier.size(14.dp))
                 Text(
-                    "Add Document",
-                    style      = MaterialTheme.typography.titleMedium,
-                    color      = SpaceDeep,
-                    fontWeight = FontWeight.Bold,
+                    text = "Add",
+                    color = addButtonText,
+                    style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 )
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableDocumentRow(
+    doc: RagDocument,
+    onDelete: () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        },
+        positionalThreshold = { totalDistance -> totalDistance * 0.32f },
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(deleteText.copy(alpha = 0.12f))
+                    .border(1.dp, deleteBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = deleteText, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = "Delete",
+                        color = deleteText,
+                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+        },
+    ) {
+        DocumentRowContent(
+            doc = doc,
+            onLongPressDelete = onDelete,
+        )
+    }
+}
+
+@Composable
+private fun DocumentRowContent(
+    doc: RagDocument,
+    onLongPressDelete: () -> Unit,
+) {
+    val dateStr = remember(doc.addedAt) {
+        SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(doc.addedAt))
+    }
+    val sizeStr = remember(doc.sizeBytes) { formatSize(doc.sizeBytes) }
+    val isProcessing = doc.status == RagStatus.PROCESSING || doc.status == RagStatus.PENDING
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(recessedBg)
+            .combinedClickable(onClick = {}, onLongClick = onLongPressDelete)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            Icons.Default.Description,
+            contentDescription = null,
+            tint = TextMuted,
+            modifier = Modifier.size(18.dp),
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = doc.name,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = if (isProcessing) "Processing..." else "$sizeStr · $dateStr",
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = if (isProcessing) processingTint else TextMuted,
+            )
+        }
+
+        DocumentStatusIndicator(status = doc.status)
+    }
+}
+
+@Composable
+private fun DocumentStatusIndicator(status: RagStatus) {
+    when (status) {
+        RagStatus.DONE -> {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(IndexedGreen),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Indexed",
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
+        }
+
+        RagStatus.PROCESSING, RagStatus.PENDING -> {
+            val transition = rememberInfiniteTransition(label = "processing_spin")
+            val angle by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 1000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
+                label = "processing_angle",
+            )
+            Icon(
+                Icons.Default.HourglassEmpty,
+                contentDescription = "Processing",
+                tint = processingTint,
+                modifier = Modifier
+                    .size(16.dp)
+                    .rotate(angle),
+            )
+        }
+
+        RagStatus.ERROR -> {
+            Icon(
+                Icons.Default.WarningAmber,
+                contentDescription = "Error",
+                tint = deleteText,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyDocumentsCard() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(cardSurface)
+            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "No documents yet",
+            color = TextPrimary,
+            style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = "Tap + Add to include files in this Space.",
+            color = TextMuted,
+            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+@Composable
+private fun DeleteSpaceButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, deleteBorder, RoundedCornerShape(12.dp))
+            .combinedClickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = deleteText, modifier = Modifier.size(16.dp))
+            Text(
+                text = "Delete this Space",
+                color = deleteText,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RenameSpaceDialog(
+    initialName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by remember(initialName) { mutableStateOf(initialName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Space", color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Update the name used across Spaces.",
+                    color = TextMuted,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(recessedBg)
+                        .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    BasicTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        singleLine = true,
+                        textStyle = androidx.compose.material3.MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                        cursorBrush = SolidColor(TextPrimary),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name) },
+                enabled = name.isNotBlank() && name.trim() != initialName.trim(),
+            ) {
+                Text("Save", color = addButtonText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextMuted)
+            }
+        },
+        containerColor = cardSurface,
+    )
+}
+
+private fun formatSize(bytes: Long): String = when {
+    bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576f)
+    bytes >= 1_024 -> "%.1f KB".format(bytes / 1_024f)
+    else -> "$bytes B"
 }
