@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -61,6 +62,11 @@ private sealed interface ModesDestination {
 fun ModesScreen(viewModel: ModesViewModel) {
     val modes by viewModel.modes.collectAsState()
     var destination by remember { mutableStateOf<ModesDestination>(ModesDestination.List) }
+    val isEditing = destination is ModesDestination.Edit
+
+    BackHandler(enabled = isEditing) {
+        destination = ModesDestination.List
+    }
 
     AnimatedContent(
         targetState   = destination,
@@ -134,17 +140,26 @@ private fun ModeListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 14.dp),
+                .padding(start = 4.dp, top = 18.dp, bottom = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
-            Text(
-                text = "Modes",
-                color = ModesInk,
-                fontFamily = ModesSans,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 28.sp,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Modes",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.5).sp,
+                    ),
+                    color = ModesInk,
+                )
+                Text(
+                    text = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = ModesInk.copy(alpha = 0.35f),
+                )
+            }
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -167,21 +182,13 @@ private fun ModeListScreen(
             }
         }
 
-        Text(
-            text = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
-            color = ModesInk.copy(alpha = 0.35f),
-            fontFamily = ModesMono,
-            fontSize = 11.sp,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-
         activeMode?.let { mode ->
             ModeActiveBanner(
                 mode = mode,
                 description = compactPrompt(mode.systemPrompt),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp),
+                    .padding(top = 8.dp),
             )
         }
 
