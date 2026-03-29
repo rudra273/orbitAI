@@ -1,7 +1,11 @@
 package com.example.orbitai.ui.navigation
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -60,6 +65,7 @@ import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
 import com.example.orbitai.viewmodel.SpacesViewModel
+import com.example.orbitai.tools.bubble.OrbitBubbleService
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ROUTE DEFINITIONS
@@ -360,6 +366,7 @@ private fun OrbitBottomBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -384,7 +391,7 @@ private fun OrbitBottomBar(
         ) {
             TabButton(TABS[0], currentRoute == TABS[0].route) { onNavigate(TABS[0].route) }
             TabButton(TABS[1], currentRoute == TABS[1].route) { onNavigate(TABS[1].route) }
-            OrbitNavButton(onClick = { onNavigate(Screen.SettingsOrbitBubble.route) })
+            OrbitNavButton(onClick = { OrbitBubbleService.trigger(context) })
             TabButton(TABS[2], currentRoute == TABS[2].route) { onNavigate(TABS[2].route) }
             TabButton(TABS[3], currentRoute == TABS[3].route) { onNavigate(TABS[3].route) }
         }
@@ -397,6 +404,30 @@ private fun OrbitBottomBar(
 
 @Composable
 private fun OrbitNavButton(onClick: () -> Unit) {
+    var isActivated by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isActivated) 1.12f else 1f,
+        animationSpec = tween(durationMillis = 220),
+        label = "orbit_nav_scale",
+    )
+    val buttonColor by animateColorAsState(
+        targetValue = if (isActivated) VioletCore else TextPrimary,
+        animationSpec = tween(durationMillis = 220),
+        label = "orbit_nav_bg",
+    )
+    val ringColor by animateColorAsState(
+        targetValue = if (isActivated) VioletGlow.copy(alpha = 0.7f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 220),
+        label = "orbit_nav_ring",
+    )
+
+    LaunchedEffect(isActivated) {
+        if (isActivated) {
+            kotlinx.coroutines.delay(1100)
+            isActivated = false
+        }
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier            = Modifier.offset(y = (-18).dp),
@@ -404,12 +435,20 @@ private fun OrbitNavButton(onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(52.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .clip(CircleShape)
-                .background(TextPrimary)
+                .background(buttonColor)
+                .border(width = 2.dp, color = ringColor, shape = CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication        = null,
-                    onClick           = onClick,
+                    onClick           = {
+                        isActivated = true
+                        onClick()
+                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -424,7 +463,7 @@ private fun OrbitNavButton(onClick: () -> Unit) {
             text      = "Orbit",
             style     = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
-            color     = TextPrimary,
+            color     = if (isActivated) VioletGlow else TextPrimary,
         )
     }
 }
@@ -466,4 +505,3 @@ private fun TabButton(
         )
     }
 }
-

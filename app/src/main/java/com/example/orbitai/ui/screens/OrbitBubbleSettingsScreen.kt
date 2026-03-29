@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.orbitai.R
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.ModelProvider
 import com.example.orbitai.data.ToolSettingsStore
@@ -348,6 +351,26 @@ fun OrbitBubbleSettingsScreen(
                     value = bubbleIdleAlphaPercent.toFloat(),
                     range = 20f..100f,
                     description = "How visible bubble stays when idle",
+                    previewContent = {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(BubbleInk.copy(alpha = bubbleIdleAlphaPercent / 100f))
+                                .border(
+                                    width = 1.dp,
+                                    color = BubbleInk.copy(alpha = 0.10f),
+                                    shape = CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.vector_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    },
                     onValueChange = { value ->
                         bubbleIdleAlphaPercent = value.toInt().coerceIn(20, 100)
                         toolSettingsStore.bubbleIdleAlphaPercent = bubbleIdleAlphaPercent
@@ -624,6 +647,7 @@ private fun AppearanceSliderRow(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     description: String = "",
+    previewContent: @Composable (() -> Unit)? = null,
     onValueChange: (Float) -> Unit,
 ) {
     var sliderValue by remember(value) { mutableFloatStateOf(value.coerceIn(range.start, range.endInclusive)) }
@@ -650,12 +674,18 @@ private fun AppearanceSliderRow(
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
             )
-            Text(
-                text = valueLabel,
-                color = BubbleInk.copy(alpha = 0.35f),
-                fontFamily = BubbleMono,
-                fontSize = 11.sp,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                previewContent?.invoke()
+                Text(
+                    text = valueLabel,
+                    color = BubbleInk.copy(alpha = 0.35f),
+                    fontFamily = BubbleMono,
+                    fontSize = 11.sp,
+                )
+            }
         }
 
         Slider(
