@@ -2,6 +2,7 @@ package com.example.orbitai.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,17 +24,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +51,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.time.format.DateTimeFormatter
 
 private val SurfaceLight = Color(0xFFF9F8F5)
 private val SurfaceDark = Color(0xFF0F0F0D)
@@ -58,10 +60,13 @@ private val InkDark = Color(0xFFF0EFE9)
 private val Violet = Color(0xFF5B4FE8)
 private val Green = Color(0xFF17A865)
 private val DeleteRed = Color(0xFFD94F4F)
+private val PopupLight = Color(0xFFFFFFFF)
+private val PopupDark = Color(0xFF1A1A17)
 
 private val surfaceColor @Composable get() = if (IsOrbitDarkTheme) SurfaceDark else SurfaceLight
 private val inkColor @Composable get() = if (IsOrbitDarkTheme) InkDark else InkLight
 private val dividerColor @Composable get() = inkColor.copy(alpha = 0.06f)
+private val popupSurface @Composable get() = if (IsOrbitDarkTheme) PopupDark else PopupLight
 
 private val Sans = FontFamily.SansSerif
 private val Mono = FontFamily.Monospace
@@ -72,7 +77,6 @@ private sealed interface ChatListItem {
     data class Row(val chat: Chat) : ChatListItem
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: ChatViewModel,
@@ -198,7 +202,7 @@ private fun ChatHistoryTopBar(chatCount: Int) {
         )
         Text(
             text = "$chatCount conversation${if (chatCount == 1) "" else "s"}",
-            color = inkColor.copy(alpha = 0.5f),
+            color = inkColor.copy(alpha = 0.35f),
             fontFamily = Mono,
             fontSize = 11.sp,
         )
@@ -213,57 +217,29 @@ private fun GroupHeader(label: String) {
         fontFamily = Mono,
         fontSize = 10.sp,
         fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
+        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatRow(
     chat: Chat,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        },
-    )
+    var menuExpanded by remember(chat.id) { mutableStateOf(false) }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 2.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Text(
-                    text = "DELETE",
-                    color = DeleteRed,
-                    fontFamily = Mono,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-        },
-    ) {
-        Column {
+    Column {
+        Box {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp)
-                    .clickable(
+                    .height(72.dp)
+                    .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onOpen,
+                        onLongClick = { menuExpanded = true },
                     )
                     .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -305,7 +281,7 @@ private fun ChatRow(
                         }
 
                         Text(
-                            text = "${relativeLabel(chatTimestamp(chat))} · ${displayModelName(chat.modelId)}",
+                            text = "${formatChatTimestamp(chatTimestamp(chat))} · ${displayModelName(chat.modelId)}",
                             color = inkColor.copy(alpha = 0.4f),
                             fontFamily = Mono,
                             fontSize = 10.sp,
@@ -322,7 +298,7 @@ private fun ChatRow(
                                 fontFamily = Mono,
                                 fontSize = 10.sp,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
+                                    .clip(RoundedCornerShape(4.dp))
                                     .background(Violet.copy(alpha = 0.10f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             )
@@ -330,13 +306,63 @@ private fun ChatRow(
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(dividerColor),
-            )
+
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                shape = RoundedCornerShape(8.dp),
+                containerColor = popupSurface,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, inkColor.copy(alpha = 0.10f)),
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "Rename",
+                            color = inkColor,
+                            fontFamily = Sans,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                        )
+                    },
+                    onClick = { menuExpanded = false },
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "Pin",
+                            color = inkColor,
+                            fontFamily = Sans,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                        )
+                    },
+                    onClick = { menuExpanded = false },
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "Delete",
+                            color = DeleteRed,
+                            fontFamily = Sans,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    },
+                )
+            }
         }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(dividerColor),
+        )
     }
 }
 
@@ -391,13 +417,19 @@ private fun ageInDays(timestamp: Long): Long {
     return ChronoUnit.DAYS.between(date, today)
 }
 
-private fun relativeLabel(timestamp: Long): String {
+private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
+private val fullDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+
+private fun formatChatTimestamp(timestamp: Long): String {
+    val zone = ZoneId.systemDefault()
+    val time = Instant.ofEpochMilli(timestamp).atZone(zone)
     val days = ageInDays(timestamp)
     return when {
-        days <= 0L -> "Today"
+        days <= 0L -> time.format(timeFormatter)
         days == 1L -> "Yesterday"
-        days < 7L -> "$days days ago"
-        else -> "Older"
+        time.year == LocalDate.now(zone).year -> time.format(dateFormatter)
+        else -> time.format(fullDateFormatter)
     }
 }
 
