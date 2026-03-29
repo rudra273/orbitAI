@@ -7,12 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import android.Manifest
 import android.content.Intent
@@ -31,23 +31,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -81,8 +79,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val SpaceAccent = Color(0xFFFBBF24)
-private val SpaceAccentDim = Color(0xFFF59E0B)
 
 private data class PendingAttachment(
     val name: String,
@@ -99,6 +95,7 @@ fun ChatScreen(
     chatId:    String,
     viewModel: ChatViewModel,
     onBack:    () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -193,22 +190,6 @@ fun ChatScreen(
             .fillMaxSize()
             .background(SpaceDeep),
     ) {
-        // Ambient glow — top
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to VioletGlowSoft.copy(alpha = 0.06f),
-                            1.0f to Color.Transparent,
-                        ),
-                        radius = 700f,
-                    )
-                )
-        )
-
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -223,6 +204,7 @@ fun ChatScreen(
                     onModelSelected = { model -> viewModel.selectModel(chatId, model) },
                     onSelectMode    = { viewModel.selectMode(it) },
                     onToggleSpace   = { viewModel.toggleSpace(it) },
+                    onNavigateToSettings = onNavigateToSettings,
                 )
             },
             bottomBar = {
@@ -282,10 +264,10 @@ fun ChatScreen(
                     GlassStatusBanner("Loading model…", VioletCore)
                 }
                 attachmentInfo?.let {
-                    GlassStatusBanner(it, SpaceAccent)
+                    GlassStatusBanner(it, Warning)
                 }
                 attachmentError?.let {
-                    GlassStatusBanner(it, SpaceAccent)
+                    GlassStatusBanner(it, Warning)
                 }
                 uiState.infoMessage?.let {
                     GlassStatusBanner(it, Color(0xFF34D399))
@@ -315,23 +297,20 @@ fun ChatScreen(
                             verticalArrangement = Arrangement.Center,
                         ) {
                             Image(
-                                painter = painterResource(R.drawable.vector_logo),
+                                painter            = painterResource(R.drawable.vector_logo),
                                 contentDescription = "OrbitAI",
-                                modifier = Modifier.size(72.dp),
+                                modifier           = Modifier.size(64.dp),
                             )
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(20.dp))
                             Text(
-                                text = "How can I help you today?",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontFamily = FontFamily.Serif,
-                                    letterSpacing = 0.2.sp,
-                                ),
-                                color = TextPrimary.copy(alpha = 0.92f),
+                                text       = "How can I help you today?",
+                                style      = MaterialTheme.typography.headlineMedium,
+                                color      = TextPrimary,
                                 fontWeight = FontWeight.SemiBold,
                             )
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "Ask anything, generate code, or explore ideas.",
+                                text  = "Ask anything, generate code, or explore ideas.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextMuted,
                             )
@@ -344,7 +323,7 @@ fun ChatScreen(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// TOP BAR — mode name, space chips, model pill, back button
+// TOP BAR — OrbitAI header + context strip
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -360,84 +339,74 @@ private fun ChatTopBar(
     onModelSelected: (LlmModel) -> Unit,
     onSelectMode:   (String) -> Unit,
     onToggleSpace:  (String) -> Unit,
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val activeMode = modes.find { it.id == activeModeId } ?: modes.firstOrNull()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    listOf(SpaceDust.copy(alpha = 0.95f), Color.Transparent)
-                )
-            ),
+            .background(SpaceDeep),
     ) {
-        // ── Row 1: back + title + model pill ──────────────────────────────
-        TopAppBar(
-            windowInsets = WindowInsets(0, 0, 0, 0),
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = TextSecondary,
-                    )
-                }
-            },
-            title = {
-                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(
-                        text   = chat?.title ?: "Chat",
-                        style  = MaterialTheme.typography.titleLarge,
-                        color  = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (activeMode != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.vector_logo),
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                            )
-                            Text(
-                                text  = activeMode.name,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color      = VioletBright,
-                                    fontWeight = FontWeight.Medium,
-                                ),
-                            )
-                        }
-                    }
-                }
-            },
-            actions = {
-                // Model selector pill
-                if (chat != null) {
-                    ModelPill(
-                        chat = chat,
-                        availableModels = availableModels,
-                        onModelSelected = onModelSelected,
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-        )
+        // ── Row 1: back + OrbitAI title + on-device pill ──────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = TextMuted,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
 
-        // ── Row 2: mode + space selectors ────────────────────────────────
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text  = "OrbitAI",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontSize      = 22.sp,
+                        fontWeight    = FontWeight.SemiBold,
+                        letterSpacing = (-0.5).sp,
+                    ),
+                    color = TextPrimary,
+                )
+                Text(
+                    text  = "COMMAND CENTER",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize      = 10.sp,
+                        letterSpacing = 1.5.sp,
+                    ),
+                    color = TextMuted,
+                )
+            }
+
+            // On-device / model status pill
+            if (chat != null && availableModels.isNotEmpty()) {
+                OnDeviceModelPill(
+                    chat            = chat,
+                    availableModels = availableModels,
+                    onModelSelected = onModelSelected,
+                )
+            }
+
+            Spacer(Modifier.width(4.dp))
+        }
+
+        // ── Row 2: context strip — mode chip + space chips ─────────────────
         if (modes.isNotEmpty() || spaces.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
-                verticalAlignment    = Alignment.CenterVertically,
+                verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Mode single-select dropdown
                 if (modes.isNotEmpty() && activeMode != null) {
                     ModeDropdownChip(
                         modes        = modes,
@@ -446,43 +415,30 @@ private fun ChatTopBar(
                         onSelectMode = onSelectMode,
                     )
                 }
-
-                // Space multi-select chips
-                if (spaces.isNotEmpty()) {
-                    LazyRow(
-                        modifier              = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        items(spaces, key = { it.id }) { space ->
-                            SpaceToggleChip(
-                                space          = space,
-                                selected       = space.id in activeSpaceIds,
-                                onToggleSpace  = onToggleSpace,
-                            )
-                        }
-                    }
+                spaces.forEach { space ->
+                    SpaceToggleChip(
+                        space         = space,
+                        selected      = space.id in activeSpaceIds,
+                        onToggleSpace = onToggleSpace,
+                    )
                 }
             }
         }
 
-        // Divider
+        // Bottom border
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color.Transparent, GlassBorder, Color.Transparent)
-                    )
-                )
+                .background(GlassBorder),
         )
     }
 }
 
-// ── Model pill ────────────────────────────────────────────────────────────────
+// ── On-device model pill ───────────────────────────────────────────────────────
 
 @Composable
-private fun ModelPill(
+private fun OnDeviceModelPill(
     chat:            Chat,
     availableModels: List<LlmModel>,
     onModelSelected: (LlmModel) -> Unit,
@@ -491,52 +447,39 @@ private fun ModelPill(
 
     var expanded by remember { mutableStateOf(false) }
     val selectedModel = availableModels.find { it.id == chat.modelId }
+    val isLocal = selectedModel?.provider == com.example.orbitai.data.ModelProvider.LOCAL
 
     Box {
-        val isDark = IsOrbitDarkTheme
-        val pillShape = RoundedCornerShape(15.dp)
-        Box(
+        Row(
             modifier = Modifier
-                .height(30.dp)
-                .clip(pillShape)
-                .background(
-                    if (isDark) Color.White.copy(alpha = 0.05f)
-                    else Color(0xFFF0ECFF).copy(alpha = 0.78f)
-                )
-                .border(
-                    width = if (isDark) 0.5.dp else 1.dp,
-                    brush = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to (if (isDark) Color.White else VioletCore)
-                                         .copy(alpha = if (isDark) 0.15f else 0.30f),
-                            1.0f to VioletCore.copy(alpha = if (isDark) 0.05f else 0.08f),
-                        ),
-                    ),
-                    shape = pillShape,
-                )
+                .clip(RoundedCornerShape(20.dp))
+                .background(OnDevicePillBg)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication        = null,
                 ) { expanded = true }
-                .padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center,
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            Row(
-                verticalAlignment    = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text  = selectedModel?.displayName ?: "Select model",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary,
-                )
-                Icon(
-                    Icons.Default.ExpandMore,
-                    contentDescription = "Select model",
-                    tint     = TextMuted,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(OnDevicePillText),
+            )
+            Text(
+                text  = if (isLocal) "On-device" else selectedModel?.displayName ?: "Cloud",
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
+                color = OnDevicePillText,
+                fontWeight = FontWeight.Medium,
+            )
+            Icon(
+                Icons.Default.ExpandMore,
+                contentDescription = "Select model",
+                tint     = OnDevicePillText.copy(alpha = 0.7f),
+                modifier = Modifier.size(13.dp),
+            )
         }
 
         DropdownMenu(
@@ -589,41 +532,37 @@ private fun ModeDropdownChip(
     var expanded by remember { mutableStateOf(false) }
 
     Box {
-        Box(
+        Row(
             modifier = Modifier
-                .height(30.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(VioletFrost)
-                .glowBorder(VioletCore.copy(0.25f), 15.dp)
+                .height(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(SpaceDust)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication        = null,
                 ) { expanded = true }
-                .padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center,
+                .padding(horizontal = 12.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Row(
-                verticalAlignment    = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.vector_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                )
-                Text(
-                    activeMode.name,
-                    style  = MaterialTheme.typography.labelMedium,
-                    color  = VioletBright,
-                    fontWeight = FontWeight.Medium,
-                )
-                Icon(
-                    Icons.Default.ExpandMore,
-                    contentDescription = "Switch mode",
-                    tint     = VioletBright.copy(0.7f),
-                    modifier = Modifier.size(14.dp),
-                )
-            }
+            Icon(
+                Icons.Outlined.Layers,
+                contentDescription = null,
+                tint     = TextSecondary,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                activeMode.name,
+                style      = MaterialTheme.typography.labelMedium,
+                color      = TextPrimary,
+                fontWeight = FontWeight.Medium,
+            )
+            Icon(
+                Icons.Default.ExpandMore,
+                contentDescription = "Switch mode",
+                tint     = TextMuted,
+                modifier = Modifier.size(14.dp),
+            )
         }
 
         DropdownMenu(
@@ -639,7 +578,7 @@ private fun ModeDropdownChip(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     mode.name,
-                                    color      = if (isSelected) VioletBright else TextPrimary,
+                                    color      = if (isSelected) VioletCore else TextPrimary,
                                     style      = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 )
@@ -654,7 +593,7 @@ private fun ModeDropdownChip(
                                         Text(
                                             "default",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = VioletBright,
+                                            color = VioletCore,
                                         )
                                     }
                                 }
@@ -670,11 +609,11 @@ private fun ModeDropdownChip(
                     },
                     onClick      = { onSelectMode(mode.id); expanded = false },
                     trailingIcon = if (isSelected) ({
-                        Box(
-                            Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(VioletCore)
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint     = VioletCore,
+                            modifier = Modifier.size(16.dp),
                         )
                     }) else null,
                 )
@@ -692,47 +631,55 @@ private fun SpaceToggleChip(
     onToggleSpace: (String) -> Unit,
 ) {
     val bgColor by animateColorAsState(
-        targetValue   = if (selected) SpaceAccent.copy(alpha = 0.18f) else GlassWhite4,
+        targetValue   = if (selected) VioletGlow else SpaceDust,
         animationSpec = tween(200),
         label         = "space_chip_bg",
     )
     val textColor by animateColorAsState(
-        targetValue   = if (selected) SpaceAccent else TextMuted,
+        targetValue   = if (selected) VioletCore else TextSecondary,
         animationSpec = tween(200),
         label         = "space_chip_text",
     )
     val borderColor by animateColorAsState(
-        targetValue   = if (selected) SpaceAccent.copy(alpha = 0.55f) else GlassBorder,
+        targetValue   = if (selected) VioletFrost else Color.Transparent,
         animationSpec = tween(200),
         label         = "space_chip_border",
     )
 
-    Box(
+    Row(
         modifier = Modifier
-            .height(28.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
-            .background(
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        borderColor.copy(alpha = if (selected) 0.28f else borderColor.alpha),
-                        borderColor.copy(alpha = 0.08f),
-                    )
-                ),
-                shape = RoundedCornerShape(14.dp),
-            )
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication        = null,
             ) { onToggleSpace(space.id) }
-            .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.Center,
+            .padding(horizontal = 12.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(VioletCore),
+        )
         Text(
             text  = space.name,
             style = MaterialTheme.typography.labelMedium,
             color = textColor,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
         )
+        if (selected) {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = null,
+                tint     = VioletCore,
+                modifier = Modifier.size(13.dp),
+            )
+        }
     }
 }
 
@@ -744,81 +691,75 @@ private fun SpaceToggleChip(
 private fun MessageBubble(msg: Message) {
     val isUser = msg.role == Role.USER
 
-    Row(
-        modifier              = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-    ) {
-        Column(
-            modifier = if (isUser) {
-                Modifier.widthIn(max = 296.dp)
-            } else {
-                Modifier.fillMaxWidth()
-            },
-            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
+    if (isUser) {
+        // User: right-aligned ink bubble
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
         ) {
-            // Bubble
             Box(
                 modifier = Modifier
-                    .then(
-                        if (isUser) {
-                            Modifier
-                                .drawBehind {
-                                    // User bubble: soft violet glow
-                                    drawIntoCanvas { canvas ->
-                                        val paint = Paint().apply {
-                                            asFrameworkPaint().apply {
-                                                isAntiAlias = true
-                                                color       = android.graphics.Color.TRANSPARENT
-                                                setShadowLayer(
-                                                    16f, 0f, 2f,
-                                                    VioletCore.copy(0.2f).toArgb(),
-                                                )
-                                            }
-                                        }
-                                        canvas.drawRoundRect(
-                                            0f, 0f, size.width, size.height,
-                                            18.dp.toPx(), 18.dp.toPx(), paint,
-                                        )
-                                    }
-                                }
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart    = 18.dp,
-                                        topEnd      = 4.dp,
-                                        bottomStart = 18.dp,
-                                        bottomEnd   = 18.dp,
-                                    )
-                                )
-                                .background(OrbitGradients.userBubble)
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        listOf(UserBubbleBorder, UserBubbleBorder.copy(0.15f))
-                                    ),
-                                    shape = RoundedCornerShape(
-                                        topStart    = 18.dp,
-                                        topEnd      = 4.dp,
-                                        bottomStart = 18.dp,
-                                        bottomEnd   = 18.dp,
-                                    ),
-                                )
-                                .padding(horizontal = 14.dp, vertical = 11.dp)
-                        } else {
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 2.dp, vertical = 2.dp)
-                        }
-                    ),
+                    .widthIn(max = 296.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart    = 20.dp,
+                            topEnd      = 20.dp,
+                            bottomStart = 20.dp,
+                            bottomEnd   = 4.dp,
+                        )
+                    )
+                    .background(UserBubbleFill)
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
             ) {
-                if (msg.isStreaming && msg.content.isEmpty()) {
-                    TypingIndicator()
-                } else {
-                    SelectionContainer {
-                        MarkdownMessageText(msg.content)
-                    }
-                    if (msg.isStreaming) {
-                        Spacer(Modifier.height(4.dp))
-                        StreamingCursor()
-                    }
+                SelectionContainer {
+                    MarkdownMessageText(
+                        content   = msg.content,
+                        textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
+                    )
+                }
+            }
+        }
+    } else {
+        // AI: no bubble — ORBIT badge header + content directly on background
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+        ) {
+            // ORBIT badge row
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier              = Modifier.padding(bottom = 6.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(VioletGlow)
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text  = "ORBIT",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily    = FontFamily.Monospace,
+                            fontSize      = 9.sp,
+                            letterSpacing = 2.sp,
+                            fontWeight    = FontWeight.Medium,
+                        ),
+                        color = VioletCore,
+                    )
+                }
+            }
+
+            if (msg.isStreaming && msg.content.isEmpty()) {
+                TypingIndicator()
+            } else {
+                SelectionContainer {
+                    MarkdownMessageText(msg.content)
+                }
+                if (msg.isStreaming) {
+                    Spacer(Modifier.height(4.dp))
+                    StreamingCursor()
                 }
             }
         }
@@ -833,7 +774,10 @@ private sealed interface MarkdownBlock {
 }
 
 @Composable
-private fun MarkdownMessageText(content: String) {
+private fun MarkdownMessageText(
+    content:   String,
+    textColor: Color = TextPrimary,
+) {
     val blocks = remember(content) { parseMarkdownBlocks(content) }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -846,39 +790,39 @@ private fun MarkdownMessageText(content: String) {
                         else -> MaterialTheme.typography.titleSmall
                     }
                     Text(
-                        text = parseInlineMarkdown(block.text),
-                        style = headingStyle,
-                        color = TextPrimary,
+                        text      = parseInlineMarkdown(block.text),
+                        style     = headingStyle,
+                        color     = textColor,
                         lineHeight = (headingStyle.fontSize.value + 8).sp,
                     )
                 }
 
                 is MarkdownBlock.Bullet -> {
                     Row(
-                        verticalAlignment = Alignment.Top,
+                        verticalAlignment     = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextPrimary,
-                            lineHeight = 23.sp,
+                            text       = "•",
+                            style      = MaterialTheme.typography.bodyLarge,
+                            color      = textColor,
+                            lineHeight = 25.sp,
                         )
                         Text(
-                            text = parseInlineMarkdown(block.text),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextPrimary,
-                            lineHeight = 23.sp,
+                            text       = parseInlineMarkdown(block.text),
+                            style      = MaterialTheme.typography.bodyLarge,
+                            color      = textColor,
+                            lineHeight = 25.sp,
                         )
                     }
                 }
 
                 is MarkdownBlock.Paragraph -> {
                     Text(
-                        text = parseInlineMarkdown(block.text),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary,
-                        lineHeight = 23.sp,
+                        text       = parseInlineMarkdown(block.text),
+                        style      = MaterialTheme.typography.bodyLarge,
+                        color      = textColor,
+                        lineHeight = 25.sp,
                     )
                 }
 
@@ -895,39 +839,43 @@ private fun CodeBlockView(language: String, code: String) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
+    val codeBlockBg   = if (IsOrbitDarkTheme) Color(0xFF1A1A18) else Color(0xFFF0EFE9)
+    val codeHeaderBg  = if (IsOrbitDarkTheme) Color(0xFF141413) else Color(0xFFE8E7E1)
+    val codeTextColor = if (IsOrbitDarkTheme) Color(0xFFE8E6E1) else Color(0xFF1A1A1A)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A2E))
+            .clip(RoundedCornerShape(10.dp))
+            .background(codeBlockBg)
             .border(
-                width = 0.5.dp,
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(12.dp),
+                width = 1.dp,
+                color = GlassBorder,
+                shape = RoundedCornerShape(10.dp),
             ),
     ) {
-        // Header bar: language label + copy button
+        // Header: language + copy
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF0D0D1A))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .background(codeHeaderBg)
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = language.ifBlank { "code" },
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                text       = language.ifBlank { "code" },
+                style      = MaterialTheme.typography.labelSmall,
+                color      = TextMuted,
                 fontFamily = FontFamily.Monospace,
             )
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(if (copied) Color(0xFF10B981).copy(0.15f) else Color.White.copy(0.06f))
+                    .background(if (copied) Success.copy(0.15f) else GlassWhite8)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
+                        indication        = null,
                     ) {
                         clipboard.setText(AnnotatedString(code))
                         copied = true
@@ -936,9 +884,9 @@ private fun CodeBlockView(language: String, code: String) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = if (copied) "Copied!" else "Copy",
+                    text  = if (copied) "Copied!" else "Copy",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (copied) Color(0xFF10B981) else TextMuted,
+                    color = if (copied) Success else TextMuted,
                 )
             }
         }
@@ -952,12 +900,12 @@ private fun CodeBlockView(language: String, code: String) {
         ) {
             SelectionContainer {
                 Text(
-                    text = code,
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    text     = code,
+                    style    = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
-                        lineHeight  = 20.sp,
+                        lineHeight = 20.sp,
                     ),
-                    color = Color(0xFFE2E8F0),
+                    color    = codeTextColor,
                     softWrap = false,
                 )
             }
@@ -1064,8 +1012,8 @@ private fun parseInlineMarkdown(input: String): AnnotatedString = buildAnnotated
                 pushStyle(
                     SpanStyle(
                         fontFamily = FontFamily.Monospace,
-                        background = GlassWhite8,
-                        color = VioletBright,
+                        background = SpaceDust,
+                        color      = VioletCore,
                     )
                 )
                 append(codeText)
@@ -1115,7 +1063,7 @@ private fun TypingIndicator() {
                     .size(7.dp)
                     .graphicsLayer(scaleX = scale, scaleY = scale)
                     .clip(CircleShape)
-                    .background(VioletBright.copy(alpha = alpha))
+                    .background(TextMuted.copy(alpha = alpha))
             )
         }
     }
@@ -1137,7 +1085,7 @@ private fun StreamingCursor() {
             .padding(top = 2.dp)
             .size(width = 2.dp, height = 14.dp)
             .clip(RoundedCornerShape(1.dp))
-            .background(VioletBright.copy(alpha = alpha))
+            .background(TextMuted.copy(alpha = alpha))
     )
 }
 
@@ -1247,214 +1195,160 @@ private fun ChatInputBar(
     onClearAttachment: () -> Unit,
 ) {
     val (voiceState, toggleVoice) = rememberVoiceInput(onTextChange = onTextChange)
-    // Outer scrim fade — same as nav bar
-    Box(
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color.Transparent, SpaceDeep.copy(alpha = 0.98f))
-                )
-            )
+            .background(SpaceDeep)
             .navigationBarsPadding()
             .imePadding()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp)
+            .padding(top = 8.dp, bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            pendingAttachment?.let { attachment ->
-                Row(
+        // Pending attachment preview
+        pendingAttachment?.let { attachment ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SpaceDust)
+                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = null,
+                    tint     = TextSecondary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text     = attachment.name,
+                    color    = TextPrimary,
+                    style    = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Remove attachment",
+                    tint     = TextMuted,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(
-                                    SpaceAccent.copy(alpha = 0.18f),
-                                    SpaceAccentDim.copy(alpha = 0.08f),
-                                )
-                            )
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = SpaceAccent.copy(alpha = 0.30f),
-                            shape = RoundedCornerShape(16.dp),
-                        )
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .size(16.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication        = null,
+                            onClick           = onClearAttachment,
+                        ),
+                )
+            }
+        }
+
+        // Input row
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Warm rounded input field
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(SpaceDust)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Attach icon
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication        = null,
+                            onClick           = onPickAttachment,
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Default.AttachFile,
-                        contentDescription = null,
-                        tint = SpaceAccent,
-                        modifier = Modifier.size(16.dp),
+                        contentDescription = "Attach file",
+                        tint     = if (selectedModelSupportsAttachments) TextSecondary else TextMuted.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp),
                     )
-                    Text(
-                        text = attachment.name,
-                        color = TextPrimary,
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Remove attachment",
-                        tint = TextMuted,
+                }
+
+                // Text field
+                BasicTextField(
+                    value         = text,
+                    onValueChange = onTextChange,
+                    modifier      = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 4.dp),
+                    textStyle     = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                    cursorBrush   = SolidColor(TextPrimary),
+                    singleLine    = false,
+                    maxLines      = 5,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction      = ImeAction.Default,
+                    ),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (text.isEmpty()) {
+                                Text(
+                                    if (voiceState == VoiceState.Listening) "Listening…" else "Ask anything…",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = TextMuted,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+
+                // Mic button (inside bar, right side)
+                if (voiceState != VoiceState.Listening && text.isEmpty() && pendingAttachment == null) {
+                    Box(
                         modifier = Modifier
-                            .size(16.dp)
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = onClearAttachment,
+                                indication        = null,
+                                onClick           = toggleVoice,
                             ),
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Mic,
+                            contentDescription = "Voice input",
+                            tint     = TextSecondary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
 
-            Row(
-                modifier             = Modifier.fillMaxWidth(),
-                verticalAlignment    = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                // Text field — glass pill
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(
-                            if (IsOrbitDarkTheme) {
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        VioletCore.copy(alpha = 0.08f),
-                                        SpaceDust.copy(alpha = 0.80f),
-                                        SpaceNebula.copy(alpha = 0.90f),
-                                    )
-                                )
-                            } else {
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        Color(0xFFF0ECFF).copy(alpha = 0.84f),
-                                        Color.White.copy(alpha = 0.82f),
-                                    )
-                                )
-                            }
-                        )
-                        .border(
-                            width = if (IsOrbitDarkTheme) 0.8.dp else 1.dp,
-                            brush = Brush.horizontalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to (if (IsOrbitDarkTheme) Color.White else VioletCore)
-                                        .copy(alpha = if (IsOrbitDarkTheme) 0.14f else 0.25f),
-                                    1.0f to VioletCore.copy(alpha = if (IsOrbitDarkTheme) 0.06f else 0.08f),
-                                ),
-                            ),
-                            shape = RoundedCornerShape(18.dp),
-                        ),
-                ) {
-                    BasicChatTextField(
-                        text         = text,
-                        onTextChange = onTextChange,
-                        onSend       = onSend,
-                        isGenerating = isGenerating,
-                        isLoading    = isLoading,
-                        isListening  = voiceState == VoiceState.Listening,
-                        attachmentsEnabled = selectedModelSupportsAttachments,
-                        onPickAttachment = onPickAttachment,
-                    )
-                }
-
-                // Send / Stop / Mic button
-                if (isGenerating) {
-                    StopButton(onClick = onStop)
-                } else if (voiceState == VoiceState.Listening) {
-                    MicButton(isListening = true, onClick = toggleVoice)
-                } else if (text.trim().isNotEmpty() || pendingAttachment != null) {
-                    SendButton(
-                        enabled   = !isLoading,
-                        isLoading = isLoading,
-                        onClick   = onSend,
-                    )
-                } else {
-                    MicButton(isListening = false, onClick = toggleVoice)
+            // Send / Stop / Mic-active button
+            when {
+                isGenerating -> StopButton(onClick = onStop)
+                voiceState == VoiceState.Listening -> MicButton(isListening = true, onClick = toggleVoice)
+                text.trim().isNotEmpty() || pendingAttachment != null ->
+                    SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
+                else -> {
+                    // No button — mic is embedded inside field; no external button needed
                 }
             }
         }
     }
 }
 
-@Composable
-private fun BasicChatTextField(
-    text:         String,
-    onTextChange: (String) -> Unit,
-    onSend:       () -> Unit,
-    isGenerating: Boolean,
-    isLoading:    Boolean,
-    isListening:  Boolean = false,
-    attachmentsEnabled: Boolean,
-    onPickAttachment: () -> Unit,
-) {
-    TextField(
-        value            = text,
-        onValueChange    = onTextChange,
-        modifier         = Modifier
-            .fillMaxWidth()
-            .height(48.dp),
-        placeholder      = {
-            Text(
-                if (isListening) "Listening…" else "Message…",
-                style = MaterialTheme.typography.bodyLarge,
-                color = TextMuted,
-            )
-        },
-        leadingIcon      = {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (attachmentsEnabled) {
-                            SpaceAccent.copy(alpha = 0.18f)
-                        } else {
-                            Color.White.copy(alpha = 0.05f)
-                        }
-                    )
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onPickAttachment,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.AttachFile,
-                    contentDescription = "Upload file",
-                    tint = if (attachmentsEnabled) SpaceAccent else TextMuted.copy(alpha = 0.85f),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        },
-        colors           = TextFieldDefaults.colors(
-            focusedContainerColor    = Color.Transparent,
-            unfocusedContainerColor  = Color.Transparent,
-            focusedIndicatorColor    = Color.Transparent,
-            unfocusedIndicatorColor  = Color.Transparent,
-            focusedTextColor         = TextPrimary,
-            unfocusedTextColor       = TextPrimary,
-            cursorColor              = VioletBright,
-        ),
-        singleLine       = true,
-        maxLines         = 1,
-        keyboardOptions  = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Sentences,
-            imeAction      = ImeAction.Default,
-        ),
-        textStyle        = MaterialTheme.typography.bodyLarge,
-    )
-}
 
 @Composable
 private fun SendButton(
@@ -1462,39 +1356,30 @@ private fun SendButton(
     isLoading: Boolean,
     onClick:   () -> Unit,
 ) {
-    GlassyComposerButton(
-        enabled = enabled,
-        onClick = onClick,
-        glowColor = VioletCore.copy(alpha = 0.26f),
-        fill = if (enabled) {
-            Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = 0.12f),
-                    VioletCore.copy(alpha = 0.88f),
-                    VioletBright.copy(alpha = 0.74f),
-                )
-            )
-        } else {
-            Brush.linearGradient(listOf(GlassWhite8, GlassWhite8))
-        },
-        border = Brush.linearGradient(
-            listOf(
-                Color.White.copy(alpha = if (enabled) 0.24f else 0.10f),
-                VioletBright.copy(alpha = if (enabled) 0.30f else 0.08f),
-            )
-        ),
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (enabled) TextPrimary else SpaceDust)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                enabled           = enabled,
+                onClick           = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         if (isLoading) {
             CircularProgressIndicator(
                 modifier    = Modifier.size(20.dp),
-                color       = VioletBright,
+                color       = SpaceDeep,
                 strokeWidth = 2.dp,
             )
         } else {
             Icon(
                 Icons.AutoMirrored.Filled.Send,
                 contentDescription = "Send",
-                tint     = if (enabled) Color.White else TextMuted,
+                tint     = if (enabled) SpaceDeep else TextMuted,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -1503,23 +1388,18 @@ private fun SendButton(
 
 @Composable
 private fun StopButton(onClick: () -> Unit) {
-    GlassyComposerButton(
-        enabled = true,
-        onClick = onClick,
-        glowColor = Destructive.copy(alpha = 0.22f),
-        fill = Brush.linearGradient(
-            listOf(
-                Color.White.copy(alpha = 0.10f),
-                DestructiveSoft.copy(alpha = 0.90f),
-                Destructive.copy(alpha = 0.48f),
-            )
-        ),
-        border = Brush.linearGradient(
-            listOf(
-                Color.White.copy(alpha = 0.18f),
-                Destructive.copy(alpha = 0.28f),
-            )
-        ),
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(DestructiveSoft)
+            .border(1.dp, Destructive.copy(alpha = 0.3f), CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                onClick           = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             Icons.Default.Stop,
@@ -1542,73 +1422,26 @@ private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
         ),
         label = "mic_scale",
     )
-    GlassyComposerButton(
-        enabled = true,
-        onClick = onClick,
-        glowColor = if (isListening) Destructive.copy(alpha = 0.30f) else VioletCore.copy(alpha = 0.24f),
-        fill = if (isListening) {
-            Brush.linearGradient(listOf(Destructive, Color(0xFFFF6B6B)))
-        } else {
-            Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = 0.12f),
-                    VioletCore.copy(alpha = 0.82f),
-                    VioletBright.copy(alpha = 0.66f),
-                )
-            )
-        },
-        border = Brush.linearGradient(
-            listOf(
-                Color.White.copy(alpha = 0.24f),
-                if (isListening) Destructive.copy(alpha = 0.34f) else VioletBright.copy(alpha = 0.28f),
-            )
-        ),
-        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale },
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(CircleShape)
+            .background(if (isListening) Destructive else TextPrimary)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                onClick           = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             Icons.Default.Mic,
             contentDescription = if (isListening) "Stop voice input" else "Voice input",
-            tint     = Color.White,
+            tint     = SpaceDeep,
             modifier = Modifier.size(22.dp),
         )
     }
-}
-
-@Composable
-private fun GlassyComposerButton(
-    enabled: Boolean,
-    onClick: () -> Unit,
-    fill: Brush,
-    border: Brush,
-    glowColor: Color,
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(fill)
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to Color.White.copy(alpha = 0.18f),
-                        0.35f to Color.White.copy(alpha = 0.07f),
-                        1.0f to Color.Transparent,
-                    )
-                )
-            )
-            .border(1.dp, border, RoundedCornerShape(16.dp))
-            .then(if (enabled) Modifier.glowBorder(glowColor, 16.dp) else Modifier)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = enabled,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-        content = content,
-    )
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1617,27 +1450,19 @@ private fun GlassyComposerButton(
 
 @Composable
 private fun GlassStatusBanner(text: String, color: Color) {
-    val isDark = IsOrbitDarkTheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color.copy(alpha = if (isDark) 0.10f else 0.08f))
-            .border(
-                width = 0.5.dp,
-                brush = Brush.horizontalGradient(
-                    listOf(color.copy(alpha = 0.25f), color.copy(alpha = 0.05f))
-                ),
-                shape = RoundedCornerShape(0.dp),
-            )
-            .padding(horizontal = 20.dp, vertical = 9.dp),
-        verticalAlignment    = Alignment.CenterVertically,
+            .background(color.copy(alpha = 0.08f))
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
             modifier = Modifier
                 .size(6.dp)
                 .clip(CircleShape)
-                .background(color)
+                .background(color),
         )
         Text(
             text  = text,

@@ -1,24 +1,21 @@
 package com.example.orbitai.ui.navigation
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,18 +23,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.orbitai.R
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -356,9 +349,9 @@ private data class TabItem(
 )
 
 private val TABS = listOf(
-    TabItem(Screen.Chat.route,     "Chat",     Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
+    TabItem(Screen.Chat.route,     "Chats",    Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
     TabItem(Screen.Spaces.route,   "Spaces",   Icons.Outlined.FolderOpen,        Icons.Filled.Folder),
-    TabItem(Screen.Modes.route,    "Modes",    Icons.Outlined.Person,            Icons.Filled.Person),
+    TabItem(Screen.Modes.route,    "Modes",    Icons.Outlined.Layers,            Icons.Filled.Layers),
     TabItem(Screen.Settings.route, "Settings", Icons.Outlined.Settings,          Icons.Filled.Settings),
 )
 
@@ -367,124 +360,72 @@ private fun OrbitBottomBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
-    // Outer container — provides the nav scrim fade + horizontal padding
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        if (IsOrbitDarkTheme) SpaceDeep.copy(alpha = 0.22f) else SpaceDeep.copy(alpha = 0.90f),
-                    ),
-                    startY = 0f,
-                    endY   = Float.POSITIVE_INFINITY,
-                )
-            )
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 12.dp, top = 8.dp),
-        contentAlignment = Alignment.BottomCenter,
+            .background(SpaceDeep),
     ) {
-        // Glassy pill
-        val isDark = IsOrbitDarkTheme
-        val pillShape = RoundedCornerShape(24.dp)
+        // Thin top separator
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                // Outer glow
-                .drawBehind {
-                    drawIntoCanvas { canvas ->
-                        val paint = Paint().apply {
-                            asFrameworkPaint().apply {
-                                isAntiAlias = true
-                                color       = android.graphics.Color.TRANSPARENT
-                                setShadowLayer(
-                                    if (isDark) 42f else 20f,
-                                    0f, if (isDark) 10f else 4f,
-                                    (if (isDark) VioletCore else Color.Black)
-                                        .copy(alpha = if (isDark) 0.24f else 0.08f)
-                                        .toArgb(),
-                                )
-                            }
-                        }
-                        canvas.drawRoundRect(
-                            left   = 0f, top = 0f,
-                            right  = size.width, bottom = size.height,
-                            radiusX = 24.dp.toPx(), radiusY = 24.dp.toPx(),
-                            paint  = paint,
-                        )
-                    }
-                }
-                .clip(pillShape)
-                // Glass fill
-                .background(
-                    Brush.linearGradient(
-                        colors = if (isDark) {
-                            listOf(
-                                Color.White.copy(alpha = 0.08f),
-                                VioletCore.copy(alpha = 0.10f),
-                                Color.White.copy(alpha = 0.04f),
-                            )
-                        } else {
-                            listOf(
-                                Color.White.copy(alpha = 0.84f),
-                                VioletCore.copy(alpha = 0.10f),
-                                Color.White.copy(alpha = 0.74f),
-                            )
-                        }
-                    )
-                )
-                // Top sheen
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f  to Color.White.copy(alpha = if (isDark) 0.16f else 0.50f),
-                            0.18f to Color.White.copy(alpha = if (isDark) 0.08f else 0.16f),
-                            0.55f to Color.Transparent,
-                        ),
-                    )
-                )
-                .background(
-                    Brush.horizontalGradient(
-                        colorStops = arrayOf(
-                            0.0f to VioletBright.copy(alpha = if (isDark) 0.10f else 0.05f),
-                            0.5f to Color.Transparent,
-                            1.0f to VioletCore.copy(alpha = if (isDark) 0.14f else 0.06f),
-                        )
-                    )
-                )
-                // Glass border
-                .border(
-                    width = if (isDark) 1.dp else 1.5.dp,
-                    brush = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to (if (isDark) Color.White else VioletCore)
-                                         .copy(alpha = if (isDark) 0.22f else 0.30f),
-                            0.5f to (if (isDark) VioletCore else VioletCore)
-                                         .copy(alpha = if (isDark) 0.28f else 0.12f),
-                            1.0f to (if (isDark) Color.White else VioletCore)
-                                         .copy(alpha = if (isDark) 0.12f else 0.06f),
-                        ),
-                    ),
-                    shape = pillShape,
-                ),
+                .height(1.dp)
+                .align(Alignment.TopCenter)
+                .background(GlassBorder),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 8.dp, top = 4.dp),
+            verticalAlignment     = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            Row(
-                modifier              = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                TABS.forEach { tab ->
-                    val selected = currentRoute == tab.route
-                    TabButton(
-                        tab      = tab,
-                        selected = selected,
-                        onClick  = { onNavigate(tab.route) },
-                    )
-                }
-            }
+            TabButton(TABS[0], currentRoute == TABS[0].route) { onNavigate(TABS[0].route) }
+            TabButton(TABS[1], currentRoute == TABS[1].route) { onNavigate(TABS[1].route) }
+            OrbitNavButton(onClick = { onNavigate(Screen.SettingsOrbitBubble.route) })
+            TabButton(TABS[2], currentRoute == TABS[2].route) { onNavigate(TABS[2].route) }
+            TabButton(TABS[3], currentRoute == TABS[3].route) { onNavigate(TABS[3].route) }
         }
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RAISED CENTER ORBIT BUTTON
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@Composable
+private fun OrbitNavButton(onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier            = Modifier.offset(y = (-18).dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(TextPrimary)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication        = null,
+                    onClick           = onClick,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter            = painterResource(R.drawable.vector_logo),
+                contentDescription = "Orbit",
+                modifier           = Modifier.size(28.dp),
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text      = "Orbit",
+            style     = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color     = TextPrimary,
+        )
     }
 }
 
@@ -498,70 +439,31 @@ private fun TabButton(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val iconTint by animateColorAsState(
-        targetValue   = if (selected) Color.White else TextMuted,
-        animationSpec = tween(200),
-        label         = "tab_tint",
-    )
-    val bgAlpha by animateFloatAsState(
-        targetValue   = if (selected) 1f else 0f,
-        animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
-        label         = "tab_bg",
-    )
-    val iconSize by animateDpAsState(
-        targetValue   = if (selected) 24.dp else 22.dp,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = 500f),
-        label         = "tab_icon_size",
-    )
+    val tint = TextPrimary.copy(alpha = if (selected) 1f else 0.4f)
 
-    Box(
-        modifier = Modifier
-            .size(width = 68.dp, height = 48.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = if (selected) 0.14f * bgAlpha else 0f),
-                        VioletCore.copy(alpha = if (selected) 0.24f * bgAlpha else 0f),
-                    )
-                )
-            )
-            .border(
-                width = 1.dp,
-                color = if (selected) {
-                    Color.White.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.36f)
-                } else {
-                    Color.Transparent
-                },
-                shape = RoundedCornerShape(18.dp),
-            )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier            = Modifier
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication        = null,
                 onClick           = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         Icon(
             imageVector        = if (selected) tab.iconActive else tab.iconDefault,
             contentDescription = tab.label,
-            tint               = iconTint,
-            modifier           = Modifier.size(iconSize),
+            tint               = tint,
+            modifier           = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text       = tab.label,
+            style      = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            color      = tint,
         )
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// HELPERS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Composable
-private fun animateColorAsState(
-    targetValue: Color,
-    animationSpec: androidx.compose.animation.core.AnimationSpec<Color> = tween(200),
-    label: String,
-): State<Color> = androidx.compose.animation.animateColorAsState(
-    targetValue   = targetValue,
-    animationSpec = animationSpec,
-    label         = label,
-)
