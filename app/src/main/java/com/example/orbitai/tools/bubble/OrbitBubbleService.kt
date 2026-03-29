@@ -68,6 +68,7 @@ class OrbitBubbleService : Service() {
     private var bubbleView: FrameLayout? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var isBubbleAttached = false
+    private var isAppForeground = false
 
     // ── Result overlay ────────────────────────────────────────────────────────
     private var resultCardView: View? = null
@@ -105,7 +106,16 @@ class OrbitBubbleService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> { dismissBubble(); return START_NOT_STICKY }
-            ACTION_START, null -> Unit
+            ACTION_APP_FOREGROUND -> {
+                isAppForeground = true
+                hideResultOverlay()
+                removeBubble()
+                return START_STICKY
+            }
+            ACTION_APP_BACKGROUND -> {
+                isAppForeground = false
+            }
+            ACTION_START, ACTION_TRIGGER, null -> Unit
             else -> return START_NOT_STICKY
         }
 
@@ -128,12 +138,19 @@ class OrbitBubbleService : Service() {
 
         startBubbleForeground(isListening = false)
 
-        if (!isBubbleAttached) {
+        if (!isAppForeground && !isBubbleAttached) {
             attachBubble()
-            Toast.makeText(this, "Tap to speak. Long press to dismiss.", Toast.LENGTH_SHORT).show()
-        } else if (!isListening) {
+        } else if (!isListening && !isAppForeground) {
             // Apply transparency slider changes immediately while bubble is idle.
             enterIdleVisualMode()
+        }
+
+        if (intent?.action == ACTION_TRIGGER) {
+            if (isAppForeground) {
+                startListening()
+            } else {
+                bubbleView?.post { toggleListening() }
+            }
         }
 
         return START_STICKY
@@ -280,8 +297,17 @@ class OrbitBubbleService : Service() {
         bubbleParams = layoutParams
         windowManager?.addView(bubble, layoutParams)
         isBubbleAttached = true
+        bubble.alpha = 0f
+        bubble.scaleX = 0.82f
+        bubble.scaleY = 0.82f
+        bubble.animate()
+            .alpha(bubbleIdleAlpha)
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(220L)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
         snapToNearestEdge(animated = false)
-        enterIdleVisualMode()
     }
 
     private fun removeBubble() {
@@ -847,6 +873,9 @@ class OrbitBubbleService : Service() {
 
     companion object {
         private const val ACTION_START = "com.example.orbitai.tools.bubble.START"
+        private const val ACTION_TRIGGER = "com.example.orbitai.tools.bubble.TRIGGER"
+        private const val ACTION_APP_FOREGROUND = "com.example.orbitai.tools.bubble.APP_FOREGROUND"
+        private const val ACTION_APP_BACKGROUND = "com.example.orbitai.tools.bubble.APP_BACKGROUND"
         private const val ACTION_STOP = "com.example.orbitai.tools.bubble.STOP"
         private const val NOTIFICATION_CHANNEL_ID = "orbit_bubble"
         private const val NOTIFICATION_ID = 4201
@@ -858,6 +887,17 @@ class OrbitBubbleService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, OrbitBubbleService::class.java).setAction(ACTION_START)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun trigger(context: Context) {
+            val intent = Intent(context, OrbitBubbleService::class.java).setAction(ACTION_TRIGGER)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun setAppForeground(context: Context, isForeground: Boolean) {
+            val action = if (isForeground) ACTION_APP_FOREGROUND else ACTION_APP_BACKGROUND
+            val intent = Intent(context, OrbitBubbleService::class.java).setAction(action)
             ContextCompat.startForegroundService(context, intent)
         }
 

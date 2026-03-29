@@ -62,6 +62,10 @@ class SpaceRepository(private val context: Context) {
         spaceDao.deleteSpace(id)
     }
 
+    suspend fun renameSpace(id: String, name: String) {
+        spaceDao.renameSpace(id, name.trim())
+    }
+
     fun addDocumentToSpace(uri: Uri, spaceId: String) {
         scope.launch {
             try {

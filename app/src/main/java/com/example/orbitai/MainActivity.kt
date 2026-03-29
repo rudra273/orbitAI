@@ -99,6 +99,18 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         syncBubbleService()
+        OrbitBubbleService.setAppForeground(this, true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        val toolSettingsStore = ToolSettingsStore(this)
+        val overlayGranted = OrbitBubbleService.canDrawOverlays(this)
+        val audioGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (toolSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
+            OrbitBubbleService.setAppForeground(this, false)
+            OrbitBubbleService.start(this)
+        }
     }
 
     private fun handleOverlayIntent(intent: Intent?) {

@@ -144,6 +144,9 @@ interface SpaceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSpace(space: SpaceEntity)
 
+    @Query("UPDATE spaces SET name = :name WHERE id = :id")
+    suspend fun renameSpace(id: String, name: String)
+
     @Query("DELETE FROM spaces WHERE id = :id")
     suspend fun deleteSpace(id: String)
 
@@ -182,4 +185,3 @@ interface SpaceDao {
     """)
     suspend fun searchChunksByDocNameInSpaces(spaceIds: List<String>, query: String, limit: Int = 20): List<RagChunkEntity>
 }
-
