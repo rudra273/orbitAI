@@ -89,11 +89,11 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
           body: |
             ## Highlights
-            - UI redesigned with a cleaner glassy experience across the app
-            - Gemini support added
-            - Orbit Bubble improved for a smoother floating assistant experience
-            - More customizable modes and inference controls
-            - File upload support added in chat
-
+            - New flat OrbitAI settings redesign across `Settings`, `Models`, `Orbit Bubble`, `Memory`, and `Tools`
+            - Unified headers, spacing, grouped cards, and dark theme behavior to match `Spaces` and `Modes`
+            - Improved HuggingFace and Gemini configuration UI with compact controls and clearer token handling
+            - Refined `Modes` and `Spaces` layouts for consistent title, count, banner, and action alignment
+            - Updated bubble behavior so the in-app Orbit nav button triggers listening while the floating bubble stays hidden inside the app
+            - Cleaner home and navigation polish, including the new three-dots top action and improved overlay feedback
           append_body: true
           generate_release_notes: true
