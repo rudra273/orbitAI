@@ -261,19 +261,19 @@ fun ChatScreen(
             ) {
                 // Status banners
                 if (uiState.isModelLoading) {
-                    GlassStatusBanner("Loading model…", VioletCore)
+                    StatusBanner("Loading model…", VioletCore)
                 }
                 attachmentInfo?.let {
-                    GlassStatusBanner(it, Warning)
+                    StatusBanner(it, Warning)
                 }
                 attachmentError?.let {
-                    GlassStatusBanner(it, Warning)
+                    StatusBanner(it, Warning)
                 }
                 uiState.infoMessage?.let {
-                    GlassStatusBanner(it, Color(0xFF34D399))
+                    StatusBanner(it, Color(0xFF34D399))
                 }
                 uiState.loadError?.let {
-                    GlassStatusBanner(it, Destructive)
+                    StatusBanner(it, Destructive)
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -1075,7 +1075,7 @@ private fun StreamingCursor() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// INPUT BAR — glassy floating bar
+// INPUT BAR — floating bar
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 private enum class VoiceState { Idle, Listening }
@@ -1434,7 +1434,7 @@ private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
-private fun GlassStatusBanner(text: String, color: Color) {
+private fun StatusBanner(text: String, color: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
