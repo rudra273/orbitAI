@@ -176,13 +176,19 @@ fun OrbitNavGraph(
             }
         },
     ) { innerPadding ->
-        NavHost(
-            navController    = navController,
-            startDestination = Screen.Chat.route,
-            modifier         = Modifier
-                .padding(innerPadding)
-                .then(swipeModifier),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SpaceDeep),
         ) {
+            NavHost(
+                navController    = navController,
+                startDestination = Screen.Chat.route,
+                modifier         = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .then(swipeModifier),
+            ) {
 
             // ── Tab screens ────────────────────────────────────────────────
 
@@ -310,6 +316,7 @@ fun OrbitNavGraph(
                 )
             }
         }
+        } // Box
     }
 }
 

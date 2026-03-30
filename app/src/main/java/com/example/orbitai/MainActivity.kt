@@ -59,6 +59,15 @@ class MainActivity : ComponentActivity() {
 
             OrbitAITheme(isDarkTheme = isDarkTheme) {
 
+                // ── Window background — keep native layer in sync with Compose theme ─
+                // Without this, toggling theme shows a white flash from the AppCompat
+                // window background for one frame before Compose repaints.
+                val darkBg  = android.graphics.Color.parseColor("#141413")
+                val lightBg = android.graphics.Color.parseColor("#F9F8F5")
+                SideEffect {
+                    window.decorView.setBackgroundColor(if (isDarkTheme) darkBg else lightBg)
+                }
+
                 // ── System bar colours ─────────────────────────────────────
                 // Make status bar and nav bar fully transparent so our deep
                 // space background bleeds to the very edges of the screen.
@@ -103,6 +112,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         syncBubbleService()
         OrbitBubbleService.setAppForeground(this, true)
+        appUpdateViewModel.refreshAfterResume()
     }
 
     override fun onStop() {
