@@ -137,11 +137,9 @@ private fun ModeListScreen(
     onCreateNew: () -> Unit,
     inferenceForMode: (String) -> InferenceSettings,
 ) {
-    val activeCustomModes = remember(modes) { modes.filterNot { it.isDefault }.filter { it.isActive } }
-    val hiddenCustomModes = remember(modes) { modes.filterNot { it.isDefault }.filterNot { it.isActive } }
+    val customModes = remember(modes) { modes.filterNot { it.isDefault } }
     val builtInModes = remember(modes) { modes.filter { it.isDefault } }
-    val activeMode = remember(modes) { modes.firstOrNull { it.isActive } }
-    val activeGridEntries = remember(activeCustomModes) { activeCustomModes + listOf<Mode?>(null) }
+    val gridEntries = remember(customModes) { customModes + listOf<Mode?>(null) }
 
     Column(
         modifier = Modifier
@@ -193,16 +191,6 @@ private fun ModeListScreen(
             }
         }
 
-        if (activeMode != null) {
-            ModeActiveBanner(
-                mode = activeMode,
-                description = compactPrompt(activeMode.systemPrompt),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            )
-        }
-
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -212,7 +200,7 @@ private fun ModeListScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    activeGridEntries.chunked(2).forEach { rowItems ->
+                    gridEntries.chunked(2).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -234,40 +222,6 @@ private fun ModeListScreen(
                             }
                             if (rowItems.size == 1) {
                                 Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (hiddenCustomModes.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "HIDDEN FROM CHAT",
-                        color = ModesInk.copy(alpha = 0.30f),
-                        fontFamily = ModesMono,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        hiddenCustomModes.chunked(2).forEach { rowItems ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                rowItems.forEach { mode ->
-                                    FlatModeCard(
-                                        mode = mode,
-                                        inference = inferenceForMode(mode.id),
-                                        modifier = Modifier.weight(1f),
-                                        onClick = { onEditMode(mode) },
-                                    )
-                                }
-                                if (rowItems.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
                             }
                         }
                     }
@@ -304,60 +258,6 @@ private fun ModeListScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ModeActiveBanner(
-    mode: Mode,
-    description: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(ModesActiveGreen.copy(alpha = 0.06f))
-            .border(
-                width = 1.dp,
-                color = ModesActiveGreen.copy(alpha = 0.22f),
-                shape = RoundedCornerShape(10.dp),
-            )
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(ModesActiveGreen),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = mode.name,
-            color = ModesInk,
-            fontFamily = ModesSans,
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = " · ",
-            color = ModesInk.copy(alpha = 0.4f),
-            fontFamily = ModesMono,
-            fontSize = 11.sp,
-        )
-        Text(
-            text = description,
-            color = ModesInk.copy(alpha = 0.4f),
-            fontFamily = ModesSans,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        ActiveDot()
     }
 }
 
@@ -436,7 +336,7 @@ private fun FlatModeCard(
 private fun ActiveDot() {
     Box(
         modifier = Modifier
-            .size(8.dp)
+            .size(6.dp)
             .clip(CircleShape)
             .background(ModesActiveGreen),
     )
