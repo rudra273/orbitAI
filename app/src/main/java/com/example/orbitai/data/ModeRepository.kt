@@ -29,6 +29,10 @@ class ModeRepository(private val context: Context) {
         .map { list -> list.map { it.toDomain() } }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
+    val activeModes: StateFlow<List<Mode>> = modes
+        .map { list -> list.filter { it.isActive } }
+        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
     init {
         // Ensure built-in default modes always exist (fresh installs and pre-migration users)
         scope.launch {
@@ -38,6 +42,7 @@ class ModeRepository(private val context: Context) {
                     name = "Orbit",
                     systemPrompt = "You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.",
                     isDefault = true,
+                    isActive = true,
                     createdAt = System.currentTimeMillis(),
                 ),
                 ModeEntity(
@@ -45,6 +50,7 @@ class ModeRepository(private val context: Context) {
                     name = "Concise",
                     systemPrompt = "You are a concise assistant. Give short, direct answers. Use only essential details and avoid extra explanation unless asked.",
                     isDefault = true,
+                    isActive = true,
                     createdAt = System.currentTimeMillis() + 1,
                 ),
                 ModeEntity(
@@ -52,6 +58,7 @@ class ModeRepository(private val context: Context) {
                     name = "Step-by-step",
                     systemPrompt = "You are a step-by-step assistant. Break solutions into clear numbered steps, explain each step briefly, and keep progression logical.",
                     isDefault = true,
+                    isActive = true,
                     createdAt = System.currentTimeMillis() + 2,
                 ),
             )
@@ -65,21 +72,22 @@ class ModeRepository(private val context: Context) {
 
     fun orbitMode(): Mode? = modes.value.find { it.id == ORBIT_MODE_ID }
 
-    suspend fun createMode(name: String, systemPrompt: String): Mode {
+    suspend fun createMode(name: String, systemPrompt: String, isActive: Boolean): Mode {
         val entity = ModeEntity(
             id           = UUID.randomUUID().toString(),
             name         = name.trim(),
             systemPrompt = systemPrompt.trim(),
             isDefault    = false,
+            isActive     = isActive,
             createdAt    = System.currentTimeMillis(),
         )
         dao.insertMode(entity)
         return entity.toDomain()
     }
 
-    suspend fun updateMode(id: String, name: String, systemPrompt: String) =
+    suspend fun updateMode(id: String, name: String, systemPrompt: String, isActive: Boolean) =
         withContext(Dispatchers.IO) {
-            dao.updateMode(id, name.trim(), systemPrompt.trim())
+            dao.updateMode(id, name.trim(), systemPrompt.trim(), isActive)
         }
 
     suspend fun deleteMode(id: String) = withContext(Dispatchers.IO) {

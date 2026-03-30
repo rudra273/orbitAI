@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,10 +30,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.data.InferenceSettings
@@ -105,11 +108,11 @@ fun ModesScreen(viewModel: ModesViewModel) {
                     viewModel.inferenceForMode(dest.mode.id)
                 },
                 onBack    = { destination = ModesDestination.List },
-                onSave    = { name, prompt, inference ->
+                onSave    = { name, prompt, inference, isActive ->
                     if (dest.mode == null) {
-                        viewModel.createMode(name, prompt, inference)
+                        viewModel.createMode(name, prompt, inference, isActive)
                     } else {
-                        viewModel.updateMode(dest.mode.id, name, prompt, inference)
+                        viewModel.updateMode(dest.mode.id, name, prompt, inference, isActive)
                     }
                     destination = ModesDestination.List
                 },
@@ -134,10 +137,11 @@ private fun ModeListScreen(
     onCreateNew: () -> Unit,
     inferenceForMode: (String) -> InferenceSettings,
 ) {
-    val customModes = remember(modes) { modes.filterNot { it.isDefault } }
+    val activeCustomModes = remember(modes) { modes.filterNot { it.isDefault }.filter { it.isActive } }
+    val hiddenCustomModes = remember(modes) { modes.filterNot { it.isDefault }.filterNot { it.isActive } }
     val builtInModes = remember(modes) { modes.filter { it.isDefault } }
-    val activeMode = remember(customModes, builtInModes) { customModes.firstOrNull() ?: builtInModes.firstOrNull() }
-    val gridEntries = remember(customModes) { customModes + listOf<Mode?>(null) }
+    val activeMode = remember(modes) { modes.firstOrNull { it.isActive } }
+    val activeGridEntries = remember(activeCustomModes) { activeCustomModes + listOf<Mode?>(null) }
 
     Column(
         modifier = Modifier
@@ -189,10 +193,10 @@ private fun ModeListScreen(
             }
         }
 
-        activeMode?.let { mode ->
+        if (activeMode != null) {
             ModeActiveBanner(
-                mode = mode,
-                description = compactPrompt(mode.systemPrompt),
+                mode = activeMode,
+                description = compactPrompt(activeMode.systemPrompt),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
@@ -208,7 +212,7 @@ private fun ModeListScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    gridEntries.chunked(2).forEach { rowItems ->
+                    activeGridEntries.chunked(2).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -230,6 +234,40 @@ private fun ModeListScreen(
                             }
                             if (rowItems.size == 1) {
                                 Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (hiddenCustomModes.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "HIDDEN FROM CHAT",
+                        color = ModesInk.copy(alpha = 0.30f),
+                        fontFamily = ModesMono,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        hiddenCustomModes.chunked(2).forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                rowItems.forEach { mode ->
+                                    FlatModeCard(
+                                        mode = mode,
+                                        inference = inferenceForMode(mode.id),
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onEditMode(mode) },
+                                    )
+                                }
+                                if (rowItems.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -319,13 +357,7 @@ private fun ModeActiveBanner(
             modifier = Modifier.weight(1f),
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "ACTIVE",
-            color = ModesActiveGreen,
-            fontFamily = ModesMono,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium,
-        )
+        ActiveDot()
     }
 }
 
@@ -377,7 +409,11 @@ private fun FlatModeCard(
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                if (mode.isActive) {
+                    ActiveDot()
+                }
             }
             Text(
                 text = compactPrompt(mode.systemPrompt),
@@ -394,6 +430,16 @@ private fun FlatModeCard(
             }
         }
     }
+}
+
+@Composable
+private fun ActiveDot() {
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(ModesActiveGreen),
+    )
 }
 
 @Composable
@@ -502,12 +548,20 @@ private fun BuiltInModeRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Text(
-            text = "›",
-            color = ModesInk.copy(alpha = 0.55f),
-            fontFamily = ModesSans,
-            fontSize = 16.sp,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (mode.isActive) {
+                ActiveDot()
+            }
+            Text(
+                text = "›",
+                color = ModesInk.copy(alpha = 0.55f),
+                fontFamily = ModesSans,
+                fontSize = 16.sp,
+            )
+        }
     }
 }
 
@@ -585,11 +639,12 @@ private fun ModeEditScreen(
     defaultInference: InferenceSettings,
     initialInference: InferenceSettings,
     onBack:   () -> Unit,
-    onSave:   (name: String, prompt: String, inference: InferenceSettings) -> Unit,
+    onSave:   (name: String, prompt: String, inference: InferenceSettings, isActive: Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var name   by remember { mutableStateOf(mode?.name ?: "") }
-    var prompt by remember { mutableStateOf(mode?.systemPrompt ?: "") }
+    var name   by rememberSaveable(mode?.id) { mutableStateOf(mode?.name ?: "") }
+    var prompt by rememberSaveable(mode?.id) { mutableStateOf(mode?.systemPrompt ?: "") }
+    var isActive by rememberSaveable(mode?.id) { mutableStateOf(mode?.isActive ?: true) }
     var temperature by remember(mode?.id) { mutableFloatStateOf(initialInference.temperature) }
     var topK by remember(mode?.id) { mutableIntStateOf(initialInference.topK) }
     var topP by remember(mode?.id) { mutableFloatStateOf(initialInference.topP) }
@@ -635,6 +690,53 @@ private fun ModeEditScreen(
                         )
                     },
                     actions = {
+                        // Active / Hidden toggle button
+                        Box(
+                            modifier = Modifier
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isActive) ModesActiveGreen.copy(alpha = 0.12f)
+                                    else ModesInk.copy(alpha = 0.08f)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isActive) ModesActiveGreen.copy(alpha = 0.30f)
+                                    else ModesInk.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(8.dp),
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { isActive = !isActive },
+                                )
+                                .padding(horizontal = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isActive) ModesActiveGreen
+                                            else ModesInk.copy(alpha = 0.30f)
+                                        ),
+                                )
+                                Text(
+                                    text = if (isActive) "Active" else "Hidden",
+                                    color = if (isActive) ModesActiveGreen
+                                    else ModesInk.copy(alpha = 0.50f),
+                                    fontFamily = ModesMono,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(6.dp))
                         FlatActionButton(
                             label = "Save",
                             onClick = {
@@ -648,6 +750,7 @@ private fun ModeEditScreen(
                                             topP = topP,
                                             maxDecodedTokens = maxDecodedTokens,
                                         ),
+                                        isActive,
                                     )
                                 }
                             },
@@ -725,6 +828,10 @@ private fun ModeEditScreen(
                         color = ModesInk.copy(alpha = 0.38f),
                         modifier = Modifier.padding(top = 4.dp),
                     )
+                }
+
+                item {
+                    Spacer(Modifier.height(4.dp))
                 }
 
                 item {
@@ -1002,6 +1109,7 @@ private fun ModeFieldLabel(text: String) {
         fontWeight = FontWeight.Medium,
     )
 }
+
 
 @Composable
 private fun CompactModeSlider(

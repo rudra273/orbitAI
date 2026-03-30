@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class],
-    version   = 8,
+    version   = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,14 +94,15 @@ abstract class AppDatabase : RoomDatabase() {
                         `name` TEXT NOT NULL,
                         `systemPrompt` TEXT NOT NULL,
                         `isDefault` INTEGER NOT NULL,
+                        `isActive` INTEGER NOT NULL,
                         `createdAt` INTEGER NOT NULL,
                         PRIMARY KEY(`id`)
                     )
                 """.trimIndent())
                 // Seed the default Orbit mode
                 db.execSQL("""
-                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, createdAt)
-                    VALUES ('orbit_default', 'Orbit', 'You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.', 1, ${System.currentTimeMillis()})
+                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, isActive, createdAt)
+                    VALUES ('orbit_default', 'Orbit', 'You are Orbit, a helpful on-device AI assistant. Be concise, accurate, and friendly.', 1, 1, ${System.currentTimeMillis()})
                 """.trimIndent())
             }
         }
@@ -115,25 +116,41 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
-                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, createdAt)
+                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, isActive, createdAt)
                     VALUES (
                         'concise_default',
                         'Concise',
                         'You are a concise assistant. Give short, direct answers. Use only essential details and avoid extra explanation unless asked.',
                         1,
+                        1,
                         ${System.currentTimeMillis()}
                     )
                 """.trimIndent())
                 db.execSQL("""
-                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, createdAt)
+                    INSERT OR IGNORE INTO modes (id, name, systemPrompt, isDefault, isActive, createdAt)
                     VALUES (
                         'step_by_step_default',
                         'Step-by-step',
                         'You are a step-by-step assistant. Break solutions into clear numbered steps, explain each step briefly, and keep progression logical.',
                         1,
+                        1,
                         ${System.currentTimeMillis() + 1}
                     )
                 """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // isActive was already created with the table in MIGRATION_5_6.
+                // This migration exists for users who somehow have version 8
+                // without the column (impossible in practice). Guard against
+                // the duplicate-column crash by catching the error.
+                try {
+                    db.execSQL("ALTER TABLE modes ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+                } catch (_: Exception) {
+                    // Column already exists — nothing to do.
+                }
             }
         }
 
@@ -151,6 +168,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_5_6,
                     MIGRATION_6_7,
                     MIGRATION_7_8,
+                    MIGRATION_8_9,
                 ).build().also { INSTANCE = it }
             }
     }

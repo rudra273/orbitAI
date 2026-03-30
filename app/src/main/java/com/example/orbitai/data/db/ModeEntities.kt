@@ -12,6 +12,7 @@ data class Mode(
     val name: String,
     val systemPrompt: String,
     val isDefault: Boolean,
+    val isActive: Boolean,
     val createdAt: Long,
 )
 
@@ -21,6 +22,7 @@ data class ModeEntity(
     val name: String,
     val systemPrompt: String,
     val isDefault: Boolean,
+    val isActive: Boolean,
     val createdAt: Long,
 )
 
@@ -29,5 +31,6 @@ fun ModeEntity.toDomain() = Mode(
     name         = name,
     systemPrompt = systemPrompt,
     isDefault    = isDefault,
+    isActive     = isActive,
     createdAt    = createdAt,
 )

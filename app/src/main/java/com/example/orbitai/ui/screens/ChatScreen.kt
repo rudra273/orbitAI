@@ -582,21 +582,6 @@ private fun ModeDropdownChip(
                                     style      = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 )
-                                if (mode.isDefault) {
-                                    Spacer(Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(VioletGlow)
-                                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                                    ) {
-                                        Text(
-                                            "default",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = VioletCore,
-                                        )
-                                    }
-                                }
                             }
                             Text(
                                 mode.systemPrompt,
