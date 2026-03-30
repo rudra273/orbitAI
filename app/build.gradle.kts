@@ -4,6 +4,28 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+fun parseReleaseVersionName(): String {
+    val rawVersion = System.getenv("ORBIT_RELEASE_VERSION")
+        ?: (findProperty("orbitReleaseVersion") as String?)
+        ?: "1.0.0"
+    return rawVersion.removePrefix("v")
+}
+
+fun parseReleaseVersionCode(versionName: String): Int {
+    val explicitVersionCode = System.getenv("ORBIT_RELEASE_CODE")
+        ?: (findProperty("orbitReleaseCode") as String?)
+    explicitVersionCode?.toIntOrNull()?.let { return it }
+
+    val numericPart = versionName.substringBefore('-')
+    val parts = numericPart.split('.').mapNotNull { it.toIntOrNull() }
+    if (parts.isEmpty()) return 1
+
+    val major = parts.getOrElse(0) { 0 }.coerceAtLeast(0)
+    val minor = parts.getOrElse(1) { 0 }.coerceIn(0, 99)
+    val patch = parts.getOrElse(2) { 0 }.coerceIn(0, 99)
+    return (major * 10_000) + (minor * 100) + patch
+}
+
 android {
     val signingStoreFilePath = System.getenv("ORBIT_SIGNING_STORE_FILE")
     val signingStorePassword = System.getenv("ORBIT_SIGNING_STORE_PASSWORD")
@@ -22,11 +44,12 @@ android {
     }
 
     defaultConfig {
+        val releaseVersionName = parseReleaseVersionName()
         applicationId = "com.example.orbitai"
         minSdk = 35
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = parseReleaseVersionCode(releaseVersionName)
+        versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

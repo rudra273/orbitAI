@@ -898,7 +898,7 @@ class OrbitBubbleService : Service() {
         fun setAppForeground(context: Context, isForeground: Boolean) {
             val action = if (isForeground) ACTION_APP_FOREGROUND else ACTION_APP_BACKGROUND
             val intent = Intent(context, OrbitBubbleService::class.java).setAction(action)
-            ContextCompat.startForegroundService(context, intent)
+            context.startService(intent)
         }
 
         fun stop(context: Context) {

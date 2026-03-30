@@ -91,8 +91,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
 
-    /** All available modes — observed by the chat screen for the mode selector. */
-    val modes: StateFlow<List<Mode>> = modeRepo.modes
+    /** Active modes only — observed by the chat screen for the mode selector. */
+    val modes: StateFlow<List<Mode>> = modeRepo.activeModes
 
     private val _activeSpaceIds = MutableStateFlow<Set<String>>(emptySet())
     val activeSpaceIds: StateFlow<Set<String>> = _activeSpaceIds.asStateFlow()
@@ -129,6 +129,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         refreshAvailableModels()
+        viewModelScope.launch {
+            modes.collect { activeModes ->
+                if (activeModes.none { it.id == _activeModeId.value }) {
+                    _activeModeId.value = activeModes.firstOrNull()?.id ?: ORBIT_MODE_ID
+                }
+            }
+        }
     }
 
     fun refreshAvailableModels() {

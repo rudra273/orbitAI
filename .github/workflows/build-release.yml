@@ -63,6 +63,7 @@ jobs:
           ORBIT_SIGNING_STORE_PASSWORD: ${{ env.ORBIT_SIGNING_STORE_PASSWORD }}
           ORBIT_SIGNING_KEY_ALIAS: ${{ env.ORBIT_SIGNING_KEY_ALIAS }}
           ORBIT_SIGNING_KEY_PASSWORD: ${{ env.ORBIT_SIGNING_KEY_PASSWORD }}
+          ORBIT_RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: ./gradlew assembleRelease
 
       - name: Collect release artifacts
@@ -89,11 +90,12 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
           body: |
             ## Highlights
-            - New flat OrbitAI settings redesign across `Settings`, `Models`, `Orbit Bubble`, `Memory`, and `Tools`
-            - Unified headers, spacing, grouped cards, and dark theme behavior to match `Spaces` and `Modes`
-            - Improved HuggingFace and Gemini configuration UI with compact controls and clearer token handling
-            - Refined `Modes` and `Spaces` layouts for consistent title, count, banner, and action alignment
-            - Updated bubble behavior so the in-app Orbit nav button triggers listening while the floating bubble stays hidden inside the app
-            - Cleaner home and navigation polish, including the new three-dots top action and improved overlay feedback
+            - Dynamic app versioning from Git tags so each tagged release shows the correct version inside the app
+            - In-app update check added to the Settings `Version` row, with a compact `Update` action when a newer release is available
+            - Major Modes screen cleanup with improved layout and smoother overall usability
+            - New ability to activate or deactivate specific modes directly in the app
+            - Chat screen UI fixes and dark theme polish for a cleaner conversation experience
+            - Major stability fix for the app crash that could happen after around 2 minutes of use
+
           append_body: true
           generate_release_notes: true

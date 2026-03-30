@@ -18,16 +18,16 @@ class ModesViewModel(application: Application) : AndroidViewModel(application) {
 
     val modes: StateFlow<List<Mode>> = repository.modes
 
-    fun createMode(name: String, systemPrompt: String, inference: InferenceSettings) {
+    fun createMode(name: String, systemPrompt: String, inference: InferenceSettings, isActive: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            val mode = repository.createMode(name, systemPrompt)
+            val mode = repository.createMode(name, systemPrompt, isActive)
             inferenceStore.save(mode.id, inference)
         }
     }
 
-    fun updateMode(id: String, name: String, systemPrompt: String, inference: InferenceSettings) {
+    fun updateMode(id: String, name: String, systemPrompt: String, inference: InferenceSettings, isActive: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            repository.updateMode(id, name, systemPrompt)
+            repository.updateMode(id, name, systemPrompt, isActive)
             inferenceStore.save(id, inference)
         }
     }

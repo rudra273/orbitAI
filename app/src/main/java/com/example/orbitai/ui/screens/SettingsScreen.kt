@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +34,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
+import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 
 private val SettingsSurfaceLight = Color(0xFFF9F8F5)
@@ -76,6 +81,7 @@ private data class SettingsRow(
 @Composable
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
+    appUpdateViewModel: AppUpdateViewModel,
     isDarkTheme: Boolean,
     onThemeChanged: (Boolean) -> Unit,
     onNavigate: (String) -> Unit,
@@ -83,10 +89,46 @@ fun SettingsScreen(
 ) {
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
     val context = LocalContext.current
-    val appVersion = remember {
-        runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull().orEmpty()
+    val updateState by appUpdateViewModel.uiState.collectAsState()
+    val versionDescription = remember(
+        updateState.installedVersion,
+        updateState.latestVersion,
+        updateState.isChecking,
+        updateState.isUpdateAvailable,
+        updateState.errorMessage,
+    ) {
+        when {
+            updateState.isChecking -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Checking for updates"
+            updateState.isUpdateAvailable && !updateState.latestVersion.isNullOrBlank() ->
+                "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · New ${updateState.latestVersion} available"
+            !updateState.errorMessage.isNullOrBlank() -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Tap to retry"
+            else -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Up to date"
+        }
+    }
+    val versionActionLabel = remember(
+        updateState.isChecking,
+        updateState.isUpdateAvailable,
+        updateState.errorMessage,
+    ) {
+        when {
+            updateState.isChecking -> "Checking"
+            updateState.isUpdateAvailable -> "Update"
+            !updateState.errorMessage.isNullOrBlank() -> "Retry"
+            else -> "Current"
+        }
+    }
+    val versionActionUrl = updateState.downloadUrl ?: updateState.releaseUrl
+    val openReleasePage = remember(versionActionUrl) {
+        {
+            if (!versionActionUrl.isNullOrBlank()) {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(versionActionUrl))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } else {
+                appUpdateViewModel.checkForUpdates()
+            }
+        }
     }
 
     val aiRows = remember {
@@ -109,14 +151,18 @@ fun SettingsScreen(
         )
     }
 
-    val aboutRows = remember {
-        listOf(
+    val aboutRows = listOf(
             SettingsRow(
                 icon = Icons.Default.Tag,
                 title = "Version",
-                description = if (appVersion.isNotBlank()) appVersion else "Unknown",
+                description = versionDescription,
                 showChevron = false,
-                onClick = null,
+                trailing = {
+                    StatusChip(
+                        label = versionActionLabel,
+                        emphasized = updateState.isUpdateAvailable,
+                    )
+                },
             ),
             SettingsRow(
                 icon = Icons.Default.Gavel,
@@ -125,7 +171,6 @@ fun SettingsScreen(
                 onClick = { },
             ),
         )
-    }
 
     LazyColumn(
         modifier = Modifier
@@ -216,7 +261,16 @@ fun SettingsScreen(
         item { SettingsSectionHeader("ABOUT") }
         item {
             GroupedCard {
-                SettingsGroupRow(row = aboutRows[0], onClick = null)
+                SettingsGroupRow(
+                    row = aboutRows[0],
+                    onClick = {
+                        if (updateState.isUpdateAvailable && !versionActionUrl.isNullOrBlank()) {
+                            openReleasePage()
+                        } else {
+                            appUpdateViewModel.checkForUpdates()
+                        }
+                    },
+                )
                 HairlineDivider()
                 SettingsGroupRow(row = aboutRows[1], onClick = aboutRows[1].onClick)
             }
@@ -233,6 +287,32 @@ fun SettingsScreen(
                 textAlign = TextAlign.Center,
             )
         }
+    }
+}
+
+@Composable
+private fun StatusChip(
+    label: String,
+    emphasized: Boolean,
+) {
+    val backgroundColor = if (emphasized) Color(0xFF1F6B45) else SettingsInk.copy(alpha = 0.08f)
+    val textColor = if (emphasized) Color.White else SettingsInk.copy(alpha = 0.70f)
+
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontFamily = SettingsMono,
+            fontWeight = FontWeight.Medium,
+            fontSize = 10.sp,
+            letterSpacing = 0.3.sp,
+        )
     }
 }
 

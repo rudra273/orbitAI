@@ -125,8 +125,8 @@ interface ModeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMode(mode: ModeEntity)
 
-    @Query("UPDATE modes SET name = :name, systemPrompt = :prompt WHERE id = :id")
-    suspend fun updateMode(id: String, name: String, prompt: String)
+    @Query("UPDATE modes SET name = :name, systemPrompt = :prompt, isActive = :isActive WHERE id = :id")
+    suspend fun updateMode(id: String, name: String, prompt: String, isActive: Boolean)
 
     @Query("DELETE FROM modes WHERE id = :id AND isDefault = 0")
     suspend fun deleteMode(id: String)
