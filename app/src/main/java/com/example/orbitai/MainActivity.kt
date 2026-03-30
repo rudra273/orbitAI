@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         syncBubbleService()
         OrbitBubbleService.setAppForeground(this, true)
+        appUpdateViewModel.refreshAfterResume()
     }
 
     override fun onStop() {

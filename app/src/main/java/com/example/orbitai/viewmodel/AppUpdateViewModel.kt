@@ -18,6 +18,7 @@ data class AppUpdateUiState(
     val isDownloading: Boolean = false,
     val downloadProgress: Int = 0,
     val isUpdateAvailable: Boolean = false,
+    val isReadyToInstall: Boolean = false,
     val downloadUrl: String? = null,
     val releaseUrl: String? = null,
     val errorMessage: String? = null,
@@ -27,6 +28,7 @@ data class AppUpdateUiState(
 class AppUpdateViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AppUpdateRepository(application)
+    private var downloadedApkFile: java.io.File? = null
 
     private val _uiState = MutableStateFlow(
         AppUpdateUiState(installedVersion = repository.installedVersion())
@@ -86,13 +88,16 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                 },
             ).onSuccess { apkFile ->
+                downloadedApkFile = apkFile
                 repository.launchInstaller(apkFile)
                     .onSuccess {
                         _uiState.update {
                             it.copy(
                                 isDownloading = false,
                                 downloadProgress = 100,
-                                installMessage = "Download completed. Installation started."
+                                isReadyToInstall = true,
+                                isUpdateAvailable = false,
+                                installMessage = "Download completed. Confirm install in Android prompt."
                             )
                         }
                     }
@@ -100,6 +105,8 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
                         _uiState.update {
                             it.copy(
                                 isDownloading = false,
+                                isReadyToInstall = true,
+                                isUpdateAvailable = false,
                                 errorMessage = error.message ?: "Unable to open installer",
                             )
                         }
@@ -123,10 +130,47 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
             isDownloading = false,
             downloadProgress = 0,
             isUpdateAvailable = isUpdateAvailable,
+            isReadyToInstall = false,
             downloadUrl = downloadUrl,
             releaseUrl = releaseUrl,
             errorMessage = null,
             installMessage = null,
         )
+    }
+
+    fun refreshAfterResume() {
+        // Don't re-check if we already downloaded the APK and are waiting
+        // for the user to finish installing.  Re-fetching the release
+        // would wipe the "ready to install" state and show "Update" again.
+        if (downloadedApkFile?.exists() == true) return
+        checkForUpdates()
+    }
+
+    /** Re-launch the installer for the already-downloaded APK. */
+    fun installDownloadedUpdate() {
+        val apk = downloadedApkFile
+        if (apk == null || !apk.exists()) {
+            // File was removed — reset and let the user re-download.
+            downloadedApkFile = null
+            _uiState.update {
+                it.copy(
+                    isReadyToInstall = false,
+                    isUpdateAvailable = true,
+                    installMessage = null,
+                )
+            }
+            return
+        }
+        repository.launchInstaller(apk)
+            .onSuccess {
+                _uiState.update {
+                    it.copy(installMessage = "Opening installer…")
+                }
+            }
+            .onFailure { error ->
+                _uiState.update {
+                    it.copy(errorMessage = error.message ?: "Unable to open installer")
+                }
+            }
     }
 }
