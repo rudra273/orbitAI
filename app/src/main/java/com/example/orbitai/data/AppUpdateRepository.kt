@@ -1,9 +1,16 @@
 package com.example.orbitai.data
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import org.json.JSONObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,6 +77,84 @@ class AppUpdateRepository(private val context: Context) {
                 )
             }
         }
+    }
+
+    suspend fun downloadApk(
+        downloadUrl: String,
+        versionName: String,
+        onProgress: (Int) -> Unit,
+    ): Result<File> = withContext(Dispatchers.IO) {
+        runCatching {
+            val targetDir = File(
+                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                "updates"
+            ).also { it.mkdirs() }
+            val sanitizedVersion = versionName.ifBlank { "latest" }.replace("[^0-9A-Za-z._-]".toRegex(), "_")
+            val targetFile = File(targetDir, "orbitai-$sanitizedVersion.apk")
+            val tmpFile = File(targetDir, "${targetFile.name}.tmp")
+
+            val request = Request.Builder()
+                .url(downloadUrl)
+                .header("User-Agent", "OrbitAI-Android")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    error("APK download failed with HTTP ${response.code}")
+                }
+
+                val body = response.body ?: error("Empty APK response")
+                val totalBytes = body.contentLength().coerceAtLeast(1L)
+                var bytesRead = 0L
+                onProgress(0)
+
+                tmpFile.outputStream().use { output ->
+                    body.byteStream().use { input ->
+                        val buffer = ByteArray(8 * 1024)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            bytesRead += count
+                            val progress = ((bytesRead * 100) / totalBytes).toInt().coerceIn(0, 100)
+                            onProgress(progress)
+                        }
+                    }
+                }
+            }
+
+            if (targetFile.exists()) targetFile.delete()
+            if (!tmpFile.renameTo(targetFile)) {
+                error("Unable to prepare downloaded APK")
+            }
+            onProgress(100)
+            targetFile
+        }
+    }
+
+    fun launchInstaller(apkFile: File): Result<Unit> = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !context.packageManager.canRequestPackageInstalls()
+        ) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${context.packageName}")
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            error("Allow 'Install unknown apps' for OrbitAI, then tap Update again.")
+        }
+
+        val apkUri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            apkFile,
+        )
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(installIntent)
     }
 
     companion object {

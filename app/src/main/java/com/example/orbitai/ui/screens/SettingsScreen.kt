@@ -1,7 +1,5 @@
 package com.example.orbitai.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -94,11 +92,16 @@ fun SettingsScreen(
         updateState.installedVersion,
         updateState.latestVersion,
         updateState.isChecking,
+        updateState.isDownloading,
+        updateState.downloadProgress,
         updateState.isUpdateAvailable,
         updateState.errorMessage,
+        updateState.installMessage,
     ) {
         when {
+            updateState.isDownloading -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Downloading ${updateState.downloadProgress}%"
             updateState.isChecking -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Checking for updates"
+            !updateState.installMessage.isNullOrBlank() -> updateState.installMessage.orEmpty()
             updateState.isUpdateAvailable && !updateState.latestVersion.isNullOrBlank() ->
                 "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · New ${updateState.latestVersion} available"
             !updateState.errorMessage.isNullOrBlank() -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Tap to retry"
@@ -107,27 +110,17 @@ fun SettingsScreen(
     }
     val versionActionLabel = remember(
         updateState.isChecking,
+        updateState.isDownloading,
+        updateState.downloadProgress,
         updateState.isUpdateAvailable,
         updateState.errorMessage,
     ) {
         when {
+            updateState.isDownloading -> "${updateState.downloadProgress}%"
             updateState.isChecking -> "Checking"
             updateState.isUpdateAvailable -> "Update"
             !updateState.errorMessage.isNullOrBlank() -> "Retry"
             else -> "Current"
-        }
-    }
-    val versionActionUrl = updateState.downloadUrl ?: updateState.releaseUrl
-    val openReleasePage = remember(versionActionUrl) {
-        {
-            if (!versionActionUrl.isNullOrBlank()) {
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(versionActionUrl))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            } else {
-                appUpdateViewModel.checkForUpdates()
-            }
         }
     }
 
@@ -264,8 +257,11 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = aboutRows[0],
                     onClick = {
-                        if (updateState.isUpdateAvailable && !versionActionUrl.isNullOrBlank()) {
-                            openReleasePage()
+                        if (updateState.isDownloading) {
+                            return@SettingsGroupRow
+                        }
+                        if (updateState.isUpdateAvailable && !updateState.downloadUrl.isNullOrBlank()) {
+                            appUpdateViewModel.downloadAndInstallUpdate()
                         } else {
                             appUpdateViewModel.checkForUpdates()
                         }
