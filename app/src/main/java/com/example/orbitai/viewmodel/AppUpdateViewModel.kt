@@ -50,7 +50,12 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             repository.fetchLatestRelease()
-                .onSuccess { info -> _uiState.value = info.toUiState() }
+                .onSuccess { info ->
+                    _uiState.value = info.toUiState()
+                    if (!info.isUpdateAvailable) {
+                        repository.cleanupOldUpdates()
+                    }
+                }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(

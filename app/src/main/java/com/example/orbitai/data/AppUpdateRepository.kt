@@ -85,6 +85,8 @@ class AppUpdateRepository(private val context: Context) {
         onProgress: (Int) -> Unit,
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
+            cleanupOldUpdates()
+            
             val targetDir = File(
                 context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
                 "updates"
@@ -129,6 +131,19 @@ class AppUpdateRepository(private val context: Context) {
             }
             onProgress(100)
             targetFile
+        }
+    }
+
+    /** Clears the updates directory to free up space from old downloaded APKs. */
+    fun cleanupOldUpdates() {
+        runCatching {
+            val targetDir = File(
+                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                "updates"
+            )
+            if (targetDir.exists()) {
+                targetDir.listFiles()?.forEach { it.delete() }
+            }
         }
     }
 
