@@ -22,6 +22,7 @@ import com.example.orbitai.tools.bubble.OrbitBubbleService
 import com.example.orbitai.ui.navigation.OrbitNavGraph
 import com.example.orbitai.ui.theme.OrbitAITheme
 import com.example.orbitai.viewmodel.ModesViewModel
+import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     private val chatViewModel:     ChatViewModel     by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
+    private val appUpdateViewModel: AppUpdateViewModel by viewModels()
     private val spacesViewModel:   SpacesViewModel   by viewModels()
     private val modesViewModel:    ModesViewModel    by viewModels()
     private val memoryViewModel:   MemoryViewModel   by viewModels()
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
                     navController     = navController,
                     chatViewModel     = chatViewModel,
                     downloadViewModel = downloadViewModel,
+                    appUpdateViewModel = appUpdateViewModel,
                     spacesViewModel   = spacesViewModel,
                     modesViewModel    = modesViewModel,
                     memoryViewModel   = memoryViewModel,

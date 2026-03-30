@@ -61,6 +61,7 @@ import com.example.orbitai.ui.screens.OrbitBubbleSettingsScreen
 import com.example.orbitai.ui.screens.ToolsSettingsScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
+import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
@@ -119,6 +120,7 @@ fun OrbitNavGraph(
     navController:     NavHostController,
     chatViewModel:     ChatViewModel,
     downloadViewModel: DownloadViewModel,
+    appUpdateViewModel: AppUpdateViewModel,
     spacesViewModel:   SpacesViewModel,
     modesViewModel:    ModesViewModel,
     memoryViewModel:   MemoryViewModel,
@@ -205,6 +207,7 @@ fun OrbitNavGraph(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    appUpdateViewModel = appUpdateViewModel,
                     isDarkTheme       = isDarkTheme,
                     onThemeChanged    = onThemeChanged,
                     onNavigate        = { navController.navigate(it) },
