@@ -62,12 +62,13 @@ private val Violet = Color(0xFF5B4FE8)
 private val Green = Color(0xFF17A865)
 private val DeleteRed = Color(0xFFD94F4F)
 private val PopupLight = Color(0xFFFFFFFF)
-private val PopupDark = Color(0xFF1A1A17)
+private val PopupDark = Color(0xFF1E1E1C)
 
 private val surfaceColor @Composable get() = if (IsOrbitDarkTheme) SurfaceDark else SurfaceLight
 private val inkColor @Composable get() = if (IsOrbitDarkTheme) InkDark else InkLight
-private val dividerColor @Composable get() = inkColor.copy(alpha = 0.06f)
+private val dividerColor @Composable get() = inkColor.copy(alpha = if (IsOrbitDarkTheme) 0.12f else 0.06f)
 private val popupSurface @Composable get() = if (IsOrbitDarkTheme) PopupDark else PopupLight
+private val tagBackground @Composable get() = Violet.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.10f)
 
 private val Sans = FontFamily.SansSerif
 private val Mono = FontFamily.Monospace
@@ -235,14 +236,14 @@ private fun ChatRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(72.dp)
+                    .height(68.dp)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onOpen,
                         onLongClick = { menuExpanded = true },
                     )
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -300,7 +301,7 @@ private fun ChatRow(
                                 fontSize = 10.sp,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(Violet.copy(alpha = 0.10f))
+                                    .background(tagBackground)
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             )
                         }
