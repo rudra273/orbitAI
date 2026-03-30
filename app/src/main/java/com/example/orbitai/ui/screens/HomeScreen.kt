@@ -199,7 +199,7 @@ private fun ChatHistoryTopBar(chatCount: Int) {
             text = "Chats",
             color = inkColor,
             fontFamily = Sans,
-            fontSize = 28.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
