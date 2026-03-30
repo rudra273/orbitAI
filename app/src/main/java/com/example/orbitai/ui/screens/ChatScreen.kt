@@ -123,6 +123,7 @@ fun ChatScreen(
 
     var inputText by remember { mutableStateOf("") }
     var pendingAttachment by remember { mutableStateOf<PendingAttachment?>(null) }
+    var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var attachmentError by remember { mutableStateOf<String?>(null) }
     var attachmentInfo by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -143,24 +144,28 @@ fun ChatScreen(
         }
 
         scope.launch {
-            val attachment = readAttachmentForPrompt(context, uri)
-            if (attachment == null) {
-                pendingAttachment = null
-                attachmentInfo = null
-                val mimeType = normalizeDocumentMimeType(
-                    context.contentResolver.getType(uri),
-                    "file"
-                )
-                attachmentError =
-                    if (isImageDocument(mimeType)) {
-                        "Image picking is visible now, but true image analysis is not wired into this chat engine yet."
-                    } else {
-                        "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
-                    }
+            val mimeType = normalizeDocumentMimeType(
+                context.contentResolver.getType(uri),
+                "file"
+            )
+            if (isImageDocument(mimeType)) {
+                if (selectedImageUris.size >= 3) {
+                    attachmentError = "You can only attach up to 3 images."
+                } else {
+                    selectedImageUris = selectedImageUris + uri
+                    attachmentError = null
+                }
             } else {
-                pendingAttachment = attachment
-                attachmentError = null
-                attachmentInfo = "${attachment.name} attached"
+                val attachment = readAttachmentForPrompt(context, uri)
+                if (attachment == null) {
+                    pendingAttachment = null
+                    attachmentInfo = null
+                    attachmentError = "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
+                } else {
+                    pendingAttachment = attachment
+                    attachmentError = null
+                    attachmentInfo = "${attachment.name} attached"
+                }
             }
         }
     }
@@ -221,12 +226,14 @@ fun ChatScreen(
                             }
                         }.trim()
 
-                        if (finalPrompt.isNotEmpty() && !uiState.isGenerating && !uiState.isModelLoading) {
+                        if ((finalPrompt.isNotEmpty() || selectedImageUris.isNotEmpty()) && !uiState.isGenerating && !uiState.isModelLoading) {
                             inputText = ""
+                            val imagesToPass = selectedImageUris.toList()
                             pendingAttachment = null
+                            selectedImageUris = emptyList()
                             attachmentInfo = null
                             attachmentError = null
-                            viewModel.sendMessage(chatId, finalPrompt)
+                            viewModel.sendMessage(chatId, finalPrompt, imagesToPass)
                             scope.launch {
                                 if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
                             }
@@ -237,19 +244,18 @@ fun ChatScreen(
                     isLoading    = uiState.isModelLoading,
                     selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
                     pendingAttachment = pendingAttachment,
+                    selectedImageUris = selectedImageUris,
                     onPickAttachment = {
                         attachmentError = null
                         attachmentInfo = null
-                        if (selectedModel?.supportsDocumentAttachments() == true) {
-                            documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
-                        } else {
-                            pendingAttachment = null
-                            attachmentError = "Use a different model for file upload. Gemma 3 and Gemini work better here."
-                        }
+                        documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
                     },
                     onClearAttachment = {
                         pendingAttachment = null
                         attachmentInfo = null
+                    },
+                    onClearImage = { uriToRemove ->
+                        selectedImageUris = selectedImageUris.filter { it != uriToRemove }
                     },
                 )
             },
@@ -696,11 +702,38 @@ private fun MessageBubble(msg: Message) {
                     .background(UserBubbleFill)
                     .padding(horizontal = 14.dp, vertical = 11.dp),
             ) {
-                SelectionContainer {
-                    MarkdownMessageText(
-                        content   = msg.content,
-                        textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
-                    )
+                Column {
+                    if (msg.imageUris.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(bottom = if (msg.content.isNotEmpty()) 8.dp else 0.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            msg.imageUris.forEach { _ ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.Black.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.AttachFile,
+                                        contentDescription = "Image preview",
+                                        tint = Color.White.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (msg.content.isNotEmpty()) {
+                        SelectionContainer {
+                            MarkdownMessageText(
+                                content   = msg.content,
+                                textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1176,8 +1209,10 @@ private fun ChatInputBar(
     isLoading:    Boolean,
     selectedModelSupportsAttachments: Boolean,
     pendingAttachment: PendingAttachment?,
+    selectedImageUris: List<Uri>,
     onPickAttachment: () -> Unit,
     onClearAttachment: () -> Unit,
+    onClearImage: (Uri) -> Unit,
 ) {
     val (voiceState, toggleVoice) = rememberVoiceInput(onTextChange = onTextChange)
 
@@ -1229,6 +1264,52 @@ private fun ChatInputBar(
                             onClick           = onClearAttachment,
                         ),
                 )
+            }
+        }
+
+        // Selected Images preview
+        if (selectedImageUris.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                selectedImageUris.forEach { uri ->
+                    Box(modifier = Modifier.size(64.dp)) {
+                        // We use a basic placeholder box since Coil is not installed
+                        // The true image data will pass to the model
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SpaceDust)
+                                .border(1.dp, GlassBorder, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "IMG",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary,
+                            )
+                        }
+
+                        // Remove icon overlay
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove image",
+                            tint = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(4.dp)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .clickable { onClearImage(uri) }
+                        )
+                    }
+                }
             }
         }
 
@@ -1324,7 +1405,7 @@ private fun ChatInputBar(
             when {
                 isGenerating -> StopButton(onClick = onStop)
                 voiceState == VoiceState.Listening -> MicButton(isListening = true, onClick = toggleVoice)
-                text.trim().isNotEmpty() || pendingAttachment != null ->
+                text.trim().isNotEmpty() || pendingAttachment != null || selectedImageUris.isNotEmpty() ->
                     SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
                 else -> {
                     // No button — mic is embedded inside field; no external button needed

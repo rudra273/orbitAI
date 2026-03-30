@@ -6,6 +6,9 @@ import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.GenerateContentResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import com.example.orbitai.data.InferenceInput
+import com.google.genai.types.Content
+import com.google.genai.types.Part
 
 class GeminiApiEngine(
     context: android.content.Context,
@@ -19,7 +22,7 @@ class GeminiApiEngine(
 
     private val tokenStore = TokenStore(context)
 
-    override fun generateResponseStream(prompt: String, maxDecodedTokens: Int): Flow<String> = flow {
+    override fun generateResponseStream(input: InferenceInput, maxDecodedTokens: Int): Flow<String> = flow {
         if (!tokenStore.hasGeminiConfig()) {
             throw IllegalStateException("Gemini is not configured. Add API key and model in Settings > Model.")
         }
@@ -48,8 +51,25 @@ class GeminiApiEngine(
             .build()
 
         try {
+            val partsList = mutableListOf<Part>()
+            
+            // Add images if present
+            input.images.forEach { bitmap ->
+                val stream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, stream)
+                partsList.add(Part.fromBytes(stream.toByteArray(), "image/jpeg"))
+            }
+            
+            // Add textual prompt
+            partsList.add(Part.fromText(input.prompt))
+
+            val content = Content.builder()
+                .parts(partsList)
+                .role("user")
+                .build()
+
             val stream: ResponseStream<GenerateContentResponse> =
-                client.models.generateContentStream(tokenStore.geminiModelName, prompt, config)
+                client.models.generateContentStream(tokenStore.geminiModelName, content, config)
 
             stream.use {
                 for (chunk in it) {

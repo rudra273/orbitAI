@@ -11,6 +11,7 @@ import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import com.example.orbitai.data.InferenceInput
 
 class LiteRtLmEngine(
     private val context: Context,
@@ -29,7 +30,7 @@ class LiteRtLmEngine(
         engine = Engine(engineConfig).also { it.initialize() }
     }
 
-    override fun generateResponseStream(prompt: String, maxDecodedTokens: Int): Flow<String> = flow {
+    override fun generateResponseStream(input: InferenceInput, maxDecodedTokens: Int): Flow<String> = flow {
         val eng = engine ?: throw IllegalStateException("No model loaded.")
         val samplerConfig = SamplerConfig(
             topK = settings.topK,
@@ -45,8 +46,12 @@ class LiteRtLmEngine(
             var previousText = ""
             var chunkCount = 0
             var reachedLimit = false
+            
+            if (input.images.isNotEmpty()) {
+                android.util.Log.w("LiteRtLmEngine", "LiteRT engine currently ignores image inputs.")
+            }
 
-            conversation.sendMessageAsync(prompt).collect { message ->
+            conversation.sendMessageAsync(input.prompt).collect { message ->
                 if (reachedLimit) return@collect
                 val fullText = extractText(message)
                 val delta = if (fullText.startsWith(previousText)) {

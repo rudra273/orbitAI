@@ -6,6 +6,8 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import com.example.orbitai.data.InferenceInput
+import com.google.mediapipe.framework.image.BitmapImageBuilder
 
 class MediaPipeTaskEngine(
     private val context: Context,
@@ -24,7 +26,7 @@ class MediaPipeTaskEngine(
         engine = LlmInference.createFromOptions(context, engineOptions)
     }
 
-    override fun generateResponseStream(prompt: String, maxDecodedTokens: Int): Flow<String> = callbackFlow {
+    override fun generateResponseStream(input: InferenceInput, maxDecodedTokens: Int): Flow<String> = callbackFlow {
         val eng = engine ?: throw IllegalStateException("No model loaded.")
         val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
             .setTopK(settings.topK)
@@ -34,7 +36,13 @@ class MediaPipeTaskEngine(
         val session = LlmInferenceSession.createFromOptions(eng, sessionOptions)
 
         var tokenCount = 0
-        session.addQueryChunk(prompt)
+        
+        input.images.forEach { bitmap ->
+            val mpImage = BitmapImageBuilder(bitmap).build()
+            session.addImage(mpImage)
+        }
+        
+        session.addQueryChunk(input.prompt)
         session.generateResponseAsync { partial, done ->
             tokenCount++
             trySend(partial ?: "")

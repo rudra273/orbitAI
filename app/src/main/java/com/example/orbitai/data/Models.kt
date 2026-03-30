@@ -84,6 +84,7 @@ data class Message(
     val id: String = UUID.randomUUID().toString(),
     val role: Role,
     val content: String,
+    val imageUris: List<String> = emptyList(),
     val isStreaming: Boolean = false,
     val timestampMs: Long = System.currentTimeMillis(),
 )
