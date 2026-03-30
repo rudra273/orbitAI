@@ -169,7 +169,10 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
             }
             .onFailure { error ->
                 _uiState.update {
-                    it.copy(errorMessage = error.message ?: "Unable to open installer")
+                    it.copy(
+                        errorMessage = error.message ?: "Unable to open installer",
+                        installMessage = null,
+                    )
                 }
             }
     }
