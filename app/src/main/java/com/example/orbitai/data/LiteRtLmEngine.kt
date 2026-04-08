@@ -47,11 +47,18 @@ class LiteRtLmEngine(
             var chunkCount = 0
             var reachedLimit = false
             
-            if (input.images.isNotEmpty()) {
-                android.util.Log.w("LiteRtLmEngine", "LiteRT engine currently ignores image inputs.")
+            val contentList = mutableListOf<Content>()
+            
+            input.images.forEach { bitmap ->
+                val stream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, stream)
+                contentList.add(Content.ImageBytes(stream.toByteArray()))
             }
+            
+            contentList.add(Content.Text(input.prompt))
+            val contentsPayload = com.google.ai.edge.litertlm.Contents.of(contentList)
 
-            conversation.sendMessageAsync(input.prompt).collect { message ->
+            conversation.sendMessageAsync(contentsPayload).collect { message ->
                 if (reachedLimit) return@collect
                 val fullText = extractText(message)
                 val delta = if (fullText.startsWith(previousText)) {

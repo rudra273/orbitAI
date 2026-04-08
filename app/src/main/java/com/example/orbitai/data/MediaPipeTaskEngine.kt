@@ -21,6 +21,7 @@ class MediaPipeTaskEngine(
         val engineOptions = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath)
             .setMaxTokens(4096)
+            .setMaxNumImages(3) // Enable vision modality for multimodal support
             .setPreferredBackend(LlmInference.Backend.CPU)
             .build()
         engine = LlmInference.createFromOptions(context, engineOptions)
