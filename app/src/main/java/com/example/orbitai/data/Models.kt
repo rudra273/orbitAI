@@ -50,6 +50,22 @@ val AVAILABLE_MODELS = listOf(
         format = ModelFormat.LITERTLM,
     ),
     LlmModel(
+        id = "gemma4-e2b",
+        displayName = "Gemma 4 E2B",
+        fileName = "gemma-4-E2B-it-int4.litertlm",
+        description = "Gemma 4 · compact multimodal model",
+        paramCount = "2B",
+        format = ModelFormat.LITERTLM,
+    ),
+    LlmModel(
+        id = "gemma4-e4b",
+        displayName = "Gemma 4 E4B",
+        fileName = "gemma-4-E4B-it-int4.litertlm",
+        description = "Gemma 4 · balanced multimodal model",
+        paramCount = "4B",
+        format = ModelFormat.LITERTLM,
+    ),
+    LlmModel(
         id = "gemma2-2b",
         displayName = "Gemma 2 2B",
         fileName = "gemma2-2b-it-cpu-int8.task",

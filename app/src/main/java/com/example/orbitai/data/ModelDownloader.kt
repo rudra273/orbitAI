@@ -1,6 +1,7 @@
 package com.example.orbitai.data
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -29,10 +30,24 @@ val MODEL_DOWNLOAD_URLS = mapOf(
     "gemma3-1b"   to "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true",
     "gemma3-4b"   to "https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm?download=true",
     "gemma3-2b"   to "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm?download=true",
+    "gemma4-e2b"  to "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm?download=true",
+    "gemma4-e4b"  to "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm?download=true",
     "gemma2-2b"   to "https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/gemma2-2b-it-cpu-int8.task?download=true",
 )
 
+val MODEL_DOWNLOAD_REQUIRES_AUTH = mapOf(
+    "gemma3-1b" to true,
+    "gemma3-4b" to true,
+    "gemma3-2b" to true,
+    "gemma4-e2b" to true,
+    "gemma4-e4b" to true,
+    "gemma2-2b" to true,
+)
+
 class ModelDownloader(private val context: Context) {
+    companion object {
+        private const val TAG = "ModelDownloader"
+    }
 
     private val tokenStore = TokenStore(context)
 
@@ -57,18 +72,12 @@ class ModelDownloader(private val context: Context) {
         fileName: String,
         requiresAuth: Boolean = true,
     ): Flow<DownloadProgress> = flow {
+        Log.d(TAG, "Starting download for $modelId -> $fileName")
         val dest = File(modelDir, fileName)
         val tmp  = File(modelDir, "$fileName.tmp")
 
         if (dest.exists()) {
             emit(DownloadProgress(modelId, dest.length(), dest.length(), DownloadStatus.COMPLETED))
-            return@flow
-        }
-
-        // Only require a token for gated models
-        if (requiresAuth && !tokenStore.hasToken()) {
-            emit(DownloadProgress(modelId, status = DownloadStatus.FAILED,
-                error = "No HuggingFace token. Add it in Settings."))
             return@flow
         }
 
@@ -79,7 +88,7 @@ class ModelDownloader(private val context: Context) {
             val requestBuilder = Request.Builder()
                 .url(url)
                 .header("User-Agent", "Mozilla/5.0")
-            if (requiresAuth) {
+            if (requiresAuth && tokenStore.hasToken()) {
                 requestBuilder.header("Authorization", "Bearer ${tokenStore.huggingFaceToken}")
             }
             val request = requestBuilder.build()
@@ -93,6 +102,7 @@ class ModelDownloader(private val context: Context) {
                     404  -> "Model file not found."
                     else -> "HTTP error ${response.code}"
                 }
+                Log.e(TAG, "Download failed for $modelId: ${response.code} $errMsg")
                 emit(DownloadProgress(modelId, status = DownloadStatus.FAILED, error = errMsg))
                 return@flow
             }
@@ -125,10 +135,12 @@ class ModelDownloader(private val context: Context) {
             }
 
             tmp.renameTo(dest)
+            Log.d(TAG, "Download completed for $modelId -> ${dest.absolutePath}")
             emit(DownloadProgress(modelId, downloaded, totalBytes, DownloadStatus.COMPLETED))
 
         } catch (e: Exception) {
             tmp.delete()
+            Log.e(TAG, "Download exception for $modelId", e)
             emit(DownloadProgress(modelId, status = DownloadStatus.FAILED, error = e.message))
         } finally {
             activeDownloads.remove(modelId)

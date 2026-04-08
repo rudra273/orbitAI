@@ -12,6 +12,7 @@ import com.example.orbitai.data.DownloadProgress
 import com.example.orbitai.data.DownloadStatus
 import com.example.orbitai.data.LlmModel
 import com.example.orbitai.data.MODEL_DOWNLOAD_URLS
+import com.example.orbitai.data.MODEL_DOWNLOAD_REQUIRES_AUTH
 import com.example.orbitai.data.ModelDownloader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,11 +41,21 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     fun startDownload(model: LlmModel, customUrl: String? = null) {
         val url = customUrl?.trim()?.takeIf { it.isNotEmpty() }
             ?: MODEL_DOWNLOAD_URLS[model.id]
-            ?: return
+            ?: run {
+                _progress.update {
+                    it + (model.id to DownloadProgress(
+                        modelId = model.id,
+                        status = DownloadStatus.FAILED,
+                        error = "Download URL not configured for ${model.displayName}",
+                    ))
+                }
+                return
+            }
+        val requiresAuth = MODEL_DOWNLOAD_REQUIRES_AUTH[model.id] ?: false
 
         jobs[model.id]?.cancel()
         jobs[model.id] = viewModelScope.launch {
-            downloader.download(model.id, url, model.fileName).collect { p ->
+            downloader.download(model.id, url, model.fileName, requiresAuth = requiresAuth).collect { p ->
                 _progress.update { it + (model.id to p) }
             }
         }
