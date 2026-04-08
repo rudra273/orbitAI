@@ -5,19 +5,14 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -279,101 +274,6 @@ private fun orbitColorScheme(isDarkTheme: Boolean) =
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GLASS SYSTEM — kept for structural compatibility; values now use warm tokens
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-data class GlassTheme(
-    val surfaceSubtle: Color  = GlassWhite4,
-    val surfaceCard: Color    = GlassWhite8,
-    val surfaceRaised: Color  = GlassWhite12,
-    val surfaceActive: Color  = GlassWhite20,
-
-    val borderSubtle: Color   = GlassBorder,
-    val borderFocus: Color    = GlassBorderHi,
-    val borderViolet: Color   = VioletFrost,
-
-    val glowViolet: Color     = VioletGlow,
-    val glowVioletSoft: Color = VioletGlowSoft,
-
-    val radiusSmall: Dp   = 10.dp,
-    val radiusMedium: Dp  = 16.dp,
-    val radiusLarge: Dp   = 22.dp,
-    val radiusXL: Dp      = 28.dp,
-    val radiusFull: Dp    = 999.dp,
-
-    val elevationNone: Dp   = 0.dp,
-    val elevationLow: Dp    = 1.dp,
-    val elevationMedium: Dp = 4.dp,
-    val elevationHigh: Dp   = 8.dp,
-)
-
-val LocalGlassTheme = staticCompositionLocalOf { GlassTheme() }
-
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SPACING SYSTEM
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-data class Spacing(
-    val xxs: Dp  = 2.dp,
-    val xs: Dp   = 4.dp,
-    val sm: Dp   = 8.dp,
-    val md: Dp   = 12.dp,
-    val lg: Dp   = 16.dp,
-    val xl: Dp   = 20.dp,
-    val xxl: Dp  = 24.dp,
-    val xxxl: Dp = 32.dp,
-    val huge: Dp = 48.dp,
-)
-
-val LocalSpacing = staticCompositionLocalOf { Spacing() }
-
-object OrbitAI {
-    val spacing: Spacing @Composable get() = LocalSpacing.current
-    val glass: GlassTheme @Composable get() = LocalGlassTheme.current
-}
-
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GRADIENTS — minimal set for the new warm design
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-object OrbitGradients {
-
-    /** Kept for API compat — now transparent (no ambient glow in new design) */
-    val ambientGlow = Brush.radialGradient(
-        colorStops = arrayOf(0.0f to Color.Transparent, 1.0f to Color.Transparent)
-    )
-
-    /** Vertical fade for scrim areas */
-    val navScrim: Brush
-        get() = Brush.verticalGradient(
-            colors = listOf(Color.Transparent, SpaceDeep)
-        )
-
-    /** User bubble fill — solid, no gradient in new design */
-    val userBubble: Brush
-        get() = Brush.linearGradient(colors = listOf(UserBubbleFill, UserBubbleFill))
-
-    /** Violet primary button (kept for non-chat UI elements) */
-    val primaryButton: Brush
-        get() = Brush.linearGradient(colors = listOf(VioletBright, VioletCore))
-
-    /** Shimmer for skeleton loaders */
-    val shimmer: Brush
-        get() = Brush.horizontalGradient(
-            colors = listOf(GlassWhite4, GlassWhite12, GlassWhite4)
-        )
-
-    /** Active tab indicator */
-    val tabIndicator: Brush
-        get() = Brush.horizontalGradient(
-            colors = listOf(Color.Transparent, VioletCore, Color.Transparent)
-        )
-}
-
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TYPOGRAPHY
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -521,15 +421,9 @@ fun OrbitAITheme(
     content: @Composable () -> Unit,
 ) {
     setOrbitThemeMode(isDarkTheme)
-
-    CompositionLocalProvider(
-        LocalGlassTheme provides GlassTheme(),
-        LocalSpacing    provides Spacing(),
-    ) {
-        MaterialTheme(
-            colorScheme = orbitColorScheme(isDarkTheme),
-            typography  = orbitTypography(),
-            content     = content,
-        )
-    }
+    MaterialTheme(
+        colorScheme = orbitColorScheme(isDarkTheme),
+        typography = orbitTypography(),
+        content = content,
+    )
 }

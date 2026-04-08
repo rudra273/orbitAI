@@ -42,6 +42,14 @@ val AVAILABLE_MODELS = listOf(
         format = ModelFormat.LITERTLM,
     ),
     LlmModel(
+        id = "gemma3-2b",
+        displayName = "Gemma 3n E2B",
+        fileName = "gemma-3n-E2B-it-int4.litertlm",
+        description = "Fast experimental model with vision support",
+        paramCount = "2B",
+        format = ModelFormat.LITERTLM,
+    ),
+    LlmModel(
         id = "gemma2-2b",
         displayName = "Gemma 2 2B",
         fileName = "gemma2-2b-it-cpu-int8.task",
@@ -84,6 +92,7 @@ data class Message(
     val id: String = UUID.randomUUID().toString(),
     val role: Role,
     val content: String,
+    val imageUris: List<String> = emptyList(),
     val isStreaming: Boolean = false,
     val timestampMs: Long = System.currentTimeMillis(),
 )

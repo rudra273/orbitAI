@@ -426,7 +426,7 @@ class OrbitBubbleService : Service() {
                     messages = listOf(Message(role = Role.USER, content = transcript)),
                 )
                 var accumulated = ""
-                repo.generateResponseStream(prompt, settings.maxDecodedTokens).collect { token ->
+                repo.generateResponseStream(com.example.orbitai.data.InferenceInput(prompt, emptyList()), settings.maxDecodedTokens).collect { token ->
                     accumulated += token
                     withContext(Dispatchers.Main) { updateResultText(accumulated) }
                 }

@@ -19,9 +19,9 @@ class LlmRepository(private val context: Context) {
         currentSettings = settings
     }
 
-    fun generateResponseStream(prompt: String, maxDecodedTokens: Int): Flow<String> {
+    fun generateResponseStream(input: InferenceInput, maxDecodedTokens: Int): Flow<String> {
         val activeEngine = engine ?: throw IllegalStateException("No model loaded.")
-        return activeEngine.generateResponseStream(prompt, maxDecodedTokens)
+        return activeEngine.generateResponseStream(input, maxDecodedTokens)
     }
 
     fun isModelLoaded(modelId: String, settings: InferenceSettings) =

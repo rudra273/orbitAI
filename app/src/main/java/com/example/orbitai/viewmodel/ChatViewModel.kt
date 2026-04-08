@@ -42,6 +42,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
+import com.example.orbitai.data.InferenceInput
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -247,7 +251,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Inference ─────────────────────────────────────────────────────────────
 
-    fun sendMessage(chatId: String, userText: String) {
+    fun sendMessage(chatId: String, userText: String, imageUris: List<Uri> = emptyList()) {
         if (generationJob?.isActive == true) {
             beginNewGenerationToken()
             generationJob?.cancel()
@@ -306,9 +310,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val memoryEnabled = memoryFeatureStore.isEnabled
+            
+            // Resolve image uris to safe persisted strings
+            val uriStrings = imageUris.map { it.toString() }
 
             // 1. Add user message
-            chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText))
+            chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText, imageUris = uriStrings))
 
             // 1b. Auto-detect and save memorable facts from user message
             if (memoryEnabled) {
@@ -367,6 +374,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     GemmaChatPromptBuilder.build(history, ragContext, memories, systemPrompt)
                 }
             }
+            
+            // Build InferenceInput
+            val bitmaps = mutableListOf<Bitmap>()
+            for (uri in imageUris) {
+                try {
+                    val source = ImageDecoder.createSource(getApplication<Application>().contentResolver, uri)
+                    val bitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE // Models often require software bitmaps
+                    }
+                    bitmaps.add(bitmap)
+                } catch (e: Exception) {
+                    android.util.Log.e("ChatViewModel", "Failed to decode image from uri: $uri", e)
+                }
+            }
+            val inferenceInput = InferenceInput(prompt = prompt, images = bitmaps)
 
             // 4. Add empty assistant message (streaming placeholder)
             val assistantMsg = Message(role = Role.ASSISTANT, content = "", isStreaming = true)
@@ -377,7 +399,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             var accumulated = ""
             var wasCancelled = false
             try {
-                llmRepo.generateResponseStream(prompt, settings.maxDecodedTokens).collect { token ->
+                llmRepo.generateResponseStream(inferenceInput, settings.maxDecodedTokens).collect { token ->
                     if (!isGenerationTokenActive(generationToken)) {
                         throw CancellationException("Stale generation request")
                     }

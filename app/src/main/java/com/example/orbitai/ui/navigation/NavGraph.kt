@@ -43,7 +43,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.example.orbitai.OverlayPromptRequest
-import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.MemoryFeatureStore
 import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.data.TokenStore
@@ -51,9 +50,7 @@ import com.example.orbitai.ui.screens.ModesScreen
 import com.example.orbitai.ui.screens.ChatScreen
 import com.example.orbitai.ui.screens.ModelSettingsScreen
 import com.example.orbitai.ui.screens.HomeScreen
-import com.example.orbitai.ui.screens.InferenceSettingsScreen
 import com.example.orbitai.ui.screens.MemorySettingsScreen
-import com.example.orbitai.ui.screens.RagSettingsScreen
 import com.example.orbitai.ui.screens.SpaceDetailScreen
 import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
@@ -89,10 +86,7 @@ sealed class Screen(val route: String) {
 
     // ── Settings sub-screens ─────────────────────────────────────────────────
     data object SettingsModel     : Screen("settings/model")
-    data object SettingsInference : Screen("settings/inference")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
-    data object SettingsRag       : Screen("settings/rag")
-    data object SettingsDeveloper : Screen("settings/developer")
     data object SettingsTools     : Screen("settings/tools")
     data object SettingsOrbitBubble : Screen("settings/orbit_bubble")
 }
@@ -261,36 +255,12 @@ fun OrbitNavGraph(
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable(Screen.SettingsInference.route) {
-                val context = LocalContext.current
-                val inferenceStore = remember { InferenceSettingsStore(context) }
-                InferenceSettingsScreen(
-                    inferenceStore = inferenceStore,
-                    onBack = { navController.popBackStack() },
-                )
-            }
             composable(Screen.SettingsMemory.route) {
                 val context = LocalContext.current
                 val memoryStore = remember { MemoryFeatureStore(context) }
                 MemorySettingsScreen(
                     memoryViewModel = memoryViewModel,
                     memoryStore = memoryStore,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(Screen.SettingsRag.route) {
-                RagSettingsScreen(
-                    downloadViewModel = downloadViewModel,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(Screen.SettingsDeveloper.route) {
-                // Developer settings merged into Model settings
-                val context = LocalContext.current
-                val tokenStore = remember { TokenStore(context) }
-                ModelSettingsScreen(
-                    downloadViewModel = downloadViewModel,
-                    tokenStore = tokenStore,
                     onBack = { navController.popBackStack() },
                 )
             }
