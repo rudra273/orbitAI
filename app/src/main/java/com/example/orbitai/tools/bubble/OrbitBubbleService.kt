@@ -410,15 +410,12 @@ class OrbitBubbleService : Service() {
     private fun executeWithContext(prompt: String) {
         val accessibleInstance = OrbitAccessibilityService.instance
         if (accessibleInstance != null) {
-            accessibleInstance.getSelectedTextOrCopy { extractedText ->
-                if (extractedText != null) {
-                    pendingSelectedText = extractedText
-                }
-                handleTranscript(prompt, forceClipboardContext = true)
+            val extractedText = accessibleInstance.getInterceptedText()
+            if (extractedText != null) {
+                pendingSelectedText = extractedText
             }
-        } else {
-            handleTranscript(prompt, forceClipboardContext = true)
         }
+        handleTranscript(prompt)
     }
 
     private fun handleTranscript(transcript: String, forceClipboardContext: Boolean = false) {
