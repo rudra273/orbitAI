@@ -418,6 +418,7 @@ private fun ModelRow(
     val status = progress?.status ?: DownloadStatus.IDLE
     val isInstalled = status == DownloadStatus.COMPLETED
     val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
+    val isFailed = status == DownloadStatus.FAILED
 
     Row(
         modifier = Modifier
@@ -447,8 +448,8 @@ private fun ModelRow(
                 )
             }
             Text(
-                text = model.description,
-                color = SettingsInk.copy(alpha = 0.38f),
+                text = if (isFailed) (progress?.error ?: "Download failed") else model.description,
+                color = if (isFailed) SettingsRed else SettingsInk.copy(alpha = 0.38f),
                 fontFamily = SettingsSans,
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -522,7 +523,7 @@ private fun ModelRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CloudDownload,
-                        contentDescription = "Download ${model.displayName}",
+                        contentDescription = if (isFailed) "Retry ${model.displayName}" else "Download ${model.displayName}",
                         tint = SettingsInk.copy(alpha = 0.62f),
                         modifier = Modifier.size(16.dp),
                     )

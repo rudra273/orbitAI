@@ -2,6 +2,7 @@ package com.example.orbitai
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -49,12 +50,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleOverlayIntent(intent)
 
+        val themeStore = ThemeSettingsStore(this)
+        val darkWindowBg = android.graphics.Color.parseColor("#141413")
+        val lightWindowBg = android.graphics.Color.parseColor("#F7F6F3")
+
         // Let the app draw behind status bar and navigation bar
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Sync the native window before Compose draws to avoid a light flash
+        // when the app's stored theme differs from the system theme bucket.
+        window.setBackgroundDrawable(
+            ColorDrawable(if (themeStore.isDarkTheme) darkWindowBg else lightWindowBg)
+        )
 
         setContent {
-            val themeStore = remember { ThemeSettingsStore(this) }
             var isDarkTheme by remember { mutableStateOf(themeStore.isDarkTheme) }
 
             OrbitAITheme(isDarkTheme = isDarkTheme) {
@@ -62,10 +71,8 @@ class MainActivity : ComponentActivity() {
                 // ── Window background — keep native layer in sync with Compose theme ─
                 // Without this, toggling theme shows a white flash from the AppCompat
                 // window background for one frame before Compose repaints.
-                val darkBg  = android.graphics.Color.parseColor("#141413")
-                val lightBg = android.graphics.Color.parseColor("#F9F8F5")
                 SideEffect {
-                    window.decorView.setBackgroundColor(if (isDarkTheme) darkBg else lightBg)
+                    window.decorView.setBackgroundColor(if (isDarkTheme) darkWindowBg else lightWindowBg)
                 }
 
                 // ── System bar colours ─────────────────────────────────────
