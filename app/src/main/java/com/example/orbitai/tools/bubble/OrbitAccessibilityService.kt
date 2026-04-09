@@ -72,6 +72,38 @@ class OrbitAccessibilityService : AccessibilityService() {
         return null
     }
 
+    fun injectTextIntoActiveField(text: String): Boolean {
+        try {
+            val availableWindows = windows
+            for (window in availableWindows) {
+                val root = window.root ?: continue
+                if (searchAndInjectText(root, text)) return true
+            }
+        } catch (e: Exception) {
+            Log.e("OrbitAccessibility", "Injection failed", e)
+        }
+        return false
+    }
+
+    private fun searchAndInjectText(node: AccessibilityNodeInfo, text: String): Boolean {
+        if (node.isEditable && node.isFocused) {
+            val arguments = android.os.Bundle()
+            arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+                return true
+            }
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            if (child != null) {
+                val success = searchAndInjectText(child, text)
+                child.recycle()
+                if (success) return true
+            }
+        }
+        return false
+    }
+
     companion object {
         var instance: OrbitAccessibilityService? = null
             private set

@@ -420,6 +420,8 @@ class OrbitBubbleService : Service() {
             pendingSelectedText = null
         }
         
+        val shouldInject = transcript.trim().lowercase().startsWith("write")
+
         lastTranscript = finalTranscript
         val route = ToolRouter.route(finalTranscript)
 
@@ -430,7 +432,7 @@ class OrbitBubbleService : Service() {
         }
 
         if (ToolSettingsStore(this).bubbleResultsInOverlay) {
-            runInlineInference(finalTranscript)
+            runInlineInference(finalTranscript, shouldInject)
         } else {
             launchApp(finalTranscript)
         }
@@ -438,8 +440,14 @@ class OrbitBubbleService : Service() {
 
     // ── Inline LLM inference ──────────────────────────────────────────────────
 
-    private fun runInlineInference(transcript: String) {
-        showResultOverlay(transcript)
+    private fun runInlineInference(transcript: String, shouldInject: Boolean = false) {
+        if (shouldInject) {
+            android.widget.Toast.makeText(this, "Orbit is writing...", android.widget.Toast.LENGTH_SHORT).show()
+            hideResultOverlay()
+        } else {
+            showResultOverlay(transcript)
+        }
+        
         llmJob?.cancel()
         llmJob = serviceScope.launch {
             val downloader = ModelDownloader(this@OrbitBubbleService)
@@ -448,8 +456,8 @@ class OrbitBubbleService : Service() {
             val model = AVAILABLE_MODELS.firstOrNull { it.id == selectedModelId && downloader.isDownloaded(it) }
                 ?: AVAILABLE_MODELS.firstOrNull { downloader.isDownloaded(it) }
             if (model == null) {
-                withContext(Dispatchers.Main) {
-                    updateResultText("No model downloaded.\nOpen Orbit → Settings → Model to download one.")
+                if (!shouldInject) {
+                    withContext(Dispatchers.Main) { updateResultText("No model downloaded.\nOpen Orbit → Settings → Model to download one.") }
                 }
                 return@launch
             }
@@ -458,7 +466,7 @@ class OrbitBubbleService : Service() {
                 ?: LlmRepository(this@OrbitBubbleService).also { bubbleLlmRepo = it }
             try {
                 if (!repo.isModelLoaded(model.id, settings)) {
-                    withContext(Dispatchers.Main) { updateResultText("Loading model…") }
+                    if (!shouldInject) withContext(Dispatchers.Main) { updateResultText("Loading model…") }
                     repo.loadModel(model, settings)
                 }
                 val prompt = GemmaChatPromptBuilder.build(
@@ -467,13 +475,28 @@ class OrbitBubbleService : Service() {
                 var accumulated = ""
                 repo.generateResponseStream(com.example.orbitai.data.InferenceInput(prompt, emptyList()), settings.maxDecodedTokens).collect { token ->
                     accumulated += token
-                    withContext(Dispatchers.Main) { updateResultText(accumulated) }
+                    if (!shouldInject) {
+                        withContext(Dispatchers.Main) { updateResultText(accumulated) }
+                    }
+                }
+                
+                if (shouldInject) {
+                    withContext(Dispatchers.Main) {
+                        val injected = OrbitAccessibilityService.instance?.injectTextIntoActiveField(accumulated.trim())
+                        if (injected == true) {
+                            android.widget.Toast.makeText(this@OrbitBubbleService, "Inserted text", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(this@OrbitBubbleService, "No active text box found", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    updateResultText("Something went wrong: ${e.message}")
+                if (!shouldInject) {
+                    withContext(Dispatchers.Main) { updateResultText("Something went wrong: ${e.message}") }
+                } else {
+                    withContext(Dispatchers.Main) { android.widget.Toast.makeText(this@OrbitBubbleService, "Writing failed", android.widget.Toast.LENGTH_SHORT).show() }
                 }
             }
         }
