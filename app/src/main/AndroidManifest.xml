@@ -42,6 +42,19 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".tools.bubble.ProcessTextActivity"
+            android:exported="true"
+            android:label="Orbit AI"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".tools.bubble.OrbitBubbleService"
             android:exported="false"

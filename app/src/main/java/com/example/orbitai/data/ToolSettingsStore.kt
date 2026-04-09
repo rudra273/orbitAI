@@ -59,4 +59,16 @@ class ToolSettingsStore(context: Context) {
         set(value) {
             prefs.edit().putString("bubble_mode_id", value).apply()
         }
+
+    var bubbleResponseAlphaPercent: Int
+        get() = prefs.getInt("bubble_response_alpha_percent", 38)
+        set(value) {
+            prefs.edit().putInt("bubble_response_alpha_percent", value.coerceIn(10, 100)).apply()
+        }
+
+    var bubbleResponseTheme: String
+        get() = prefs.getString("bubble_response_theme", "violet") ?: "violet"
+        set(value) {
+            prefs.edit().putString("bubble_response_theme", value).apply()
+        }
 }

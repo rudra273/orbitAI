@@ -83,6 +83,7 @@ class OrbitBubbleService : Service() {
     private var pulseAnimator: android.animation.ValueAnimator? = null
     private var partialTranscript: String = ""
     private var isListening = false
+    private var pendingSelectedText: String? = null
 
     // ── LLM (overlay mode) ────────────────────────────────────────────────────
     private var bubbleLlmRepo: LlmRepository? = null
@@ -115,7 +116,7 @@ class OrbitBubbleService : Service() {
             ACTION_APP_BACKGROUND -> {
                 isAppForeground = false
             }
-            ACTION_START, ACTION_TRIGGER, null -> Unit
+            ACTION_START, ACTION_TRIGGER, ACTION_INJECT_TEXT, null -> Unit
             else -> return START_NOT_STICKY
         }
 
@@ -150,6 +151,16 @@ class OrbitBubbleService : Service() {
                 startListening()
             } else {
                 bubbleView?.post { toggleListening() }
+            }
+        } else if (intent?.action == ACTION_INJECT_TEXT) {
+            val text = intent.getStringExtra(EXTRA_INJECTED_TEXT)
+            if (!text.isNullOrBlank()) {
+                pendingSelectedText = text
+                showResultOverlay("Selected: $text")
+                updateResultText("Speak your instruction...")
+                bubbleView?.post {
+                    if (!isListening) startListening()
+                }
             }
         }
 
@@ -375,27 +386,38 @@ class OrbitBubbleService : Service() {
         enterIdleVisualMode()
         startBubbleForeground(isListening = false)
 
+        val hasPendingText = !pendingSelectedText.isNullOrBlank()
+
         if (submitTranscript && transcript.isNotBlank()) {
             handleTranscript(transcript)
+        } else if (hasPendingText) {
+            pendingSelectedText = null
+            hideResultOverlay()
         }
     }
 
     // ── Transcript routing ────────────────────────────────────────────────────
 
     private fun handleTranscript(transcript: String) {
-        lastTranscript = transcript
-        val route = ToolRouter.route(transcript)
+        var finalTranscript = transcript
+        if (!pendingSelectedText.isNullOrBlank()) {
+            finalTranscript = "Instruction: $transcript\n\nSelected text: ${pendingSelectedText}"
+            pendingSelectedText = null
+        }
+        
+        lastTranscript = finalTranscript
+        val route = ToolRouter.route(finalTranscript)
 
         // Tool requests need app chat flow where execution and permissions are handled.
         if (route is ToolRoute.ToolOnly) {
-            launchApp(transcript)
+            launchApp(finalTranscript)
             return
         }
 
         if (ToolSettingsStore(this).bubbleResultsInOverlay) {
-            runInlineInference(transcript)
+            runInlineInference(finalTranscript)
         } else {
-            launchApp(transcript)
+            launchApp(finalTranscript)
         }
     }
 
@@ -459,7 +481,7 @@ class OrbitBubbleService : Service() {
             cardW,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START; x = dpToPx(16f); y = cardY }
         resultCardView = card
@@ -468,8 +490,8 @@ class OrbitBubbleService : Service() {
         isResultVisible = true
     }
 
-    private fun hideResultOverlay() {
-        llmJob?.cancel()
+    private fun hideResultOverlay(cancelJob: Boolean = true) {
+        if (cancelJob) llmJob?.cancel()
         if (isResultVisible) {
             try { windowManager?.removeView(resultCardView) } catch (_: Exception) {}
         }
@@ -484,14 +506,27 @@ class OrbitBubbleService : Service() {
     private fun buildResultCardView(transcript: String, responseHeightPx: Int): View {
         fun dp(v: Int): Int = dpToPx(v.toFloat())
 
-        val frame = FrameLayout(this).apply {
+        val store = ToolSettingsStore(this)
+        val theme = getThemeConfig(store.bubbleResponseTheme)
+        val alphaInt = (store.bubbleResponseAlphaPercent / 100f * 255).toInt()
+
+        val frame = object : FrameLayout(this) {
+            override fun dispatchKeyEvent(event: android.view.KeyEvent?): Boolean {
+                if (event?.keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+                    hideResultOverlay()
+                    return true
+                }
+                return super.dispatchKeyEvent(event)
+            }
+        }.apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(20).toFloat()
-                setColor(Color.argb(96, 104, 66, 166))
-                setStroke(dp(1), Color.argb(132, 193, 168, 255))
+                setColor(Color.argb(alphaInt, theme.bgRGB.first, theme.bgRGB.second, theme.bgRGB.third))
+                setStroke(dp(1), Color.argb(132, theme.borderRGB.first, theme.borderRGB.second, theme.borderRGB.third))
             }
             elevation = 24f
+            isFocusableInTouchMode = true
         }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         frame.addView(root, FrameLayout.LayoutParams(
@@ -508,18 +543,85 @@ class OrbitBubbleService : Service() {
         header.addView(ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(8) }
             setImageResource(R.drawable.vector_logo)
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            imageTintList = android.content.res.ColorStateList.valueOf(theme.primaryText)
         })
         header.addView(TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             text = "Orbit AI"
-            setTextColor(Color.WHITE)
+            setTextColor(theme.primaryText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.DEFAULT_BOLD
         })
+
+        // Theme switchers
+        val themeSwitcherContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(8)
+            }
+        }
+        val quickThemes = listOf(
+            "dark_glassy" to Color.parseColor("#333333"),
+            "white_glassy" to Color.parseColor("#F5F5F5"),
+            "violet" to Color.parseColor("#6842A6")
+        )
+        quickThemes.forEach { (id, btnColor) ->
+            themeSwitcherContainer.addView(View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(6) }
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(btnColor)
+                    if (id == "white_glassy") setStroke(dp(1), Color.LTGRAY)
+                }
+                setOnClickListener {
+                    store.bubbleResponseTheme = id
+                    val currentText = resultTextView?.text?.toString() ?: "Thinking…"
+                    val oldParams = resultCardParams
+                    hideResultOverlay(cancelJob = false)
+                    val card = buildResultCardView(lastTranscript, responseHeightPx)
+                    resultCardView = card
+                    resultCardParams = oldParams
+                    if (oldParams != null) windowManager?.addView(card, oldParams)
+                    isResultVisible = true
+                    resultTextView?.text = currentText
+                }
+            })
+        }
+        header.addView(themeSwitcherContainer)
+
+        val opacitySlider = android.widget.SeekBar(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(50), LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(8)
+            }
+            max = 90
+            progress = store.bubbleResponseAlphaPercent - 10
+            progressDrawable?.setTint(theme.primaryText)
+            thumb?.setTint(theme.primaryText)
+            
+            setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        val newAlpha = progress + 10
+                        store.bubbleResponseAlphaPercent = newAlpha
+                        frame.background = GradientDrawable().apply {
+                            shape = GradientDrawable.RECTANGLE
+                            cornerRadius = dp(20).toFloat()
+                            val alphaInt = (newAlpha / 100f * 255).toInt()
+                            setColor(Color.argb(alphaInt, theme.bgRGB.first, theme.bgRGB.second, theme.bgRGB.third))
+                            setStroke(dp(1), Color.argb(132, theme.borderRGB.first, theme.borderRGB.second, theme.borderRGB.third))
+                        }
+                    }
+                }
+                override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            })
+        }
+        header.addView(opacitySlider)
+
         val openBtn = TextView(this).apply {
-            text = "Open in Chat"
-            setTextColor(Color.WHITE)
+            text = "Open"
+            setTextColor(theme.primaryText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setPadding(dp(10), dp(6), dp(10), dp(6))
             background = GradientDrawable().apply {
@@ -534,7 +636,7 @@ class OrbitBubbleService : Service() {
         val closeBtn = TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
             text = "✕"
-            setTextColor(Color.argb(190, 255, 255, 255))
+            setTextColor(theme.primaryText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             gravity = Gravity.CENTER
         }
@@ -592,7 +694,7 @@ class OrbitBubbleService : Service() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { setMargins(dp(14), dp(6), dp(14), 0) }
             text = "\"${transcript.take(80)}${if (transcript.length > 80) "\u2026" else "\""}"
-            setTextColor(Color.argb(205, 233, 219, 255))
+            setTextColor(theme.secondaryText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             maxLines = 2
         })
@@ -604,9 +706,10 @@ class OrbitBubbleService : Service() {
         }
         val responseText = TextView(this).apply {
             setPadding(dp(14), dp(8), dp(14), dp(10))
-            setTextColor(Color.WHITE)
+            setTextColor(theme.primaryText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setLineSpacing(dp(2).toFloat(), 1f)
+            setTextIsSelectable(true)
             text = "Thinking…"
         }
         scrollView.addView(responseText)
@@ -874,8 +977,30 @@ class OrbitBubbleService : Service() {
     }
 
     companion object {
+        data class BubbleThemeConfig(
+            val bgRGB: Triple<Int, Int, Int>,
+            val borderRGB: Triple<Int, Int, Int>,
+            val primaryText: Int,
+            val secondaryText: Int
+        )
+
+        fun getThemeConfig(themeId: String): BubbleThemeConfig {
+            return when (themeId) {
+                "dark_glassy" -> BubbleThemeConfig(Triple(25, 25, 25), Triple(100, 100, 100), Color.WHITE, Color.parseColor("#CCCCCC"))
+                "white_glassy" -> BubbleThemeConfig(Triple(245, 245, 245), Triple(200, 200, 200), Color.BLACK, Color.parseColor("#555555"))
+                "emerald" -> BubbleThemeConfig(Triple(16, 89, 65), Triple(105, 204, 171), Color.WHITE, Color.parseColor("#D1EAE1"))
+                "ocean" -> BubbleThemeConfig(Triple(25, 75, 120), Triple(122, 186, 245), Color.WHITE, Color.parseColor("#D6EAFF"))
+                "sunset" -> BubbleThemeConfig(Triple(143, 44, 19), Triple(245, 137, 110), Color.WHITE, Color.parseColor("#FFDBCF"))
+                "midnight" -> BubbleThemeConfig(Triple(9, 13, 26), Triple(64, 80, 122), Color.WHITE, Color.parseColor("#B0C1EE"))
+                "violet" -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor("#E9DBFF"))
+                else -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor("#E9DBFF"))
+            }
+        }
+
         private const val ACTION_START = "com.example.orbitai.tools.bubble.START"
         private const val ACTION_TRIGGER = "com.example.orbitai.tools.bubble.TRIGGER"
+        const val ACTION_INJECT_TEXT = "com.example.orbitai.tools.bubble.INJECT_TEXT"
+        const val EXTRA_INJECTED_TEXT = "com.example.orbitai.tools.bubble.EXTRA_TEXT"
         private const val ACTION_APP_FOREGROUND = "com.example.orbitai.tools.bubble.APP_FOREGROUND"
         private const val ACTION_APP_BACKGROUND = "com.example.orbitai.tools.bubble.APP_BACKGROUND"
         private const val ACTION_STOP = "com.example.orbitai.tools.bubble.STOP"

@@ -93,6 +93,8 @@ fun OrbitBubbleSettingsScreen(
     var resultsInOverlay by remember { mutableStateOf(toolSettingsStore.bubbleResultsInOverlay) }
     var bubbleModelId by remember { mutableStateOf(toolSettingsStore.bubbleModelId) }
     var bubbleModeId by remember { mutableStateOf(toolSettingsStore.bubbleModeId) }
+    var bubbleResponseAlphaPercent by remember { mutableIntStateOf(toolSettingsStore.bubbleResponseAlphaPercent) }
+    var bubbleResponseTheme by remember { mutableStateOf(toolSettingsStore.bubbleResponseTheme) }
 
     var overlayGranted by remember { mutableStateOf(OrbitBubbleService.canDrawOverlays(context)) }
     var audioGranted by remember {
@@ -298,6 +300,8 @@ fun OrbitBubbleSettingsScreen(
             }
         }
 
+
+
         item { BubbleSectionLabel("MODE") }
         item {
             GroupedCard {
@@ -409,6 +413,37 @@ fun OrbitBubbleSettingsScreen(
                         if (bubbleEnabled) OrbitBubbleService.start(context)
                     },
                 )
+                AppearanceSliderRow(
+                    title = "Response opacity",
+                    valueLabel = "${bubbleResponseAlphaPercent}%",
+                    value = bubbleResponseAlphaPercent.toFloat(),
+                    range = 10f..100f,
+                    description = "Overlay response window glass opacity",
+                    onValueChange = { value ->
+                        bubbleResponseAlphaPercent = value.toInt().coerceIn(10, 100)
+                        toolSettingsStore.bubbleResponseAlphaPercent = bubbleResponseAlphaPercent
+                    },
+                )
+                HairlineDivider()
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    val themes = listOf(
+                        "violet" to "Violet (Default)",
+                        "dark_glassy" to "Dark Glassy",
+                        "white_glassy" to "White Glassy",
+                        "emerald" to "Emerald",
+                        "ocean" to "Ocean",
+                        "sunset" to "Sunset",
+                        "midnight" to "Midnight"
+                    )
+                    ThemeDropdownRow(
+                        themes = themes,
+                        selectedThemeId = bubbleResponseTheme,
+                        onThemeSelected = { themeId ->
+                            bubbleResponseTheme = themeId
+                            toolSettingsStore.bubbleResponseTheme = themeId
+                        },
+                    )
+                }
             }
         }
 
@@ -550,6 +585,98 @@ private fun ModeDropdownRow(
                     },
                     onClick = {
                         onModeSelected(mode.id)
+                        expanded = false
+                    },
+                    trailingIcon = if (isSelected) ({
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF9B7DFF)),
+                        )
+                    }) else null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeDropdownRow(
+    themes: List<Pair<String, String>>,
+    selectedThemeId: String,
+    onThemeSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedThemeName = themes.find { it.first == selectedThemeId }?.second ?: themes.first().second
+
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { expanded = true },
+                )
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF9B7DFF)),
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(
+                    text = "Response Theme",
+                    color = BubbleInk,
+                    fontFamily = BubbleSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                )
+                Text(
+                    text = selectedThemeName,
+                    color = BubbleInk.copy(alpha = 0.40f),
+                    fontFamily = BubbleMono,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Text(
+                text = "▾",
+                color = BubbleInk.copy(alpha = 0.35f),
+                fontSize = 16.sp,
+            )
+        }
+
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = BubbleCard,
+        ) {
+            themes.forEach { theme ->
+                val isSelected = theme.first == selectedThemeId
+                androidx.compose.material3.DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = theme.second,
+                            color = if (isSelected) Color(0xFF9B7DFF) else BubbleInk,
+                            fontFamily = BubbleSans,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            fontSize = 14.sp,
+                        )
+                    },
+                    onClick = {
+                        onThemeSelected(theme.first)
                         expanded = false
                     },
                     trailingIcon = if (isSelected) ({
