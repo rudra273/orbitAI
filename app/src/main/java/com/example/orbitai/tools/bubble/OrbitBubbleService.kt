@@ -405,9 +405,11 @@ class OrbitBubbleService : Service() {
         showResultOverlay(transcript)
         llmJob?.cancel()
         llmJob = serviceScope.launch {
-            val model = AVAILABLE_MODELS.firstOrNull {
-                ModelDownloader(this@OrbitBubbleService).isDownloaded(it)
-            }
+            val downloader = ModelDownloader(this@OrbitBubbleService)
+            val selectedModelId = ToolSettingsStore(this@OrbitBubbleService).bubbleModelId
+            // Use the user-selected bubble model; fall back to first downloaded if missing
+            val model = AVAILABLE_MODELS.firstOrNull { it.id == selectedModelId && downloader.isDownloaded(it) }
+                ?: AVAILABLE_MODELS.firstOrNull { downloader.isDownloaded(it) }
             if (model == null) {
                 withContext(Dispatchers.Main) {
                     updateResultText("No model downloaded.\nOpen Orbit → Settings → Model to download one.")

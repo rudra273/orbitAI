@@ -53,4 +53,10 @@ class ToolSettingsStore(context: Context) {
         set(value) {
             prefs.edit().putString("bubble_model_id", value).apply()
         }
+
+    var bubbleModeId: String
+        get() = prefs.getString("bubble_mode_id", "bubble_default") ?: "bubble_default"
+        set(value) {
+            prefs.edit().putString("bubble_mode_id", value).apply()
+        }
 }

@@ -275,13 +275,13 @@ fun OrbitNavGraph(
             composable(Screen.SettingsOrbitBubble.route) {
                 val context = LocalContext.current
                 val toolSettingsStore = remember { ToolSettingsStore(context) }
-                val tokenStore = remember { TokenStore(context) }
                 val availableModels by chatViewModel.availableModels.collectAsState()
+                val modes by chatViewModel.modes.collectAsState()
                 LaunchedEffect(Unit) { chatViewModel.refreshAvailableModels() }
                 OrbitBubbleSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
-                    tokenStore = tokenStore,
                     availableModels = availableModels,
+                    modes = modes,
                     onBack = { navController.popBackStack() },
                 )
             }

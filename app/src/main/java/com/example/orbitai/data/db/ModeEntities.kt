@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 const val ORBIT_MODE_ID = "orbit_default"
 const val CONCISE_MODE_ID = "concise_default"
 const val STEP_BY_STEP_MODE_ID = "step_by_step_default"
+const val BUBBLE_MODE_ID = "bubble_default"
 
 data class Mode(
     val id: String,

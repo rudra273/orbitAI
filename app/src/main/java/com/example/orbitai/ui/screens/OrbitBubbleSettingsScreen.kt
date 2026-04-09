@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
@@ -55,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.orbitai.R
 import com.example.orbitai.data.LlmModel
+import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.ModelProvider
 import com.example.orbitai.data.ToolSettingsStore
 import com.example.orbitai.tools.bubble.OrbitBubbleService
@@ -80,8 +80,8 @@ private val BubbleInk: Color
 @Composable
 fun OrbitBubbleSettingsScreen(
     toolSettingsStore: ToolSettingsStore,
-    tokenStore: com.example.orbitai.data.TokenStore,
     availableModels: List<LlmModel>,
+    modes: List<Mode>,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -92,6 +92,7 @@ fun OrbitBubbleSettingsScreen(
     var bubbleStyle by remember { mutableStateOf(toolSettingsStore.bubbleStyle) }
     var resultsInOverlay by remember { mutableStateOf(toolSettingsStore.bubbleResultsInOverlay) }
     var bubbleModelId by remember { mutableStateOf(toolSettingsStore.bubbleModelId) }
+    var bubbleModeId by remember { mutableStateOf(toolSettingsStore.bubbleModeId) }
 
     var overlayGranted by remember { mutableStateOf(OrbitBubbleService.canDrawOverlays(context)) }
     var audioGranted by remember {
@@ -101,29 +102,18 @@ fun OrbitBubbleSettingsScreen(
     }
     var pendingBubbleEnable by remember { mutableStateOf(false) }
 
-    val cloudModel = remember(availableModels, tokenStore.geminiModelName) {
-        availableModels.firstOrNull { it.provider == ModelProvider.GEMINI }
-            ?: LlmModel(
-                id = "gemini-api",
-                displayName = tokenStore.geminiModelName.ifBlank { "gemini-flash-latest" },
-                fileName = "",
-                description = "Cloud model via API",
-                paramCount = "API",
-                provider = ModelProvider.GEMINI,
-            )
+    // Only on-device (LOCAL) models for the bubble — no Gemini cloud models
+    val onDeviceModels = remember(availableModels) {
+        availableModels.filter { it.provider == ModelProvider.LOCAL }
     }
 
-    val onDeviceModel = remember(availableModels) {
-        availableModels.firstOrNull { it.id == "gemma3-1b" }
-            ?: availableModels.firstOrNull { it.provider == ModelProvider.LOCAL }
-            ?: LlmModel(
-                id = "gemma3-1b",
-                displayName = "Gemma 3 1B",
-                fileName = "",
-                description = "On-device model",
-                paramCount = "1B",
-                provider = ModelProvider.LOCAL,
-            )
+    // Auto-select the first on-device model if current selection is invalid
+    LaunchedEffect(onDeviceModels, bubbleModelId) {
+        if (onDeviceModels.isNotEmpty() && onDeviceModels.none { it.id == bubbleModelId }) {
+            val firstLocal = onDeviceModels.first()
+            bubbleModelId = firstLocal.id
+            toolSettingsStore.bubbleModelId = firstLocal.id
+        }
     }
 
     fun applyBubbleModel(model: LlmModel) {
@@ -272,23 +262,52 @@ fun OrbitBubbleSettingsScreen(
             }
         }
 
-        item { BubbleSectionLabel("MODEL") }
+        item { BubbleSectionLabel("ON-DEVICE MODEL") }
+        item {
+            if (onDeviceModels.isEmpty()) {
+                GroupedCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "No on-device models downloaded.\nDownload a model from Settings › Model.",
+                            color = BubbleInk.copy(alpha = 0.45f),
+                            fontFamily = BubbleSans,
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            } else {
+                GroupedCard {
+                    onDeviceModels.forEachIndexed { index, model ->
+                        ModelRow(
+                            dotColor = BubbleGreen,
+                            title = model.displayName,
+                            subtitle = "On-device · ${model.paramCount}",
+                            selected = bubbleModelId == model.id,
+                            onClick = { applyBubbleModel(model) },
+                        )
+                        if (index < onDeviceModels.lastIndex) {
+                            HairlineDivider()
+                        }
+                    }
+                }
+            }
+        }
+
+        item { BubbleSectionLabel("MODE") }
         item {
             GroupedCard {
-                ModelRow(
-                    dotColor = BubbleInk.copy(alpha = 0.20f),
-                    title = cloudModel.displayName.ifBlank { "gemini-flash-latest" },
-                    subtitle = "API · Cloud",
-                    selected = bubbleModelId == cloudModel.id,
-                    onClick = { applyBubbleModel(cloudModel) },
-                )
-                HairlineDivider()
-                ModelRow(
-                    dotColor = BubbleGreen,
-                    title = onDeviceModel.displayName.ifBlank { "Gemma 3 1B" },
-                    subtitle = "On-device · ${onDeviceModel.paramCount.ifBlank { "1B" }}",
-                    selected = bubbleModelId == onDeviceModel.id,
-                    onClick = { applyBubbleModel(onDeviceModel) },
+                ModeDropdownRow(
+                    modes = modes,
+                    selectedModeId = bubbleModeId,
+                    onModeSelected = { modeId ->
+                        bubbleModeId = modeId
+                        toolSettingsStore.bubbleModeId = modeId
+                    },
                 )
             }
         }
@@ -441,6 +460,113 @@ private fun BubbleSectionLabel(text: String) {
 }
 
 @Composable
+private fun ModeDropdownRow(
+    modes: List<Mode>,
+    selectedModeId: String,
+    onModeSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedMode = modes.find { it.id == selectedModeId }
+        ?: modes.firstOrNull()
+
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { expanded = true },
+                )
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF9B7DFF)),
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(
+                    text = selectedMode?.name ?: "Select mode",
+                    color = BubbleInk,
+                    fontFamily = BubbleSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                )
+                Text(
+                    text = selectedMode?.systemPrompt?.take(60)?.let {
+                        if ((selectedMode.systemPrompt.length) > 60) "$it…" else it
+                    } ?: "No modes available",
+                    color = BubbleInk.copy(alpha = 0.28f),
+                    fontFamily = BubbleMono,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Text(
+                text = "▾",
+                color = BubbleInk.copy(alpha = 0.35f),
+                fontSize = 16.sp,
+            )
+        }
+
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = BubbleCard,
+        ) {
+            modes.forEach { mode ->
+                val isSelected = mode.id == selectedModeId
+                androidx.compose.material3.DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                text = mode.name,
+                                color = if (isSelected) Color(0xFF9B7DFF) else BubbleInk,
+                                fontFamily = BubbleSans,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                text = mode.systemPrompt.take(50).let {
+                                    if (mode.systemPrompt.length > 50) "$it…" else it
+                                },
+                                color = BubbleInk.copy(alpha = 0.35f),
+                                fontFamily = BubbleMono,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    },
+                    onClick = {
+                        onModeSelected(mode.id)
+                        expanded = false
+                    },
+                    trailingIcon = if (isSelected) ({
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF9B7DFF)),
+                        )
+                    }) else null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ModelRow(
     dotColor: Color,
     title: String,
@@ -485,12 +611,27 @@ private fun ModelRow(
             )
         }
 
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-            contentDescription = null,
-            tint = if (selected) BubbleInk.copy(alpha = 0.85f) else BubbleInk.copy(alpha = 0.45f),
-            modifier = Modifier.size(13.dp),
-        )
+        // Radio-style active indicator
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .border(
+                    width = if (selected) 2.dp else 1.5.dp,
+                    color = if (selected) BubbleGreen else BubbleInk.copy(alpha = 0.18f),
+                    shape = CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(BubbleGreen),
+                )
+            }
+        }
     }
 }
 

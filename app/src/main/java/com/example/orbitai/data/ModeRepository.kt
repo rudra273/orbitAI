@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.orbitai.data.db.Mode
 import com.example.orbitai.data.db.ModeEntity
 import com.example.orbitai.data.db.AppDatabase
+import com.example.orbitai.data.db.BUBBLE_MODE_ID
 import com.example.orbitai.data.db.CONCISE_MODE_ID
 import com.example.orbitai.data.db.ORBIT_MODE_ID
 import com.example.orbitai.data.db.STEP_BY_STEP_MODE_ID
@@ -60,6 +61,14 @@ class ModeRepository(private val context: Context) {
                     isDefault = true,
                     isActive = true,
                     createdAt = System.currentTimeMillis() + 2,
+                ),
+                ModeEntity(
+                    id = BUBBLE_MODE_ID,
+                    name = "Bubble",
+                    systemPrompt = "You are Orbit Bubble, a quick on-device assistant shown in a small floating overlay. Keep answers very short (2-3 sentences max), direct, and to the point. No lengthy explanations unless explicitly asked.",
+                    isDefault = true,
+                    isActive = true,
+                    createdAt = System.currentTimeMillis() + 3,
                 ),
             )
             defaults.forEach { mode ->
