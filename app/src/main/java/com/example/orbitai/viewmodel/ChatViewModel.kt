@@ -299,6 +299,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val activeModeId = _activeModeId.value
+        val activeSpaceIds = _activeSpaceIds.value.toList()
+        val activeMode = modeRepo.modes.value.find { it.id == activeModeId }
+            ?: modeRepo.modes.value.find { it.isDefault }
         val settings = modeInferenceStore.get(activeModeId)
         val generationToken = beginNewGenerationToken()
 
@@ -345,10 +348,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 emptyList()
             }
-            val systemPrompt = modeRepo.modes.value
-                .find { it.id == _activeModeId.value }
-                ?.systemPrompt
-                ?: modeRepo.modes.value.find { it.isDefault }?.systemPrompt
+            val systemPrompt = activeMode?.systemPrompt
             val prompt = when (toolRequest) {
                 is IntentToolRequest.DraftEmail -> EmailDraftPromptBuilder.build(
                     messages = history,
@@ -368,7 +368,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 null -> {
                     val ragContext = spaceRepo.searchChunksInSpaces(
                         trimmedText,
-                        _activeSpaceIds.value.toList(),
+                        activeSpaceIds,
                         limit = 5,
                     ).map { it.content }
                     GemmaChatPromptBuilder.build(history, ragContext, memories, systemPrompt)
@@ -391,7 +391,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val inferenceInput = InferenceInput(prompt = prompt, images = bitmaps)
 
             // 4. Add empty assistant message (streaming placeholder)
-            val assistantMsg = Message(role = Role.ASSISTANT, content = "", isStreaming = true)
+            val assistantMsg = Message(
+                role = Role.ASSISTANT,
+                content = "",
+                modeName = activeMode?.name ?: "Orbit",
+                isStreaming = true,
+            )
             chatRepo.addMessage(chatId, assistantMsg)
             _uiState.update { it.copy(isGenerating = true) }
 

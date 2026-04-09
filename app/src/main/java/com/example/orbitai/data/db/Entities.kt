@@ -33,6 +33,7 @@ data class MessageEntity(
     val chatId: String,
     val role: String,        // "USER" | "ASSISTANT"
     val content: String,
+    val modeName: String? = null,
     val imageUrisCsv: String? = null,
     val timestampMs: Long,
 )
@@ -69,6 +70,7 @@ fun MessageEntity.toDomain(): Message = Message(
     id          = id,
     role        = Role.valueOf(role),
     content     = content,
+    modeName    = modeName,
     imageUris   = imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     isStreaming = false,
     timestampMs = timestampMs,
@@ -81,6 +83,7 @@ fun Message.toEntity(chatId: String): MessageEntity = MessageEntity(
     chatId      = chatId,
     role        = role.name,
     content     = content,
+    modeName    = modeName,
     imageUrisCsv = if (imageUris.isEmpty()) null else imageUris.joinToString(","),
     timestampMs = timestampMs,
 )
