@@ -407,20 +407,13 @@ class OrbitBubbleService : Service() {
 
     // ── Transcript routing ────────────────────────────────────────────────────
 
-    private fun executeWithContext(prompt: String) {
-        val accessibleInstance = OrbitAccessibilityService.instance
-        if (accessibleInstance != null) {
-            val extractedText = accessibleInstance.getInterceptedText()
-            if (extractedText != null) {
-                pendingSelectedText = extractedText
-            }
-        }
-        handleTranscript(prompt)
-    }
-
-    private fun handleTranscript(transcript: String, forceClipboardContext: Boolean = false) {
+    private fun handleTranscript(transcript: String) {
         var finalTranscript = transcript
-        val selectedText = pendingSelectedText
+        var selectedText = pendingSelectedText
+
+        if (selectedText.isNullOrBlank()) {
+            selectedText = OrbitAccessibilityService.instance?.consumeInterceptedText()
+        }
 
         if (!selectedText.isNullOrBlank()) {
             finalTranscript = "Instruction: $transcript\n\nSelected text: ${selectedText}"
@@ -592,10 +585,10 @@ class OrbitBubbleService : Service() {
                 setOnClickListener {
                     hideRadialMenu()
                     when (actionName) {
-                        "Summarize" -> executeWithContext("Summarize this context")
-                        "Translate" -> executeWithContext("Translate this to English")
-                        "Explain" -> executeWithContext("Explain this context")
-                        "Reply" -> executeWithContext("Write a reply to this based on its context")
+                        "Summarize" -> handleTranscript("Summarize this context")
+                        "Translate" -> handleTranscript("Translate this to English")
+                        "Explain" -> handleTranscript("Explain this context")
+                        "Reply" -> handleTranscript("Write a reply to this based on its context")
                         "Close" -> dismissBubble()
                     }
                 }

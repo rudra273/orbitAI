@@ -7,38 +7,21 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
-class OrbitAccessibilityService : AccessibilityService(), ClipboardManager.OnPrimaryClipChangedListener {
+class OrbitAccessibilityService : AccessibilityService() {
 
     private var lastInterceptedText: String? = null
-    private var clipboardManager: ClipboardManager? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboardManager?.addPrimaryClipChangedListener(this)
         Log.d("OrbitAccessibility", "Service connected, listeners registered.")
     }
 
     override fun onDestroy() {
-        clipboardManager?.removePrimaryClipChangedListener(this)
         if (instance == this) {
             instance = null
         }
         super.onDestroy()
-    }
-
-    override fun onPrimaryClipChanged() {
-        try {
-            val item = clipboardManager?.primaryClip?.getItemAt(0)
-            val text = item?.text?.toString()
-            if (!text.isNullOrBlank()) {
-                lastInterceptedText = text
-                Log.d("OrbitAccessibility", "Intercepted clipboard text")
-            }
-        } catch (e: Exception) {
-            Log.e("OrbitAccessibility", "Clipboard intercept failed", e)
-        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -59,9 +42,10 @@ class OrbitAccessibilityService : AccessibilityService(), ClipboardManager.OnPri
         // Ignored
     }
 
-    // Called instantaneously by Orbit Bubble. No delays or hacks!
-    fun getInterceptedText(): String? {
-        return lastInterceptedText
+    fun consumeInterceptedText(): String? {
+        val text = lastInterceptedText
+        lastInterceptedText = null
+        return text
     }
 
     private fun findSelectedText(node: AccessibilityNodeInfo): String? {
