@@ -78,6 +78,10 @@ class OrbitBubbleService : Service() {
     private var isResultVisible = false
     private var lastTranscript: String = ""
 
+    // ── Radial Menu ──────────────────────────────────────────────────────────
+    private var radialMenuView: View? = null
+    private var isRadialMenuVisible = false
+
     // ── Speech ────────────────────────────────────────────────────────────────
     private var speechRecognizer: SpeechRecognizer? = null
     private var pulseAnimator: android.animation.ValueAnimator? = null
@@ -229,7 +233,12 @@ class OrbitBubbleService : Service() {
 
         val longPressRunnable = Runnable {
             longPressTriggered = true
-            dismissBubble()
+            if (OrbitAccessibilityService.instance != null) {
+                showRadialMenu()
+            } else {
+                dismissBubble()
+                android.widget.Toast.makeText(this@OrbitBubbleService, "Enable Orbit Accessibility in Settings for quick actions", android.widget.Toast.LENGTH_LONG).show()
+            }
         }
 
         bubble.setOnTouchListener { _, event ->
@@ -398,10 +407,26 @@ class OrbitBubbleService : Service() {
 
     // ── Transcript routing ────────────────────────────────────────────────────
 
-    private fun handleTranscript(transcript: String) {
+    private fun executeWithContext(prompt: String) {
+        val accessibleInstance = OrbitAccessibilityService.instance
+        if (accessibleInstance != null) {
+            accessibleInstance.getSelectedTextOrCopy { extractedText ->
+                if (extractedText != null) {
+                    pendingSelectedText = extractedText
+                }
+                handleTranscript(prompt, forceClipboardContext = true)
+            }
+        } else {
+            handleTranscript(prompt, forceClipboardContext = true)
+        }
+    }
+
+    private fun handleTranscript(transcript: String, forceClipboardContext: Boolean = false) {
         var finalTranscript = transcript
-        if (!pendingSelectedText.isNullOrBlank()) {
-            finalTranscript = "Instruction: $transcript\n\nSelected text: ${pendingSelectedText}"
+        val selectedText = pendingSelectedText
+
+        if (!selectedText.isNullOrBlank()) {
+            finalTranscript = "Instruction: $transcript\n\nSelected text: ${selectedText}"
             pendingSelectedText = null
         }
         
@@ -500,6 +525,97 @@ class OrbitBubbleService : Service() {
         resultTextView = null
         resultScrollView = null
         isResultVisible = false
+    }
+
+    // ── Radial Menu ───────────────────────────────────────────────────────────
+    private fun hideRadialMenu() {
+        if (isRadialMenuVisible) {
+            try { windowManager?.removeView(radialMenuView) } catch (_: Exception) {}
+        }
+        radialMenuView = null
+        isRadialMenuVisible = false
+    }
+
+    private fun showRadialMenu() {
+        if (isRadialMenuVisible) return
+        val bParams = bubbleParams ?: return
+        val (screenW, screenH) = getScreenSize()
+        val centerX = bParams.x + bubbleSizePx / 2
+        val centerY = bParams.y + bubbleSizePx / 2
+
+        val overlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.argb(120, 0, 0, 0))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { hideRadialMenu() }
+        }
+
+        val radius = dpToPx(72f).toFloat() // distance from bubble center
+        val isOnLeft = centerX < screenW / 2
+        val angles = if (isOnLeft) {
+            listOf(-70.0, -35.0, 0.0, 35.0, 70.0)
+        } else {
+            listOf(250.0, 215.0, 180.0, 145.0, 110.0)
+        }
+
+        val actions = listOf(
+            Triple("Summarize", "S", Color.parseColor("#8C52FF")), // Violet
+            Triple("Translate", "T", Color.parseColor("#00B4D8")), // Cyan
+            Triple("Explain",   "E", Color.parseColor("#10B981")), // Emerald
+            Triple("Reply",     "R", Color.parseColor("#F59E0B")), // Orange
+            Triple("Close",     "✕", Color.parseColor("#EF4444"))  // Red
+        )
+        val btnSize = dpToPx(38f)
+
+        for (i in actions.indices) {
+            val (actionName, initial, colorInt) = actions[i]
+            val angleRad = Math.toRadians(angles[i])
+            val dx = (Math.cos(angleRad) * radius).toInt()
+            val dy = (Math.sin(angleRad) * radius).toInt()
+
+            val btnX = centerX + dx - btnSize / 2
+            val btnY = centerY + dy - btnSize / 2
+
+            val btn = TextView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(btnSize, btnSize).apply {
+                    leftMargin = btnX
+                    topMargin = btnY
+                }
+                text = initial
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.argb(190, Color.red(colorInt), Color.green(colorInt), Color.blue(colorInt)))
+                    setStroke(dpToPx(1f), Color.argb(120, 255, 255, 255))
+                }
+                elevation = 16f
+                setOnClickListener {
+                    hideRadialMenu()
+                    when (actionName) {
+                        "Summarize" -> executeWithContext("Summarize this context")
+                        "Translate" -> executeWithContext("Translate this to English")
+                        "Explain" -> executeWithContext("Explain this context")
+                        "Reply" -> executeWithContext("Write a reply to this based on its context")
+                        "Close" -> dismissBubble()
+                    }
+                }
+            }
+            overlay.addView(btn)
+        }
+
+        val layoutParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        radialMenuView = overlay
+        windowManager?.addView(overlay, layoutParams)
+        isRadialMenuVisible = true
     }
 
     @Suppress("SetTextI18n")
