@@ -45,8 +45,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.data.Chat
-import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
+import com.example.orbitai.ui.theme.SpaceNebula
+import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.viewmodel.ChatViewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -54,20 +55,17 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 
-private val SurfaceLight = Color(0xFFF9F8F5)
-private val SurfaceDark = SpaceDeep
 private val InkLight = Color(0xFF0D0D0D)
 private val InkDark = Color(0xFFF0EFE9)
 private val Violet = Color(0xFF5B4FE8)
 private val Green = Color(0xFF17A865)
 private val DeleteRed = Color(0xFFD94F4F)
-private val PopupLight = Color(0xFFFFFFFF)
 private val PopupDark = Color(0xFF1E1E1C)
 
-private val surfaceColor @Composable get() = if (IsOrbitDarkTheme) SurfaceDark else SurfaceLight
+private val surfaceColor @Composable get() = SpaceDeep
 private val inkColor @Composable get() = if (IsOrbitDarkTheme) InkDark else InkLight
 private val dividerColor @Composable get() = inkColor.copy(alpha = if (IsOrbitDarkTheme) 0.12f else 0.06f)
-private val popupSurface @Composable get() = if (IsOrbitDarkTheme) PopupDark else PopupLight
+private val popupSurface @Composable get() = if (IsOrbitDarkTheme) PopupDark else SpaceNebula
 private val tagBackground @Composable get() = Violet.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.10f)
 
 private val Sans = FontFamily.SansSerif
