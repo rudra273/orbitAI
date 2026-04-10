@@ -469,8 +469,17 @@ class OrbitBubbleService : Service() {
                     if (!shouldInject) withContext(Dispatchers.Main) { updateResultText("Loading model…") }
                     repo.loadModel(model, settings)
                 }
+                val systemInstruction = if (shouldInject) {
+                    "You are an AI ghostwriter directly typing into a text field. Read the surrounding context and write a COMPLETE, fully fleshed-out response that fulfills the user's command (e.g., a full email, a text message, etc.).\n" +
+                    "CRITICAL RULES:\n" +
+                    "1. Provide ONLY the final written text to be pasted. NEVER include conversational filler like 'Here is your email:' or 'Subject:'.\n" +
+                    "2. Do not provide multiple options or examples. Just provide the best one.\n" +
+                    "3. Generate a properly formatted and appropriately response for the medium (e.g., write a proper email if asked for an email)."
+                } else null
+
                 val prompt = GemmaChatPromptBuilder.build(
                     messages = listOf(Message(role = Role.USER, content = transcript)),
+                    systemPrompt = systemInstruction
                 )
                 var accumulated = ""
                 repo.generateResponseStream(com.example.orbitai.data.InferenceInput(prompt, emptyList()), settings.maxDecodedTokens).collect { token ->
