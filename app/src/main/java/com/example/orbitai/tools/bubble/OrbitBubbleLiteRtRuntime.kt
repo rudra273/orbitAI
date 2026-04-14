@@ -142,15 +142,12 @@ class OrbitBubbleLiteRtRuntime(
 
     fun textContents(text: String): Contents = Contents.of(text)
 
-    fun screenshotContents(bitmap: Bitmap, originalRequest: String): Contents {
+    fun imagePromptContents(bitmap: Bitmap, promptText: String): Contents {
         val stream = java.io.ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
         return Contents.of(
             Content.ImageBytes(stream.toByteArray()),
-            Content.Text(
-                "The requested screenshot is attached. Answer the user's original request directly. " +
-                    "Do not mention tool names.\nOriginal request: $originalRequest"
-            ),
+            Content.Text(promptText),
         )
     }
 

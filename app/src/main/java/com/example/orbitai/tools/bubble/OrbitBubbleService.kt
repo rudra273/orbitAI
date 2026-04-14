@@ -57,6 +57,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -82,6 +83,7 @@ class OrbitBubbleService : Service() {
     private var resultTextView: TextView? = null
     private var resultScrollView: ScrollView? = null
     private var isResultVisible = false
+    private var isResultCompactMode = false
     private var lastTranscript: String = ""
 
     // ── Radial Menu ──────────────────────────────────────────────────────────
@@ -106,6 +108,17 @@ class OrbitBubbleService : Service() {
     private var edgeDockMarginPx = 0
     private var bubbleIdleAlpha = 0.42f
     private var bubbleStyle = "round"
+
+    private enum class ScreenCaptureSource {
+        WINDOW,
+        DISPLAY_FALLBACK,
+        UNAVAILABLE,
+    }
+
+    private data class ScreenCaptureResult(
+        val bitmap: Bitmap?,
+        val source: ScreenCaptureSource,
+    )
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -450,15 +463,19 @@ class OrbitBubbleService : Service() {
     private fun runAgenticInference(initialTranscript: String) {
         hideResultOverlay()
         Log.d(logTag, "runAgenticInference transcript=${initialTranscript.take(120)}")
+        val isScreenIntent = isLikelyScreenUnderstandingRequest(initialTranscript)
+        val targetWindowId = if (isScreenIntent) {
+            OrbitAccessibilityService.instance?.resolvePreferredCaptureWindowId()
+        } else {
+            null
+        }
+        if (isScreenIntent) {
+            Log.d(logTag, "Screen-understanding route selected targetWindowId=$targetWindowId")
+        }
 
         llmJob?.cancel()
         llmJob = serviceScope.launch {
             val startedAt = SystemClock.elapsedRealtime()
-            withContext(Dispatchers.Main) {
-                showResultOverlay(initialTranscript, cancelExistingJob = false)
-                updateResultStatus("Thinking...")
-                updateResultText("")
-            }
             val downloader = ModelDownloader(this@OrbitBubbleService)
             val selectedModelId = ToolSettingsStore(this@OrbitBubbleService).bubbleModelId
             val model = AVAILABLE_MODELS.firstOrNull { it.id == selectedModelId && downloader.isDownloaded(it) }
@@ -466,6 +483,7 @@ class OrbitBubbleService : Service() {
 
             if (model == null) {
                 withContext(Dispatchers.Main) {
+                    showResultOverlay(initialTranscript, cancelExistingJob = false)
                     updateResultStatus("Model unavailable")
                     updateResultText("No model downloaded.\nOpen Orbit → Settings → Model to download one.")
                 }
@@ -476,6 +494,9 @@ class OrbitBubbleService : Service() {
 
             try {
                 if (model.format != ModelFormat.LITERTLM || model.provider != ModelProvider.LOCAL) {
+                    withContext(Dispatchers.Main) {
+                        showResultOverlay(initialTranscript, cancelExistingJob = false)
+                    }
                     runLegacyOverlayStreaming(
                         initialTranscript = initialTranscript,
                         modelId = model.id,
@@ -488,12 +509,28 @@ class OrbitBubbleService : Service() {
 
                 val runtime = bubbleLiteRtRuntime
                     ?: OrbitBubbleLiteRtRuntime(this@OrbitBubbleService).also { bubbleLiteRtRuntime = it }
-                withContext(Dispatchers.Main) { updateResultStatus("Loading model...") }
                 val loadedRuntime = runtime.ensureLoaded(model, settings)
                 Log.d(
                     logTag,
                     "Native LiteRT bubble ready model=${model.id} backend=${loadedRuntime.backendLabel}",
                 )
+
+                if (isScreenIntent) {
+                    runDedicatedScreenUnderstanding(
+                        initialTranscript = initialTranscript,
+                        targetWindowId = targetWindowId,
+                        runtime = runtime,
+                        settings = settings,
+                        startedAt = startedAt,
+                    )
+                    return@launch
+                }
+
+                withContext(Dispatchers.Main) {
+                    showResultOverlay(initialTranscript, cancelExistingJob = false)
+                    updateResultStatus("Thinking...")
+                    updateResultText("")
+                }
 
                 val systemInstruction = """
                     You are Orbit AI running fully on-device in an Android floating bubble.
@@ -510,11 +547,6 @@ class OrbitBubbleService : Service() {
                     settings = settings,
                     enableTools = true,
                 ).use { conversation ->
-                    withContext(Dispatchers.Main) {
-                        updateResultStatus("Thinking...")
-                        updateResultText("")
-                    }
-
                     val firstTurn = runtime.streamTurn(
                         conversation = conversation,
                         contents = runtime.textContents(initialTranscript),
@@ -546,7 +578,8 @@ class OrbitBubbleService : Service() {
 
                         "take_screenshot" -> {
                             withContext(Dispatchers.Main) { updateResultStatus("Capturing screen...") }
-                            val bitmap = captureScreenBitmap()
+                            val capture = captureBestScreenBitmap(targetWindowId = null)
+                            val bitmap = capture.bitmap
                             if (bitmap == null) {
                                 withContext(Dispatchers.Main) {
                                     updateResultStatus("Screenshot unavailable")
@@ -557,12 +590,21 @@ class OrbitBubbleService : Service() {
 
                             try {
                                 withContext(Dispatchers.Main) {
-                                    updateResultStatus("Analyzing screenshot...")
+                                    updateResultStatus(
+                                        if (capture.source == ScreenCaptureSource.WINDOW) {
+                                            "Analyzing screenshot..."
+                                        } else {
+                                            "Analyzing screenshot (fallback)..."
+                                        }
+                                    )
                                     updateResultText("")
                                 }
                                 val followUpTurn = runtime.streamTurn(
                                     conversation = conversation,
-                                    contents = runtime.screenshotContents(bitmap, initialTranscript),
+                                    contents = runtime.imagePromptContents(
+                                        bitmap,
+                                        buildScreenUnderstandingPrompt(initialTranscript),
+                                    ),
                                     maxDecodedTokens = settings.maxDecodedTokens,
                                 ) { delta ->
                                     withContext(Dispatchers.Main) {
@@ -604,6 +646,9 @@ class OrbitBubbleService : Service() {
             } catch (e: Exception) {
                 Log.e(logTag, "Agentic inference failed", e)
                 withContext(Dispatchers.Main) {
+                    if (!isResultVisible) {
+                        showResultOverlay(initialTranscript, cancelExistingJob = false)
+                    }
                     updateResultStatus("Failed")
                     updateResultText("Something went wrong: ${e.message}")
                 }
@@ -625,6 +670,7 @@ class OrbitBubbleService : Service() {
         }
 
         withContext(Dispatchers.Main) {
+            ensureExpandedResultOverlay()
             updateResultStatus("Thinking...")
             updateResultText("")
         }
@@ -642,6 +688,78 @@ class OrbitBubbleService : Service() {
             updateResultStatus("Done in ${formatElapsed(startedAt)}")
             if ((resultTextView?.text?.toString() ?: "").isBlank()) {
                 updateResultText("I couldn't generate a response.")
+            }
+        }
+    }
+
+    private suspend fun runDedicatedScreenUnderstanding(
+        initialTranscript: String,
+        targetWindowId: Int?,
+        runtime: OrbitBubbleLiteRtRuntime,
+        settings: com.example.orbitai.data.InferenceSettings,
+        startedAt: Long,
+    ) {
+        val capture = captureBestScreenBitmap(targetWindowId)
+        val bitmap = capture.bitmap
+
+        withContext(Dispatchers.Main) {
+            showResultOverlay(initialTranscript, cancelExistingJob = false)
+            updateResultStatus(
+                when (capture.source) {
+                    ScreenCaptureSource.WINDOW -> "Analyzing screenshot..."
+                    ScreenCaptureSource.DISPLAY_FALLBACK -> "Analyzing screenshot (fallback)..."
+                    ScreenCaptureSource.UNAVAILABLE -> "Screenshot unavailable"
+                }
+            )
+            updateResultText("")
+        }
+
+        if (bitmap == null) {
+            withContext(Dispatchers.Main) {
+                updateResultText("I couldn't capture the current screen. Make sure Orbit Accessibility is enabled and try again.")
+            }
+            return
+        }
+
+        val systemInstruction = """
+            You are Orbit AI analyzing a screenshot of the user's current Android screen.
+            Use only the attached screenshot to answer.
+            Ignore any Orbit AI bubble, Orbit response window, floating controls, or overlays if they appear.
+            Never call tools. Never say you inserted text. Never tell the user to tap or type unless they explicitly asked for instructions.
+            Do not guess content that is not visible in the screenshot.
+            If the screenshot is unclear or text is unreadable, say that briefly.
+            Answer plainly and directly.
+        """.trimIndent()
+
+        try {
+            runtime.createConversation(
+                systemInstruction = systemInstruction,
+                settings = settings,
+                enableTools = false,
+            ).use { conversation ->
+                val analysisTurn = runtime.streamTurn(
+                    conversation = conversation,
+                    contents = runtime.imagePromptContents(
+                        bitmap = bitmap,
+                        promptText = buildScreenUnderstandingPrompt(initialTranscript),
+                    ),
+                    maxDecodedTokens = settings.maxDecodedTokens,
+                ) { delta ->
+                    withContext(Dispatchers.Main) {
+                        appendResultText(delta)
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    updateResultStatus("Done in ${formatElapsed(startedAt)}")
+                    if (analysisTurn.text.isBlank()) {
+                        updateResultText("I couldn't read a useful answer from the current screen.")
+                    }
+                }
+            }
+        } finally {
+            if (!bitmap.isRecycled) {
+                bitmap.recycle()
             }
         }
     }
@@ -676,12 +794,116 @@ class OrbitBubbleService : Service() {
         }
     }
 
-    private suspend fun captureScreenBitmap(): Bitmap? {
-        return suspendCancellableCoroutine { continuation ->
-            OrbitAccessibilityService.instance?.captureScreenAsBitmap { bitmap ->
-                continuation.resumeWith(Result.success(bitmap))
-            } ?: continuation.resumeWith(Result.success(null))
+    private suspend fun captureBestScreenBitmap(targetWindowId: Int?): ScreenCaptureResult {
+        val service = OrbitAccessibilityService.instance
+        if (service == null) {
+            return ScreenCaptureResult(bitmap = null, source = ScreenCaptureSource.UNAVAILABLE)
         }
+
+        val windowBitmap = suspendCaptureBitmap { callback ->
+            when {
+                targetWindowId != null -> service.captureWindowAsBitmap(targetWindowId, callback)
+                else -> service.captureActiveWindowAsBitmap(callback)
+            }
+        }
+        if (windowBitmap != null) {
+            Log.d(logTag, "Using window-only screenshot path for screen understanding targetWindowId=$targetWindowId")
+            return ScreenCaptureResult(bitmap = windowBitmap, source = ScreenCaptureSource.WINDOW)
+        }
+
+        Log.w(logTag, "Window screenshot unavailable; falling back to full-display capture targetWindowId=$targetWindowId")
+        val displayBitmap = captureDisplayBitmapWithOrbitUiHidden()
+        return ScreenCaptureResult(
+            bitmap = displayBitmap,
+            source = if (displayBitmap != null) {
+                ScreenCaptureSource.DISPLAY_FALLBACK
+            } else {
+                ScreenCaptureSource.UNAVAILABLE
+            },
+        )
+    }
+
+    private suspend fun captureDisplayBitmapWithOrbitUiHidden(): Bitmap? {
+        withContext(Dispatchers.Main) {
+            setOrbitOverlayVisibility(isVisible = false)
+        }
+        delay(90)
+        return try {
+            suspendCaptureBitmap { callback ->
+                OrbitAccessibilityService.instance?.captureScreenAsBitmap(callback) ?: callback(null)
+            }
+        } finally {
+            withContext(Dispatchers.Main) {
+                setOrbitOverlayVisibility(isVisible = true)
+            }
+        }
+    }
+
+    private suspend fun suspendCaptureBitmap(
+        request: ((Bitmap?) -> Unit) -> Unit,
+    ): Bitmap? {
+        return suspendCancellableCoroutine { continuation ->
+            request { bitmap ->
+                continuation.resumeWith(Result.success(bitmap))
+            }
+        }
+    }
+
+    private fun setOrbitOverlayVisibility(isVisible: Boolean) {
+        val visibility = if (isVisible) View.VISIBLE else View.INVISIBLE
+        resultCardView?.visibility = visibility
+        bubbleView?.visibility = visibility
+    }
+
+    private fun isLikelyScreenUnderstandingRequest(transcript: String): Boolean {
+        val normalized = transcript.lowercase()
+        val screenHints = listOf(
+            "screen",
+            "screenshot",
+            "what is on my screen",
+            "what's on my screen",
+            "current screen",
+            "this screen",
+            "read my screen",
+            "read this screen",
+            "translate this screen",
+            "what am i looking at",
+            "what is here",
+        )
+        return screenHints.any { hint -> normalized.contains(hint) }
+    }
+
+    private fun buildScreenUnderstandingPrompt(transcript: String): String {
+        val normalized = transcript.lowercase()
+        val taskInstruction = when {
+            normalized.contains("translate") -> {
+                "Translate all clearly visible text on the screen into the user's language. Preserve important structure when possible."
+            }
+            normalized.contains("explain") -> {
+                "Explain what is visible on the screen, what app or UI it appears to be, and what the important elements mean."
+            }
+            normalized.contains("summarize") -> {
+                "Summarize the important visible content on the screen."
+            }
+            else -> {
+                "Describe what is visible on the screen and answer the user's request."
+            }
+        }
+
+        return """
+            Attached is a screenshot of the user's current screen.
+            User request: $transcript
+
+            Rules:
+            - Use only the screenshot.
+            - Ignore any Orbit AI bubble, Orbit AI response card, or floating overlay if visible.
+            - Do not mention tools or hidden context.
+            - Do not say you inserted text.
+            - If something is not readable, say so briefly.
+
+            Task:
+            $taskInstruction
+        """.trimIndent()
     }
 
     private fun formatElapsed(startedAt: Long): String {
@@ -695,8 +917,13 @@ class OrbitBubbleService : Service() {
 
     // ── Result overlay ────────────────────────────────────────────────────────
 
-    private fun showResultOverlay(transcript: String, cancelExistingJob: Boolean = true) {
+    private fun showResultOverlay(
+        transcript: String,
+        cancelExistingJob: Boolean = true,
+        compact: Boolean = false,
+    ) {
         hideResultOverlay(cancelJob = cancelExistingJob)
+        isResultCompactMode = compact
         val (screenW, screenH) = getScreenSize()
         val cardW = screenW - dpToPx(32f)
         val responseHeightPx = dpToPx(ToolSettingsStore(this).bubbleResponseHeightDp.toFloat())
@@ -705,7 +932,7 @@ class OrbitBubbleService : Service() {
             (bubbleY + bubbleSizePx + dpToPx(10f))
         else
             (bubbleY - (responseHeightPx + dpToPx(94f))).coerceAtLeast(dpToPx(24f))
-        val card = buildResultCardView(transcript, responseHeightPx)
+        val card = buildResultCardView(transcript, responseHeightPx, compact)
         val params = WindowManager.LayoutParams(
             cardW,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -730,6 +957,7 @@ class OrbitBubbleService : Service() {
         resultTextView = null
         resultScrollView = null
         isResultVisible = false
+        isResultCompactMode = false
     }
 
     // ── Radial Menu ───────────────────────────────────────────────────────────
@@ -823,8 +1051,32 @@ class OrbitBubbleService : Service() {
         isRadialMenuVisible = true
     }
 
+    private fun ensureExpandedResultOverlay() {
+        if (!isResultVisible || !isResultCompactMode) return
+
+        val currentStatus = resultStatusView?.text?.toString() ?: "Thinking..."
+        val currentText = resultTextView?.text?.toString() ?: ""
+        val oldParams = resultCardParams
+        hideResultOverlay(cancelJob = false)
+        val responseHeightPx = dpToPx(ToolSettingsStore(this).bubbleResponseHeightDp.toFloat())
+        val card = buildResultCardView(lastTranscript, responseHeightPx, compact = false)
+        resultCardView = card
+        resultCardParams = oldParams
+        if (oldParams != null) {
+            windowManager?.addView(card, oldParams)
+        }
+        isResultVisible = true
+        isResultCompactMode = false
+        resultStatusView?.text = currentStatus
+        resultTextView?.text = parseSimpleMarkdown(currentText)
+    }
+
     @Suppress("SetTextI18n")
-    private fun buildResultCardView(transcript: String, responseHeightPx: Int): View {
+    private fun buildResultCardView(
+        transcript: String,
+        responseHeightPx: Int,
+        compact: Boolean,
+    ): View {
         fun dp(v: Int): Int = dpToPx(v.toFloat())
 
         val store = ToolSettingsStore(this)
@@ -901,17 +1153,24 @@ class OrbitBubbleService : Service() {
                     val currentText = resultTextView?.text?.toString() ?: ""
                     val oldParams = resultCardParams
                     hideResultOverlay(cancelJob = false)
-                    val card = buildResultCardView(lastTranscript, responseHeightPx)
+                    val card = buildResultCardView(
+                        lastTranscript,
+                        responseHeightPx,
+                        compact = isResultCompactMode,
+                    )
                     resultCardView = card
                     resultCardParams = oldParams
                     if (oldParams != null) windowManager?.addView(card, oldParams)
                     isResultVisible = true
+                    isResultCompactMode = compact
                     resultStatusView?.text = currentStatus
-                    resultTextView?.text = currentText
+                    resultTextView?.text = parseSimpleMarkdown(currentText)
                 }
             })
         }
-        header.addView(themeSwitcherContainer)
+        if (!compact) {
+            header.addView(themeSwitcherContainer)
+        }
 
         val opacitySlider = android.widget.SeekBar(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(50), LinearLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -940,7 +1199,9 @@ class OrbitBubbleService : Service() {
                 override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
             })
         }
-        header.addView(opacitySlider)
+        if (!compact) {
+            header.addView(opacitySlider)
+        }
 
         val openBtn = TextView(this).apply {
             text = "Open"
@@ -955,7 +1216,9 @@ class OrbitBubbleService : Service() {
             }
         }
         openBtn.setOnClickListener { hideResultOverlay(); launchApp(lastTranscript) }
-        header.addView(openBtn)
+        if (!compact) {
+            header.addView(openBtn)
+        }
         val closeBtn = TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
             text = "✕"
@@ -1023,6 +1286,7 @@ class OrbitBubbleService : Service() {
         root.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
             setBackgroundColor(Color.argb(70, 255, 255, 255))
+            visibility = if (compact) View.GONE else View.VISIBLE
         })
         root.addView(TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -1033,12 +1297,14 @@ class OrbitBubbleService : Service() {
             setTextColor(theme.secondaryText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             maxLines = 2
+            visibility = if (compact) View.GONE else View.VISIBLE
         })
 
         // Response body
         val scrollView = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, responseHeightPx)
             isVerticalScrollBarEnabled = false
+            visibility = if (compact) View.GONE else View.VISIBLE
         }
         val responseText = TextView(this).apply {
             setPadding(dp(14), dp(8), dp(14), dp(10))

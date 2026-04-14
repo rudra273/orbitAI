@@ -1,8 +1,7 @@
 package com.example.orbitai.tools.bubble
 
 import android.accessibilityservice.AccessibilityService
-import android.content.ClipboardManager
-import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -111,28 +110,7 @@ class OrbitAccessibilityService : AccessibilityService() {
                 mainExecutor,
                 object : TakeScreenshotCallback {
                     override fun onSuccess(screenshotResult: ScreenshotResult) {
-                        try {
-                            val hardwareBuffer = screenshotResult.hardwareBuffer
-                            val colorSpace = screenshotResult.colorSpace
-                            val bitmap = android.graphics.Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)
-                            
-                            // Scale down for LLM performance
-                            val scaledBitmap = if (bitmap != null) {
-                                val maxWidth = 1024
-                                val maxHeight = 1024
-                                val ratioBitmap = bitmap.width.toFloat() / bitmap.height.toFloat()
-                                val finalWidth = if (bitmap.width > maxWidth) maxWidth else bitmap.width
-                                val finalHeight = (finalWidth / ratioBitmap).toInt()
-                                val resized = android.graphics.Bitmap.createScaledBitmap(bitmap, finalWidth, finalHeight, true)
-                                resized.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
-                            } else null
-                            
-                            hardwareBuffer.close()
-                            callback(scaledBitmap)
-                        } catch (e: Exception) {
-                            Log.e("OrbitAccessibility", "Failed to process screenshot", e)
-                            callback(null)
-                        }
+                        callback(processScreenshotResult(screenshotResult))
                     }
 
                     override fun onFailure(errorCode: Int) {
@@ -143,6 +121,95 @@ class OrbitAccessibilityService : AccessibilityService() {
             )
         } else {
             callback(null)
+        }
+    }
+
+    fun captureActiveWindowAsBitmap(callback: (Bitmap?) -> Unit) {
+        val targetWindowId = resolvePreferredCaptureWindowId()
+        if (targetWindowId == null) {
+            callback(null)
+            return
+        }
+        captureWindowAsBitmap(targetWindowId, callback)
+    }
+
+    fun captureWindowAsBitmap(windowId: Int, callback: (Bitmap?) -> Unit) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            callback(null)
+            return
+        }
+
+        if (windowId < 0) {
+            Log.w("OrbitAccessibility", "Invalid window id for takeScreenshotOfWindow: $windowId")
+            callback(null)
+            return
+        }
+
+        takeScreenshotOfWindow(
+            windowId,
+            mainExecutor,
+            object : TakeScreenshotCallback {
+                override fun onSuccess(screenshotResult: ScreenshotResult) {
+                    Log.d("OrbitAccessibility", "Window screenshot captured for windowId=$windowId")
+                    callback(processScreenshotResult(screenshotResult))
+                }
+
+                override fun onFailure(errorCode: Int) {
+                    Log.e(
+                        "OrbitAccessibility",
+                        "Window screenshot failed for windowId=$windowId error=$errorCode",
+                    )
+                    callback(null)
+                }
+            },
+        )
+    }
+
+    fun resolvePreferredCaptureWindowId(): Int? {
+        val ownPackage = packageName
+        val rootWindowId = rootInActiveWindow?.windowId
+        val rootPackage = rootInActiveWindow?.packageName?.toString()
+        if (rootWindowId != null && rootWindowId >= 0 && rootPackage != ownPackage) {
+            return rootWindowId
+        }
+
+        return windows
+            .asSequence()
+            .filter { window -> window.id >= 0 }
+            .filter { window ->
+                val pkg = window.root?.packageName?.toString()
+                pkg != null && pkg != ownPackage
+            }
+            .sortedWith(
+                compareByDescending<android.view.accessibility.AccessibilityWindowInfo> { it.isActive }
+                    .thenByDescending { it.isFocused },
+            )
+            .map { it.id }
+            .firstOrNull()
+    }
+
+    private fun processScreenshotResult(screenshotResult: ScreenshotResult): Bitmap? {
+        return try {
+            val hardwareBuffer = screenshotResult.hardwareBuffer
+            val colorSpace = screenshotResult.colorSpace
+            val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)
+
+            val scaledBitmap = if (bitmap != null) {
+                val maxWidth = 1024
+                val ratioBitmap = bitmap.width.toFloat() / bitmap.height.toFloat()
+                val finalWidth = if (bitmap.width > maxWidth) maxWidth else bitmap.width
+                val finalHeight = (finalWidth / ratioBitmap).toInt()
+                val resized = Bitmap.createScaledBitmap(bitmap, finalWidth, finalHeight, true)
+                resized.copy(Bitmap.Config.ARGB_8888, false)
+            } else {
+                null
+            }
+
+            hardwareBuffer.close()
+            scaledBitmap
+        } catch (e: Exception) {
+            Log.e("OrbitAccessibility", "Failed to process screenshot", e)
+            null
         }
     }
 
