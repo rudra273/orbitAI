@@ -15,7 +15,7 @@ composeBom = "2025.05.00"
 navigationCompose = "2.9.0"
 mediapipeLlm = "0.10.27"
 mediapipeText = "0.10.32"
-litertlm = "latest.release"
+litertlm = "0.10.0"
 pdfboxAndroid = "2.0.27.0"
 
 [libraries]

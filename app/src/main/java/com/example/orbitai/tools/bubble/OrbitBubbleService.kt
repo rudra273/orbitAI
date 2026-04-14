@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -18,10 +19,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.SystemClock
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -42,11 +45,10 @@ import com.example.orbitai.R
 import com.example.orbitai.data.AVAILABLE_MODELS
 import com.example.orbitai.data.InferenceSettingsStore
 import com.example.orbitai.data.LlmRepository
-import com.example.orbitai.data.Message
+import com.example.orbitai.data.ModelFormat
 import com.example.orbitai.data.ModelDownloader
-import com.example.orbitai.data.Role
+import com.example.orbitai.data.ModelProvider
 import com.example.orbitai.data.ToolSettingsStore
-import com.example.orbitai.prompts.GemmaChatPromptBuilder
 import com.example.orbitai.tools.router.ToolRoute
 import com.example.orbitai.tools.router.ToolRouter
 import kotlinx.coroutines.CancellationException
@@ -56,9 +58,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 class OrbitBubbleService : Service() {
+
+    private val logTag = "OrbitBubble"
 
     private var slideTabWidthDp = 24f
     private var slideTabHeightDp = 104f
@@ -73,6 +78,7 @@ class OrbitBubbleService : Service() {
     // ── Result overlay ────────────────────────────────────────────────────────
     private var resultCardView: View? = null
     private var resultCardParams: WindowManager.LayoutParams? = null
+    private var resultStatusView: TextView? = null
     private var resultTextView: TextView? = null
     private var resultScrollView: ScrollView? = null
     private var isResultVisible = false
@@ -91,6 +97,7 @@ class OrbitBubbleService : Service() {
 
     // ── LLM (overlay mode) ────────────────────────────────────────────────────
     private var bubbleLlmRepo: LlmRepository? = null
+    private var bubbleLiteRtRuntime: OrbitBubbleLiteRtRuntime? = null
     private var llmJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -178,6 +185,8 @@ class OrbitBubbleService : Service() {
         serviceScope.cancel()
         bubbleLlmRepo?.close()
         bubbleLlmRepo = null
+        bubbleLiteRtRuntime?.close()
+        bubbleLiteRtRuntime = null
         speechRecognizer?.destroy()
         speechRecognizer = null
         hideResultOverlay()
@@ -419,8 +428,6 @@ class OrbitBubbleService : Service() {
             finalTranscript = "Instruction: $transcript\n\nSelected text: ${selectedText}"
             pendingSelectedText = null
         }
-        
-        val shouldInject = transcript.trim().lowercase().startsWith("write")
 
         lastTranscript = finalTranscript
         val route = ToolRouter.route(finalTranscript)
@@ -432,89 +439,264 @@ class OrbitBubbleService : Service() {
         }
 
         if (ToolSettingsStore(this).bubbleResultsInOverlay) {
-            runInlineInference(finalTranscript, shouldInject)
+            runAgenticInference(finalTranscript)
         } else {
             launchApp(finalTranscript)
         }
     }
 
-    // ── Inline LLM inference ──────────────────────────────────────────────────
+    // ── Agentic Inference Loop ────────────────────────────────────────────────
+    
+    private fun runAgenticInference(initialTranscript: String) {
+        hideResultOverlay()
+        Log.d(logTag, "runAgenticInference transcript=${initialTranscript.take(120)}")
 
-    private fun runInlineInference(transcript: String, shouldInject: Boolean = false) {
-        if (shouldInject) {
-            android.widget.Toast.makeText(this, "Orbit is writing...", android.widget.Toast.LENGTH_SHORT).show()
-            hideResultOverlay()
-        } else {
-            showResultOverlay(transcript)
-        }
-        
         llmJob?.cancel()
         llmJob = serviceScope.launch {
+            val startedAt = SystemClock.elapsedRealtime()
+            withContext(Dispatchers.Main) {
+                showResultOverlay(initialTranscript, cancelExistingJob = false)
+                updateResultStatus("Thinking...")
+                updateResultText("")
+            }
             val downloader = ModelDownloader(this@OrbitBubbleService)
             val selectedModelId = ToolSettingsStore(this@OrbitBubbleService).bubbleModelId
-            // Use the user-selected bubble model; fall back to first downloaded if missing
             val model = AVAILABLE_MODELS.firstOrNull { it.id == selectedModelId && downloader.isDownloaded(it) }
                 ?: AVAILABLE_MODELS.firstOrNull { downloader.isDownloaded(it) }
+
             if (model == null) {
-                if (!shouldInject) {
-                    withContext(Dispatchers.Main) { updateResultText("No model downloaded.\nOpen Orbit → Settings → Model to download one.") }
+                withContext(Dispatchers.Main) {
+                    updateResultStatus("Model unavailable")
+                    updateResultText("No model downloaded.\nOpen Orbit → Settings → Model to download one.")
                 }
                 return@launch
             }
-            val settings = InferenceSettingsStore(this@OrbitBubbleService).get()
-            val repo = bubbleLlmRepo
-                ?: LlmRepository(this@OrbitBubbleService).also { bubbleLlmRepo = it }
-            try {
-                if (!repo.isModelLoaded(model.id, settings)) {
-                    if (!shouldInject) withContext(Dispatchers.Main) { updateResultText("Loading model…") }
-                    repo.loadModel(model, settings)
-                }
-                val systemInstruction = if (shouldInject) {
-                    "You are an AI ghostwriter directly typing into a text field. Read the surrounding context and write a COMPLETE, fully fleshed-out response that fulfills the user's command (e.g., a full email, a text message, etc.).\n" +
-                    "CRITICAL RULES:\n" +
-                    "1. Provide ONLY the final written text to be pasted. NEVER include conversational filler like 'Here is your email:' or 'Subject:'.\n" +
-                    "2. Do not provide multiple options or examples. Just provide the best one.\n" +
-                    "3. Generate a properly formatted and appropriately response for the medium (e.g., write a proper email if asked for an email)."
-                } else null
 
-                val prompt = GemmaChatPromptBuilder.build(
-                    messages = listOf(Message(role = Role.USER, content = transcript)),
-                    systemPrompt = systemInstruction
-                )
-                var accumulated = ""
-                repo.generateResponseStream(com.example.orbitai.data.InferenceInput(prompt, emptyList()), settings.maxDecodedTokens).collect { token ->
-                    accumulated += token
-                    if (!shouldInject) {
-                        withContext(Dispatchers.Main) { updateResultText(accumulated) }
-                    }
+            val settings = InferenceSettingsStore(this@OrbitBubbleService).get()
+
+            try {
+                if (model.format != ModelFormat.LITERTLM || model.provider != ModelProvider.LOCAL) {
+                    runLegacyOverlayStreaming(
+                        initialTranscript = initialTranscript,
+                        modelId = model.id,
+                        settings = settings,
+                        startedAt = startedAt,
+                        model = model,
+                    )
+                    return@launch
                 }
-                
-                if (shouldInject) {
+
+                val runtime = bubbleLiteRtRuntime
+                    ?: OrbitBubbleLiteRtRuntime(this@OrbitBubbleService).also { bubbleLiteRtRuntime = it }
+                withContext(Dispatchers.Main) { updateResultStatus("Loading model...") }
+                val loadedRuntime = runtime.ensureLoaded(model, settings)
+                Log.d(
+                    logTag,
+                    "Native LiteRT bubble ready model=${model.id} backend=${loadedRuntime.backendLabel}",
+                )
+
+                val systemInstruction = """
+                    You are Orbit AI running fully on-device in an Android floating bubble.
+                    Answer the user directly unless a tool is truly required.
+                    Use inject_into_textfield only when the user wants you to write, paste, reply, or fill text into the currently focused text field.
+                    Use take_screenshot only when the user is asking about what is currently visible on-screen and visual context is required.
+                    Never expose raw tool names or tool arguments to the user.
+                    Keep answers concise by default.
+                    Call at most one tool in a turn.
+                """.trimIndent()
+
+                runtime.createConversation(
+                    systemInstruction = systemInstruction,
+                    settings = settings,
+                    enableTools = true,
+                ).use { conversation ->
                     withContext(Dispatchers.Main) {
-                        val injected = OrbitAccessibilityService.instance?.injectTextIntoActiveField(accumulated.trim())
-                        if (injected == true) {
-                            android.widget.Toast.makeText(this@OrbitBubbleService, "Inserted text", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            android.widget.Toast.makeText(this@OrbitBubbleService, "No active text box found", android.widget.Toast.LENGTH_SHORT).show()
+                        updateResultStatus("Thinking...")
+                        updateResultText("")
+                    }
+
+                    val firstTurn = runtime.streamTurn(
+                        conversation = conversation,
+                        contents = runtime.textContents(initialTranscript),
+                        maxDecodedTokens = settings.maxDecodedTokens,
+                    ) { delta ->
+                        withContext(Dispatchers.Main) {
+                            appendResultText(delta)
+                        }
+                    }
+
+                    val firstToolCall = firstTurn.toolCalls.firstOrNull()
+                    if (firstToolCall == null) {
+                        withContext(Dispatchers.Main) {
+                            updateResultStatus("Done in ${formatElapsed(startedAt)}")
+                            if (firstTurn.text.isBlank()) {
+                                updateResultText("I couldn't generate a response.")
+                            }
+                        }
+                        return@launch
+                    }
+
+                    Log.d(logTag, "Structured tool selected: ${firstToolCall.name}")
+                    withContext(Dispatchers.Main) { updateResultText("") }
+
+                    when (firstToolCall.name) {
+                        "inject_into_textfield" -> {
+                            handleInjectToolCall(firstToolCall, startedAt)
+                        }
+
+                        "take_screenshot" -> {
+                            withContext(Dispatchers.Main) { updateResultStatus("Capturing screen...") }
+                            val bitmap = captureScreenBitmap()
+                            if (bitmap == null) {
+                                withContext(Dispatchers.Main) {
+                                    updateResultStatus("Screenshot unavailable")
+                                    updateResultText("I couldn't capture the current screen. Make sure Orbit Accessibility is enabled and try again.")
+                                }
+                                return@launch
+                            }
+
+                            try {
+                                withContext(Dispatchers.Main) {
+                                    updateResultStatus("Analyzing screenshot...")
+                                    updateResultText("")
+                                }
+                                val followUpTurn = runtime.streamTurn(
+                                    conversation = conversation,
+                                    contents = runtime.screenshotContents(bitmap, initialTranscript),
+                                    maxDecodedTokens = settings.maxDecodedTokens,
+                                ) { delta ->
+                                    withContext(Dispatchers.Main) {
+                                        appendResultText(delta)
+                                    }
+                                }
+
+                                val followUpToolCall = followUpTurn.toolCalls.firstOrNull()
+                                if (followUpToolCall?.name == "inject_into_textfield") {
+                                    handleInjectToolCall(followUpToolCall, startedAt)
+                                } else {
+                                    withContext(Dispatchers.Main) {
+                                        updateResultStatus("Done in ${formatElapsed(startedAt)}")
+                                        if (followUpTurn.text.isBlank()) {
+                                            updateResultText("I couldn't read a useful answer from the current screen.")
+                                        }
+                                    }
+                                }
+                            } finally {
+                                if (!bitmap.isRecycled) {
+                                    bitmap.recycle()
+                                }
+                            }
+                        }
+
+                        else -> {
+                            Log.w(logTag, "Unsupported tool call returned: ${firstToolCall.name}")
+                            withContext(Dispatchers.Main) {
+                                updateResultStatus("Unsupported tool")
+                                updateResultText("Orbit requested an unsupported tool: ${firstToolCall.name}")
+                            }
                         }
                     }
                 }
+
             } catch (e: CancellationException) {
+                Log.d(logTag, "Agentic inference cancelled")
                 throw e
             } catch (e: Exception) {
-                if (!shouldInject) {
-                    withContext(Dispatchers.Main) { updateResultText("Something went wrong: ${e.message}") }
-                } else {
-                    withContext(Dispatchers.Main) { android.widget.Toast.makeText(this@OrbitBubbleService, "Writing failed", android.widget.Toast.LENGTH_SHORT).show() }
+                Log.e(logTag, "Agentic inference failed", e)
+                withContext(Dispatchers.Main) {
+                    updateResultStatus("Failed")
+                    updateResultText("Something went wrong: ${e.message}")
                 }
             }
         }
     }
 
+    private suspend fun runLegacyOverlayStreaming(
+        initialTranscript: String,
+        modelId: String,
+        settings: com.example.orbitai.data.InferenceSettings,
+        startedAt: Long,
+        model: com.example.orbitai.data.LlmModel,
+    ) {
+        val repo = bubbleLlmRepo ?: LlmRepository(this@OrbitBubbleService).also { bubbleLlmRepo = it }
+        if (!repo.isModelLoaded(modelId, settings)) {
+            withContext(Dispatchers.Main) { updateResultStatus("Loading model...") }
+            repo.loadModel(model, settings)
+        }
+
+        withContext(Dispatchers.Main) {
+            updateResultStatus("Thinking...")
+            updateResultText("")
+        }
+
+        repo.generateResponseStream(
+            input = com.example.orbitai.data.InferenceInput(prompt = initialTranscript),
+            maxDecodedTokens = settings.maxDecodedTokens,
+        ).collect { token ->
+            withContext(Dispatchers.Main) {
+                appendResultText(token)
+            }
+        }
+
+        withContext(Dispatchers.Main) {
+            updateResultStatus("Done in ${formatElapsed(startedAt)}")
+            if ((resultTextView?.text?.toString() ?: "").isBlank()) {
+                updateResultText("I couldn't generate a response.")
+            }
+        }
+    }
+
+    private suspend fun handleInjectToolCall(
+        toolCall: com.google.ai.edge.litertlm.ToolCall,
+        startedAt: Long,
+    ) {
+        val textToInject = toolCall.arguments["text"]?.toString()?.takeIf { it.isNotBlank() }
+        if (textToInject.isNullOrBlank()) {
+            withContext(Dispatchers.Main) {
+                updateResultStatus("Missing tool input")
+                updateResultText("Orbit requested text insertion but did not return any text to insert.")
+            }
+            return
+        }
+
+        withContext(Dispatchers.Main) { updateResultStatus("Writing into field...") }
+        val injected = OrbitAccessibilityService.instance?.injectTextIntoActiveField(textToInject) == true
+        withContext(Dispatchers.Main) {
+            if (injected) {
+                updateResultStatus("Inserted in ${formatElapsed(startedAt)}")
+                updateResultText(textToInject)
+                Toast.makeText(this@OrbitBubbleService, "Text inserted", Toast.LENGTH_SHORT).show()
+            } else {
+                updateResultStatus("No text field found")
+                updateResultText(
+                    "I generated the text, but I couldn't find an active text field to insert it into.\n\n$textToInject",
+                )
+                Toast.makeText(this@OrbitBubbleService, "No active text box found", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private suspend fun captureScreenBitmap(): Bitmap? {
+        return suspendCancellableCoroutine { continuation ->
+            OrbitAccessibilityService.instance?.captureScreenAsBitmap { bitmap ->
+                continuation.resumeWith(Result.success(bitmap))
+            } ?: continuation.resumeWith(Result.success(null))
+        }
+    }
+
+    private fun formatElapsed(startedAt: Long): String {
+        val elapsedMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
+        return if (elapsedMs >= 10_000L) {
+            "${elapsedMs / 1000}s"
+        } else {
+            String.format(java.util.Locale.US, "%.1fs", elapsedMs / 1000f)
+        }
+    }
+
     // ── Result overlay ────────────────────────────────────────────────────────
 
-    private fun showResultOverlay(transcript: String) {
-        hideResultOverlay()
+    private fun showResultOverlay(transcript: String, cancelExistingJob: Boolean = true) {
+        hideResultOverlay(cancelJob = cancelExistingJob)
         val (screenW, screenH) = getScreenSize()
         val cardW = screenW - dpToPx(32f)
         val responseHeightPx = dpToPx(ToolSettingsStore(this).bubbleResponseHeightDp.toFloat())
@@ -544,6 +726,7 @@ class OrbitBubbleService : Service() {
         }
         resultCardView = null
         resultCardParams = null
+        resultStatusView = null
         resultTextView = null
         resultScrollView = null
         isResultVisible = false
@@ -714,7 +897,8 @@ class OrbitBubbleService : Service() {
                 }
                 setOnClickListener {
                     store.bubbleResponseTheme = id
-                    val currentText = resultTextView?.text?.toString() ?: "Thinking…"
+                    val currentStatus = resultStatusView?.text?.toString() ?: "Thinking..."
+                    val currentText = resultTextView?.text?.toString() ?: ""
                     val oldParams = resultCardParams
                     hideResultOverlay(cancelJob = false)
                     val card = buildResultCardView(lastTranscript, responseHeightPx)
@@ -722,6 +906,7 @@ class OrbitBubbleService : Service() {
                     resultCardParams = oldParams
                     if (oldParams != null) windowManager?.addView(card, oldParams)
                     isResultVisible = true
+                    resultStatusView?.text = currentStatus
                     resultTextView?.text = currentText
                 }
             })
@@ -781,6 +966,19 @@ class OrbitBubbleService : Service() {
         closeBtn.setOnClickListener { hideResultOverlay() }
         header.addView(closeBtn)
         root.addView(header)
+
+        val statusText = TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { setMargins(dp(14), 0, dp(14), dp(6)) }
+            setTextColor(theme.secondaryText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            text = "Thinking..."
+        }
+        root.addView(statusText)
 
         // Drag response card anywhere (bounded to visible area)
         var initialX = 0
@@ -848,13 +1046,23 @@ class OrbitBubbleService : Service() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setLineSpacing(dp(2).toFloat(), 1f)
             setTextIsSelectable(true)
-            text = "Thinking…"
+            text = ""
         }
         scrollView.addView(responseText)
         root.addView(scrollView)
+        resultStatusView = statusText
         resultTextView = responseText
         resultScrollView = scrollView
         return frame
+    }
+
+    private fun updateResultStatus(text: String) {
+        resultStatusView?.text = text
+    }
+
+    private fun appendResultText(delta: String) {
+        val currentText = resultTextView?.text?.toString().orEmpty()
+        updateResultText(currentText + delta)
     }
 
     private fun updateResultText(text: String) {
