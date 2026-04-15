@@ -7,7 +7,7 @@ import com.example.orbitai.feature.chat.ChatRepository
 import com.example.orbitai.core.common.ModeInferenceSettingsStore
 import com.example.orbitai.core.model.LlmModel
 import com.example.orbitai.feature.chat.Chat
-import com.example.orbitai.feature.chat.LlmRepository
+import com.example.orbitai.core.engine.LlmRepository
 import com.example.orbitai.feature.chat.Message
 import com.example.orbitai.feature.chat.Role
 import com.example.orbitai.feature.memory.MemoryFeatureStore

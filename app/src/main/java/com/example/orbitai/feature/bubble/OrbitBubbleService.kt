@@ -44,12 +44,17 @@ import com.example.orbitai.MainActivity
 import com.example.orbitai.R
 import com.example.orbitai.core.model.AVAILABLE_MODELS
 import com.example.orbitai.core.common.InferenceSettingsStore
-import com.example.orbitai.feature.chat.LlmRepository
+import com.example.orbitai.core.engine.ConversationSession
+import com.example.orbitai.core.engine.LlmConversationEngine
+import com.example.orbitai.core.engine.LlmRepository
+import com.example.orbitai.core.engine.ToolCallResult
 import com.example.orbitai.core.model.ModelFormat
 import com.example.orbitai.core.model.ModelDownloader
 import com.example.orbitai.core.model.ModelProvider
 import com.example.orbitai.feature.automation.AutomationRoute
 import com.example.orbitai.feature.automation.AutomationRouter
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,7 +103,6 @@ class OrbitBubbleService : Service() {
 
     // ── LLM (overlay mode) ────────────────────────────────────────────────────
     private var bubbleLlmRepo: LlmRepository? = null
-    private var bubbleLiteRtRuntime: OrbitBubbleLiteRtRuntime? = null
     private var llmJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -197,8 +201,6 @@ class OrbitBubbleService : Service() {
         serviceScope.cancel()
         bubbleLlmRepo?.close()
         bubbleLlmRepo = null
-        bubbleLiteRtRuntime?.close()
-        bubbleLiteRtRuntime = null
         speechRecognizer?.destroy()
         speechRecognizer = null
         hideResultOverlay()
@@ -492,33 +494,42 @@ class OrbitBubbleService : Service() {
             val settings = InferenceSettingsStore(this@OrbitBubbleService).get()
 
             try {
-                if (model.format != ModelFormat.LITERTLM || model.provider != ModelProvider.LOCAL) {
+                // Ensure the shared LlmRepository has the model loaded.
+                val repo = bubbleLlmRepo
+                    ?: LlmRepository(this@OrbitBubbleService).also { bubbleLlmRepo = it }
+                if (!repo.isModelLoaded(model.id, settings)) {
                     withContext(Dispatchers.Main) {
                         showResultOverlay(initialTranscript, cancelExistingJob = false)
+                        updateResultStatus("Loading model...")
+                    }
+                    repo.loadModel(model, settings)
+                }
+
+                val convEngine = repo.conversationEngine()
+
+                // Non-LiteRT models (Task/Gemini) don't support conversations — use simple streaming.
+                if (convEngine == null) {
+                    withContext(Dispatchers.Main) {
+                        if (!isResultVisible) {
+                            showResultOverlay(initialTranscript, cancelExistingJob = false)
+                        }
                     }
                     runLegacyOverlayStreaming(
                         initialTranscript = initialTranscript,
-                        modelId = model.id,
+                        repo = repo,
                         settings = settings,
                         startedAt = startedAt,
-                        model = model,
                     )
                     return@launch
                 }
 
-                val runtime = bubbleLiteRtRuntime
-                    ?: OrbitBubbleLiteRtRuntime(this@OrbitBubbleService).also { bubbleLiteRtRuntime = it }
-                val loadedRuntime = runtime.ensureLoaded(model, settings)
-                Log.d(
-                    logTag,
-                    "Native LiteRT bubble ready model=${model.id} backend=${loadedRuntime.backendLabel}",
-                )
+                Log.d(logTag, "Conversation engine ready for model=${model.id}")
 
                 if (isScreenIntent) {
                     runDedicatedScreenUnderstanding(
                         initialTranscript = initialTranscript,
                         targetWindowId = targetWindowId,
-                        runtime = runtime,
+                        convEngine = convEngine,
                         settings = settings,
                         startedAt = startedAt,
                     )
@@ -541,14 +552,13 @@ class OrbitBubbleService : Service() {
                     Call at most one tool in a turn.
                 """.trimIndent()
 
-                runtime.createConversation(
+                convEngine.createConversation(
                     systemInstruction = systemInstruction,
                     settings = settings,
-                    enableTools = true,
-                ).use { conversation ->
-                    val firstTurn = runtime.streamTurn(
-                        conversation = conversation,
-                        contents = runtime.textContents(initialTranscript),
+                    toolSchemas = listOf(OrbitBubbleToolSchema()),
+                ).use { session ->
+                    val firstTurn = session.streamTurn(
+                        contents = textContents(initialTranscript),
                         maxDecodedTokens = settings.maxDecodedTokens,
                     ) { delta ->
                         withContext(Dispatchers.Main) {
@@ -598,9 +608,8 @@ class OrbitBubbleService : Service() {
                                     )
                                     updateResultText("")
                                 }
-                                val followUpTurn = runtime.streamTurn(
-                                    conversation = conversation,
-                                    contents = runtime.imagePromptContents(
+                                val followUpTurn = session.streamTurn(
+                                    contents = imagePromptContents(
                                         bitmap,
                                         buildScreenUnderstandingPrompt(initialTranscript),
                                     ),
@@ -657,17 +666,10 @@ class OrbitBubbleService : Service() {
 
     private suspend fun runLegacyOverlayStreaming(
         initialTranscript: String,
-        modelId: String,
+        repo: LlmRepository,
         settings: com.example.orbitai.core.common.InferenceSettings,
         startedAt: Long,
-        model: com.example.orbitai.core.model.LlmModel,
     ) {
-        val repo = bubbleLlmRepo ?: LlmRepository(this@OrbitBubbleService).also { bubbleLlmRepo = it }
-        if (!repo.isModelLoaded(modelId, settings)) {
-            withContext(Dispatchers.Main) { updateResultStatus("Loading model...") }
-            repo.loadModel(model, settings)
-        }
-
         withContext(Dispatchers.Main) {
             ensureExpandedResultOverlay()
             updateResultStatus("Thinking...")
@@ -694,7 +696,7 @@ class OrbitBubbleService : Service() {
     private suspend fun runDedicatedScreenUnderstanding(
         initialTranscript: String,
         targetWindowId: Int?,
-        runtime: OrbitBubbleLiteRtRuntime,
+        convEngine: LlmConversationEngine,
         settings: com.example.orbitai.core.common.InferenceSettings,
         startedAt: Long,
     ) {
@@ -731,14 +733,12 @@ class OrbitBubbleService : Service() {
         """.trimIndent()
 
         try {
-            runtime.createConversation(
+            convEngine.createConversation(
                 systemInstruction = systemInstruction,
                 settings = settings,
-                enableTools = false,
-            ).use { conversation ->
-                val analysisTurn = runtime.streamTurn(
-                    conversation = conversation,
-                    contents = runtime.imagePromptContents(
+            ).use { session ->
+                val analysisTurn = session.streamTurn(
+                    contents = imagePromptContents(
                         bitmap = bitmap,
                         promptText = buildScreenUnderstandingPrompt(initialTranscript),
                     ),
@@ -764,7 +764,7 @@ class OrbitBubbleService : Service() {
     }
 
     private suspend fun handleInjectToolCall(
-        toolCall: com.google.ai.edge.litertlm.ToolCall,
+        toolCall: ToolCallResult,
         startedAt: Long,
     ) {
         val textToInject = toolCall.arguments["text"]?.toString()?.takeIf { it.isNotBlank() }
@@ -791,6 +791,19 @@ class OrbitBubbleService : Service() {
                 Toast.makeText(this@OrbitBubbleService, "No active text box found", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // ── Content helpers (moved from OrbitBubbleLiteRtRuntime) ─────────────────
+
+    private fun textContents(text: String): Contents = Contents.of(text)
+
+    private fun imagePromptContents(bitmap: Bitmap, promptText: String): Contents {
+        val stream = java.io.ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+        return Contents.of(
+            Content.ImageBytes(stream.toByteArray()),
+            Content.Text(promptText),
+        )
     }
 
     private suspend fun captureBestScreenBitmap(targetWindowId: Int?): ScreenCaptureResult {

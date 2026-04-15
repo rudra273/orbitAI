@@ -20,4 +20,20 @@ object LlmInferenceEngineFactory {
             ModelFormat.LITERTLM -> LiteRtLmEngine(context, modelPath, settings)
         }
     }
+
+    /**
+     * Creates a [LlmConversationEngine] for multi-turn conversations with tool calling.
+     * Currently only available for LiteRT-LM models. Returns null for unsupported formats.
+     */
+    fun createConversationEngine(
+        context: Context,
+        model: LlmModel,
+        settings: InferenceSettings,
+    ): LlmConversationEngine? {
+        if (model.provider != ModelProvider.LOCAL || model.format != ModelFormat.LITERTLM) {
+            return null
+        }
+        val modelPath = File(context.getExternalFilesDir(null), "models/${model.fileName}").absolutePath
+        return LiteRtLmEngine(context, modelPath, settings)
+    }
 }
