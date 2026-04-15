@@ -3,10 +3,10 @@ package com.example.orbitai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.data.InferenceSettings
-import com.example.orbitai.data.ModeInferenceSettingsStore
-import com.example.orbitai.data.ModeRepository
-import com.example.orbitai.data.db.Mode
+import com.example.orbitai.core.common.InferenceSettings
+import com.example.orbitai.core.common.ModeInferenceSettingsStore
+import com.example.orbitai.feature.modes.ModeRepository
+import com.example.orbitai.core.database.Mode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

@@ -51,11 +51,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.AVAILABLE_MODELS
-import com.example.orbitai.data.DownloadProgress
-import com.example.orbitai.data.DownloadStatus
-import com.example.orbitai.data.LlmModel
-import com.example.orbitai.data.TokenStore
+import com.example.orbitai.core.model.AVAILABLE_MODELS
+import com.example.orbitai.core.model.DownloadProgress
+import com.example.orbitai.core.model.DownloadStatus
+import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary

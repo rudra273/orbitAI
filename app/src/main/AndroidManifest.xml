@@ -43,7 +43,7 @@
         </activity>
 
         <activity
-            android:name=".tools.bubble.ProcessTextActivity"
+            android:name=".feature.bubble.ProcessTextActivity"
             android:exported="true"
             android:label="Orbit AI"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
@@ -56,12 +56,12 @@
         </activity>
 
         <service
-            android:name=".tools.bubble.OrbitBubbleService"
+            android:name=".feature.bubble.OrbitBubbleService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
         <service
-            android:name=".tools.bubble.OrbitAccessibilityService"
+            android:name=".feature.bubble.OrbitAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -73,7 +73,7 @@
         </service>
 
         <receiver
-            android:name=".tools.reminders.ReminderReceiver"
+            android:name=".feature.automation.reminder.ReminderReceiver"
             android:exported="false" />
 
         <provider

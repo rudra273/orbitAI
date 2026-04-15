@@ -3,38 +3,38 @@ package com.example.orbitai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.data.Chat
-import com.example.orbitai.data.ChatRepository
-import com.example.orbitai.data.ModeInferenceSettingsStore
-import com.example.orbitai.data.LlmModel
-import com.example.orbitai.data.LlmRepository
-import com.example.orbitai.data.MemoryFeatureStore
-import com.example.orbitai.data.Message
-import com.example.orbitai.data.Role
-import com.example.orbitai.data.ModeRepository
-import com.example.orbitai.data.ModelDownloader
-import com.example.orbitai.data.SpaceRepository
-import com.example.orbitai.data.TokenStore
-import com.example.orbitai.data.ToolSettingsStore
-import com.example.orbitai.data.availableChatModels
-import com.example.orbitai.data.db.Mode
-import com.example.orbitai.data.db.ORBIT_MODE_ID
-import com.example.orbitai.data.db.Space
-import com.example.orbitai.data.memory.MemoryRepository
-import com.example.orbitai.prompts.GemmaChatPromptBuilder
-import com.example.orbitai.tools.intents.EmailDraftParser
-import com.example.orbitai.tools.intents.IntentToolExecutionResult
-import com.example.orbitai.tools.intents.IntentToolExecutor
-import com.example.orbitai.tools.intents.IntentToolRequest
-import com.example.orbitai.tools.intents.ReminderDraftParser
-import com.example.orbitai.tools.intents.RuntimeToolPermission
-import com.example.orbitai.tools.intents.WhatsAppDraftParser
-import com.example.orbitai.tools.prompts.EmailDraftPromptBuilder
-import com.example.orbitai.tools.prompts.ReminderPromptBuilder
-import com.example.orbitai.tools.prompts.WhatsAppDraftPromptBuilder
-import com.example.orbitai.tools.reminders.ReminderScheduler
-import com.example.orbitai.tools.router.ToolRoute
-import com.example.orbitai.tools.router.ToolRouter
+import com.example.orbitai.feature.chat.ChatRepository
+import com.example.orbitai.core.common.ModeInferenceSettingsStore
+import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.LlmRepository
+import com.example.orbitai.feature.chat.Message
+import com.example.orbitai.feature.chat.Role
+import com.example.orbitai.feature.memory.MemoryFeatureStore
+import com.example.orbitai.feature.modes.ModeRepository
+import com.example.orbitai.core.model.ModelDownloader
+import com.example.orbitai.feature.spaces.SpaceRepository
+import com.example.orbitai.core.common.TokenStore
+import com.example.orbitai.core.model.availableChatModels
+import com.example.orbitai.core.database.Mode
+import com.example.orbitai.core.database.ORBIT_MODE_ID
+import com.example.orbitai.core.database.Space
+import com.example.orbitai.feature.automation.AutomationRoute
+import com.example.orbitai.feature.automation.AutomationRouter
+import com.example.orbitai.feature.automation.AutomationSettingsStore
+import com.example.orbitai.feature.automation.executor.AutomationExecutor
+import com.example.orbitai.feature.automation.parser.AutomationExecutionResult
+import com.example.orbitai.feature.automation.parser.AutomationRequest
+import com.example.orbitai.feature.memory.MemoryRepository
+import com.example.orbitai.core.prompt.GemmaChatPromptBuilder
+import com.example.orbitai.feature.automation.parser.EmailDraftParser
+import com.example.orbitai.feature.automation.parser.ReminderDraftParser
+import com.example.orbitai.feature.automation.parser.RuntimeToolPermission
+import com.example.orbitai.feature.automation.parser.WhatsAppDraftParser
+import com.example.orbitai.feature.automation.prompt.EmailDraftPromptBuilder
+import com.example.orbitai.feature.automation.prompt.ReminderPromptBuilder
+import com.example.orbitai.feature.automation.prompt.WhatsAppDraftPromptBuilder
+import com.example.orbitai.feature.automation.reminder.ReminderScheduler
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -45,7 +45,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
-import com.example.orbitai.data.InferenceInput
+import com.example.orbitai.core.engine.InferenceInput
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,12 +69,12 @@ sealed interface ChatUiEvent {
 }
 
 private data class PendingWhatsAppExecution(
-    val request: IntentToolRequest.DraftWhatsApp,
-    val draft: com.example.orbitai.tools.intents.WhatsAppDraft,
+    val request: AutomationRequest.DraftWhatsApp,
+    val draft: com.example.orbitai.feature.automation.parser.WhatsAppDraft,
 )
 
 private data class PendingReminderExecution(
-    val draft: com.example.orbitai.tools.intents.ReminderDraft,
+    val draft: com.example.orbitai.feature.automation.parser.ReminderDraft,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -87,9 +87,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val spaceRepo = SpaceRepository(application)
     private val modeRepo = ModeRepository(application)
     private val memoryFeatureStore = MemoryFeatureStore(application)
-    private val toolSettingsStore = ToolSettingsStore(application)
+    private val automationSettingsStore = AutomationSettingsStore(application)
     val memoryRepo = MemoryRepository(application)
-    private val intentToolExecutor = IntentToolExecutor(application)
+    private val automationExecutor = AutomationExecutor(application)
     private val reminderScheduler = ReminderScheduler(application)
 
     /** All available spaces — observed by the chat screen for the space selector. */
@@ -181,7 +181,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (pending != null) {
             viewModelScope.launch(Dispatchers.IO) {
                 handleIntentResult(
-                    intentToolExecutor.execute(
+                    automationExecutor.execute(
                         request = pending.request,
                         draft = pending.draft,
                     ),
@@ -269,8 +269,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (trimmedText.isEmpty()) return
 
-        val route = ToolRouter.route(trimmedText)
-        val toolRequest = (route as? ToolRoute.ToolOnly)?.request
+        val route = AutomationRouter.route(trimmedText)
+        val toolRequest = (route as? AutomationRoute.ToolOnly)?.request
 
         val preferredModelId = when {
             chat.modelId.isNotBlank() -> chat.modelId
@@ -350,17 +350,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             val systemPrompt = activeMode?.systemPrompt
             val prompt = when (toolRequest) {
-                is IntentToolRequest.DraftEmail -> EmailDraftPromptBuilder.build(
+                is AutomationRequest.DraftEmail -> EmailDraftPromptBuilder.build(
                     messages = history,
                     topicHint = toolRequest.topicHint,
                     memories = memories,
                 )
-                is IntentToolRequest.DraftWhatsApp -> WhatsAppDraftPromptBuilder.build(
+                is AutomationRequest.DraftWhatsApp -> WhatsAppDraftPromptBuilder.build(
                     messages = history,
                     topicHint = toolRequest.topicHint,
                     memories = memories,
                 )
-                is IntentToolRequest.CreateReminder -> ReminderPromptBuilder.build(
+                is AutomationRequest.CreateReminder -> ReminderPromptBuilder.build(
                     messages = history,
                     topicHint = toolRequest.topicHint,
                     memories = memories,
@@ -423,9 +423,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 if (isActiveRequest && !wasCancelled && !accumulated.startsWith("Error:")) {
                     when (toolRequest) {
-                        is IntentToolRequest.DraftEmail -> {
+                        is AutomationRequest.DraftEmail -> {
                             when (
-                                val result = intentToolExecutor.execute(
+                                val result = automationExecutor.execute(
                                     request = toolRequest,
                                     draft = EmailDraftParser.parse(
                                         modelOutput = accumulated,
@@ -433,31 +433,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                     ),
                                 )
                             ) {
-                                IntentToolExecutionResult.Launched -> Unit
-                                is IntentToolExecutionResult.Failed -> {
+                                AutomationExecutionResult.Launched -> Unit
+                                is AutomationExecutionResult.Failed -> {
                                     _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                 }
-                                is IntentToolExecutionResult.PermissionRequired -> {
+                                is AutomationExecutionResult.PermissionRequired -> {
                                     _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                 }
                             }
                         }
-                        is IntentToolRequest.DraftWhatsApp -> {
+                        is AutomationRequest.DraftWhatsApp -> {
                             val draft = WhatsAppDraftParser.parse(
                                 modelOutput = accumulated,
                                 topicHint = toolRequest.topicHint,
                             )
                             when (
-                                val result = intentToolExecutor.execute(
+                                val result = automationExecutor.execute(
                                     request = toolRequest,
                                     draft = draft,
                                 )
                             ) {
-                                IntentToolExecutionResult.Launched -> Unit
-                                is IntentToolExecutionResult.Failed -> {
+                                AutomationExecutionResult.Launched -> Unit
+                                is AutomationExecutionResult.Failed -> {
                                     _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                 }
-                                is IntentToolExecutionResult.PermissionRequired -> {
+                                is AutomationExecutionResult.PermissionRequired -> {
                                     if (result.permission == RuntimeToolPermission.CONTACTS) {
                                         pendingWhatsAppExecution = PendingWhatsAppExecution(
                                             request = toolRequest,
@@ -469,14 +469,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
                         }
-                        is IntentToolRequest.CreateReminder -> {
+                        is AutomationRequest.CreateReminder -> {
                             val draft = ReminderDraftParser.parse(
                                 modelOutput = accumulated,
                                 topicHint = toolRequest.topicHint,
                             )
-                            if (toolSettingsStore.isAutomationExecutionEnabled) {
+                            if (automationSettingsStore.isAutomationExecutionEnabled) {
                                 when (val result = reminderScheduler.schedule(draft)) {
-                                    IntentToolExecutionResult.Launched -> {
+                                    AutomationExecutionResult.Launched -> {
                                         _uiState.update {
                                             it.copy(
                                                 loadError = null,
@@ -484,10 +484,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                             )
                                         }
                                     }
-                                    is IntentToolExecutionResult.Failed -> {
+                                    is AutomationExecutionResult.Failed -> {
                                         _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                     }
-                                    is IntentToolExecutionResult.PermissionRequired -> {
+                                    is AutomationExecutionResult.PermissionRequired -> {
                                         if (result.permission == RuntimeToolPermission.NOTIFICATIONS) {
                                             pendingReminderExecution = PendingReminderExecution(draft)
                                             _events.emit(ChatUiEvent.RequestNotificationsPermission)
@@ -497,12 +497,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             } else {
                                 when (
-                                    val result = intentToolExecutor.execute(
+                                    val result = automationExecutor.execute(
                                         request = toolRequest,
                                         draft = draft,
                                     )
                                 ) {
-                                    IntentToolExecutionResult.Launched -> {
+                                    AutomationExecutionResult.Launched -> {
                                         _uiState.update {
                                             it.copy(
                                                 loadError = null,
@@ -510,10 +510,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                             )
                                         }
                                     }
-                                    is IntentToolExecutionResult.Failed -> {
+                                    is AutomationExecutionResult.Failed -> {
                                         _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                     }
-                                    is IntentToolExecutionResult.PermissionRequired -> {
+                                    is AutomationExecutionResult.PermissionRequired -> {
                                         _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
                                     }
                                 }
@@ -571,16 +571,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun handleIntentResult(
-        result: IntentToolExecutionResult,
+        result: AutomationExecutionResult,
         onLaunched: (() -> Unit)?,
-        onPermissionRequired: (IntentToolExecutionResult.PermissionRequired) -> Unit,
+        onPermissionRequired: (AutomationExecutionResult.PermissionRequired) -> Unit,
     ) {
         when (result) {
-            IntentToolExecutionResult.Launched -> onLaunched?.invoke()
-            is IntentToolExecutionResult.Failed -> {
+            AutomationExecutionResult.Launched -> onLaunched?.invoke()
+            is AutomationExecutionResult.Failed -> {
                 _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
             }
-            is IntentToolExecutionResult.PermissionRequired -> onPermissionRequired(result)
+            is AutomationExecutionResult.PermissionRequired -> onPermissionRequired(result)
         }
     }
 

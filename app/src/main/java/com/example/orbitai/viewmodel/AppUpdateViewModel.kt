@@ -3,8 +3,8 @@ package com.example.orbitai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.data.AppUpdateInfo
-import com.example.orbitai.data.AppUpdateRepository
+import com.example.orbitai.feature.update.AppUpdateInfo
+import com.example.orbitai.feature.update.AppUpdateRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

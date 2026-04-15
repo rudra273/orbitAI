@@ -53,11 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.orbitai.R
-import com.example.orbitai.data.LlmModel
-import com.example.orbitai.data.db.Mode
-import com.example.orbitai.data.ModelProvider
-import com.example.orbitai.data.ToolSettingsStore
-import com.example.orbitai.tools.bubble.OrbitBubbleService
+import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.database.Mode
+import com.example.orbitai.core.model.ModelProvider
+import com.example.orbitai.feature.bubble.BubbleSettingsStore
+import com.example.orbitai.feature.bubble.OrbitBubbleService
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
@@ -79,7 +79,7 @@ private val BubbleInk: Color
 
 @Composable
 fun OrbitBubbleSettingsScreen(
-    toolSettingsStore: ToolSettingsStore,
+    toolSettingsStore: BubbleSettingsStore,
     availableModels: List<LlmModel>,
     modes: List<Mode>,
     onBack: () -> Unit,

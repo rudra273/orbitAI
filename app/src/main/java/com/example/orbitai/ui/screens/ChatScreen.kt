@@ -63,16 +63,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.Chat
-import com.example.orbitai.data.LlmModel
-import com.example.orbitai.data.Message
-import com.example.orbitai.data.Role
-import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
-import com.example.orbitai.data.extractDocumentText
-import com.example.orbitai.data.isImageDocument
-import com.example.orbitai.data.normalizeDocumentMimeType
-import com.example.orbitai.data.db.Mode
-import com.example.orbitai.data.db.Space
+import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.common.SUPPORTED_DOCUMENT_MIME_TYPES
+import com.example.orbitai.core.common.extractDocumentText
+import com.example.orbitai.core.common.isImageDocument
+import com.example.orbitai.core.common.normalizeDocumentMimeType
+import com.example.orbitai.core.database.Mode
+import com.example.orbitai.core.database.Space
+import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.Message
+import com.example.orbitai.feature.chat.Role
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatUiEvent
 import com.example.orbitai.viewmodel.ChatViewModel
@@ -473,7 +473,7 @@ private fun OnDeviceModelPill(
 
     var expanded by remember { mutableStateOf(false) }
     val selectedModel = availableModels.find { it.id == chat.modelId }
-    val isLocal = selectedModel?.provider == com.example.orbitai.data.ModelProvider.LOCAL
+    val isLocal = selectedModel?.provider == com.example.orbitai.core.model.ModelProvider.LOCAL
 
     Box {
         Row(
@@ -1579,7 +1579,7 @@ private fun animateColorAsState(
 
 private fun LlmModel.supportsDocumentAttachments(): Boolean {
     val normalizedId = id.lowercase()
-    return provider == com.example.orbitai.data.ModelProvider.GEMINI ||
+    return provider == com.example.orbitai.core.model.ModelProvider.GEMINI ||
         normalizedId.startsWith("gemma3") ||
         normalizedId.startsWith("gemma-3")
 }

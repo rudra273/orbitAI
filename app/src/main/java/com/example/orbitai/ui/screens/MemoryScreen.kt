@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.MemoryFeatureStore
+import com.example.orbitai.feature.memory.MemoryFeatureStore
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.MemoryViewModel
 import java.text.SimpleDateFormat

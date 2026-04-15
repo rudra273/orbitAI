@@ -56,9 +56,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.db.RagDocument
-import com.example.orbitai.data.db.RagStatus
-import com.example.orbitai.data.db.Space
+import com.example.orbitai.core.database.RagDocument
+import com.example.orbitai.core.database.RagStatus
+import com.example.orbitai.core.database.Space
 import com.example.orbitai.ui.theme.Destructive
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep

@@ -4,11 +4,11 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.data.GECKO_EMBEDDING
-import com.example.orbitai.data.ModelDownloader
-import com.example.orbitai.data.SpaceRepository
-import com.example.orbitai.data.db.RagDocument
-import com.example.orbitai.data.db.Space
+import com.example.orbitai.core.model.GECKO_EMBEDDING
+import com.example.orbitai.core.model.ModelDownloader
+import com.example.orbitai.feature.spaces.SpaceRepository
+import com.example.orbitai.core.database.RagDocument
+import com.example.orbitai.core.database.Space
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow

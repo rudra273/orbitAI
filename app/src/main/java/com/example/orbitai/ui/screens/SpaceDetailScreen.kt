@@ -63,9 +63,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
-import com.example.orbitai.data.db.RagDocument
-import com.example.orbitai.data.db.RagStatus
+import com.example.orbitai.core.common.SUPPORTED_DOCUMENT_MIME_TYPES
+import com.example.orbitai.core.database.RagDocument
+import com.example.orbitai.core.database.RagStatus
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextMuted

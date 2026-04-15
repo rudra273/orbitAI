@@ -43,9 +43,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.example.orbitai.OverlayPromptRequest
-import com.example.orbitai.data.MemoryFeatureStore
-import com.example.orbitai.data.ToolSettingsStore
-import com.example.orbitai.data.TokenStore
+import com.example.orbitai.core.common.TokenStore
+import com.example.orbitai.feature.automation.AutomationSettingsStore
+import com.example.orbitai.feature.bubble.BubbleSettingsStore
+import com.example.orbitai.feature.memory.MemoryFeatureStore
 import com.example.orbitai.ui.screens.ModesScreen
 import com.example.orbitai.ui.screens.ChatScreen
 import com.example.orbitai.ui.screens.ModelSettingsScreen
@@ -63,7 +64,7 @@ import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
 import com.example.orbitai.viewmodel.SpacesViewModel
-import com.example.orbitai.tools.bubble.OrbitBubbleService
+import com.example.orbitai.feature.bubble.OrbitBubbleService
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ROUTE DEFINITIONS
@@ -266,7 +267,7 @@ fun OrbitNavGraph(
             }
             composable(Screen.SettingsTools.route) {
                 val context = LocalContext.current
-                val toolSettingsStore = remember { ToolSettingsStore(context) }
+                val toolSettingsStore = remember { AutomationSettingsStore(context) }
                 ToolsSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
                     onBack = { navController.popBackStack() },
@@ -274,7 +275,7 @@ fun OrbitNavGraph(
             }
             composable(Screen.SettingsOrbitBubble.route) {
                 val context = LocalContext.current
-                val toolSettingsStore = remember { ToolSettingsStore(context) }
+                val toolSettingsStore = remember { BubbleSettingsStore(context) }
                 val availableModels by chatViewModel.availableModels.collectAsState()
                 val modes by chatViewModel.modes.collectAsState()
                 LaunchedEffect(Unit) { chatViewModel.refreshAvailableModels() }
