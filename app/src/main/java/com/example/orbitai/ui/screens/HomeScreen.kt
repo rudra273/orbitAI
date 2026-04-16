@@ -44,7 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.Chat
+import com.example.orbitai.feature.chat.Chat
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.SpaceNebula
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme

@@ -38,8 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.InferenceSettings
-import com.example.orbitai.data.db.Mode
+import com.example.orbitai.core.common.InferenceSettings
+import com.example.orbitai.core.database.Mode
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 

@@ -17,9 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
-import com.example.orbitai.data.ThemeSettingsStore
-import com.example.orbitai.data.ToolSettingsStore
-import com.example.orbitai.tools.bubble.OrbitBubbleService
+import com.example.orbitai.core.common.ThemeSettingsStore
+import com.example.orbitai.feature.bubble.BubbleSettingsStore
+import com.example.orbitai.feature.bubble.OrbitBubbleService
 import com.example.orbitai.ui.navigation.OrbitNavGraph
 import com.example.orbitai.ui.theme.OrbitAITheme
 import com.example.orbitai.viewmodel.ModesViewModel
@@ -124,10 +124,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        val toolSettingsStore = ToolSettingsStore(this)
+        val bubbleSettingsStore = BubbleSettingsStore(this)
         val overlayGranted = OrbitBubbleService.canDrawOverlays(this)
         val audioGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        if (toolSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
+        if (bubbleSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
             OrbitBubbleService.setAppForeground(this, false)
             OrbitBubbleService.start(this)
         }
@@ -145,16 +145,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun syncBubbleService() {
-        val toolSettingsStore = ToolSettingsStore(this)
+        val bubbleSettingsStore = BubbleSettingsStore(this)
         val overlayGranted = OrbitBubbleService.canDrawOverlays(this)
         val audioGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
-        if (toolSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
+        if (bubbleSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
             OrbitBubbleService.start(this)
-        } else if (!toolSettingsStore.isFloatingBubbleEnabled) {
+        } else if (!bubbleSettingsStore.isFloatingBubbleEnabled) {
             OrbitBubbleService.stop(this)
         } else if (!overlayGranted || !audioGranted) {
-            toolSettingsStore.isFloatingBubbleEnabled = false
+            bubbleSettingsStore.isFloatingBubbleEnabled = false
             OrbitBubbleService.stop(this)
         }
     }

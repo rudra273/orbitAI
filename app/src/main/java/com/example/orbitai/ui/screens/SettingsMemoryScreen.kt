@@ -43,8 +43,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.MemoryFeatureStore
-import com.example.orbitai.data.db.MemoryEntity
+import com.example.orbitai.feature.memory.MemoryFeatureStore
+import com.example.orbitai.core.database.MemoryEntity
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary

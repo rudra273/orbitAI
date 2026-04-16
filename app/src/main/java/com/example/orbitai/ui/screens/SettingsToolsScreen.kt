@@ -42,7 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.ToolSettingsStore
+import com.example.orbitai.feature.automation.AutomationSettingsStore
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
@@ -63,7 +63,7 @@ private val ToolsInk: Color
 
 @Composable
 fun ToolsSettingsScreen(
-    toolSettingsStore: ToolSettingsStore,
+    toolSettingsStore: AutomationSettingsStore,
     onBack: () -> Unit,
 ) {
     var automationEnabled by remember { mutableStateOf(toolSettingsStore.isAutomationExecutionEnabled) }

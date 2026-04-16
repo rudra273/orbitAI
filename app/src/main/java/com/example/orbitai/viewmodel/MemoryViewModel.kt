@@ -3,8 +3,8 @@ package com.example.orbitai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.data.db.MemoryEntity
-import com.example.orbitai.data.memory.MemoryRepository
+import com.example.orbitai.core.database.MemoryEntity
+import com.example.orbitai.feature.memory.MemoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

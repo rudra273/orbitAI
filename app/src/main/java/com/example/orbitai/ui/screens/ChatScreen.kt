@@ -60,18 +60,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.data.Chat
-import com.example.orbitai.data.LlmModel
-import com.example.orbitai.data.Message
-import com.example.orbitai.data.Role
-import com.example.orbitai.data.SUPPORTED_DOCUMENT_MIME_TYPES
-import com.example.orbitai.data.extractDocumentText
-import com.example.orbitai.data.isImageDocument
-import com.example.orbitai.data.normalizeDocumentMimeType
-import com.example.orbitai.data.db.Mode
-import com.example.orbitai.data.db.Space
+import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.common.SUPPORTED_DOCUMENT_MIME_TYPES
+import com.example.orbitai.core.common.extractDocumentText
+import com.example.orbitai.core.common.isImageDocument
+import com.example.orbitai.core.common.normalizeDocumentMimeType
+import com.example.orbitai.core.database.Mode
+import com.example.orbitai.core.database.Space
+import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.Message
+import com.example.orbitai.feature.chat.Role
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ChatUiEvent
 import com.example.orbitai.viewmodel.ChatViewModel
@@ -348,6 +349,7 @@ private fun ChatTopBar(
     onNavigateToSettings: () -> Unit = {},
 ) {
     val activeMode = modes.find { it.id == activeModeId } ?: modes.firstOrNull()
+    val title = remember(chat?.title) { displayChatTitle(chat) }
 
     Column(
         modifier = Modifier
@@ -358,36 +360,45 @@ private fun ChatTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(start = 10.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
             verticalAlignment     = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onBack,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = TextMuted,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             }
 
-            Column(modifier = Modifier.weight(1f)) {
+            Spacer(Modifier.width(8.dp))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)
+            ) {
                 Text(
-                    text  = "OrbitAI",
+                    text  = title,
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize      = 22.sp,
+                        fontSize      = 17.sp,
                         fontWeight    = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
+                        letterSpacing = (-0.2).sp,
                     ),
                     color = TextPrimary,
-                )
-                Text(
-                    text  = "COMMAND CENTER",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize      = 10.sp,
-                        letterSpacing = 1.5.sp,
-                    ),
-                    color = TextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -409,7 +420,7 @@ private fun ChatTopBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -441,6 +452,15 @@ private fun ChatTopBar(
     }
 }
 
+private fun displayChatTitle(chat: Chat?): String {
+    val title = chat?.title?.trim().orEmpty()
+    return if (title.isBlank() || title.equals("New Chat", ignoreCase = true)) {
+        "Untitled chat"
+    } else {
+        title
+    }
+}
+
 // ── On-device model pill ───────────────────────────────────────────────────────
 
 @Composable
@@ -453,7 +473,7 @@ private fun OnDeviceModelPill(
 
     var expanded by remember { mutableStateOf(false) }
     val selectedModel = availableModels.find { it.id == chat.modelId }
-    val isLocal = selectedModel?.provider == com.example.orbitai.data.ModelProvider.LOCAL
+    val isLocal = selectedModel?.provider == com.example.orbitai.core.model.ModelProvider.LOCAL
 
     Box {
         Row(
@@ -757,11 +777,11 @@ private fun MessageBubble(msg: Message) {
                         .padding(horizontal = 6.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        text  = "ORBIT",
+                        text  = assistantModeBadgeLabel(msg),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontFamily    = FontFamily.Monospace,
                             fontSize      = 9.sp,
-                            letterSpacing = 2.sp,
+                            letterSpacing = 0.8.sp,
                             fontWeight    = FontWeight.Medium,
                         ),
                         color = VioletCore,
@@ -783,6 +803,9 @@ private fun MessageBubble(msg: Message) {
         }
     }
 }
+
+private fun assistantModeBadgeLabel(msg: Message): String =
+    msg.modeName?.trim().orEmpty().ifBlank { "Orbit" }
 
 private sealed interface MarkdownBlock {
     data class Heading(val level: Int, val text: String) : MarkdownBlock
@@ -1556,7 +1579,7 @@ private fun animateColorAsState(
 
 private fun LlmModel.supportsDocumentAttachments(): Boolean {
     val normalizedId = id.lowercase()
-    return provider == com.example.orbitai.data.ModelProvider.GEMINI ||
+    return provider == com.example.orbitai.core.model.ModelProvider.GEMINI ||
         normalizedId.startsWith("gemma3") ||
         normalizedId.startsWith("gemma-3")
 }
