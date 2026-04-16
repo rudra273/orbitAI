@@ -90,12 +90,9 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
           body: |
             ## Highlights
-            - Dynamic app versioning from Git tags so each tagged release shows the correct version inside the app
-            - In-app update check added to the Settings `Version` row, with a compact `Update` action when a newer release is available
-            - Major Modes screen cleanup with improved layout and smoother overall usability
-            - New ability to activate or deactivate specific modes directly in the app
-            - Chat screen UI fixes and dark theme polish for a cleaner conversation experience
-            - Major stability fix for the app crash that could happen after around 2 minutes of use
+            - Check what is on screen.
+            - Gemma 4 with tool-calling support.
+            - Accessibility automation improvements.
 
           append_body: true
           generate_release_notes: true
