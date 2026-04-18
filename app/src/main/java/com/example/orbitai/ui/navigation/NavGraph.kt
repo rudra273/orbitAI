@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -393,33 +394,94 @@ private fun OrbitBottomBar(
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val dockShape = remember {
+        GenericShape { size, _ ->
+            val width = size.width
+            val height = size.height
+            val cornerRadius = height * 0.28f
+            val notchHalfWidth = height * 0.42f
+            val notchDepth = height * 0.34f
+            val shoulder = notchHalfWidth * 0.72f
+            val centerX = width / 2f
+
+            moveTo(0f, height)
+            lineTo(0f, cornerRadius)
+            quadraticTo(0f, 0f, cornerRadius, 0f)
+            lineTo(centerX - notchHalfWidth, 0f)
+            cubicTo(
+                centerX - shoulder,
+                0f,
+                centerX - notchHalfWidth * 0.62f,
+                notchDepth,
+                centerX,
+                notchDepth,
+            )
+            cubicTo(
+                centerX + notchHalfWidth * 0.62f,
+                notchDepth,
+                centerX + shoulder,
+                0f,
+                centerX + notchHalfWidth,
+                0f,
+            )
+            lineTo(width - cornerRadius, 0f)
+            quadraticTo(width, 0f, width, cornerRadius)
+            lineTo(width, height)
+            close()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SpaceDeep),
+            .background(SpaceDeep)
+            .padding(horizontal = 14.dp),
     ) {
-        // Thin top separator
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(1.dp)
-                .align(Alignment.TopCenter)
-                .background(GlassBorder),
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 8.dp, top = 4.dp),
-            verticalAlignment     = Alignment.Bottom,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .height(94.dp)
+                .padding(bottom = 8.dp, top = 6.dp),
         ) {
-            TabButton(TABS[0], currentRoute == TABS[0].route) { onNavigate(TABS[0].route) }
-            TabButton(TABS[1], currentRoute == TABS[1].route) { onNavigate(TABS[1].route) }
-            OrbitNavButton(onClick = { OrbitBubbleService.trigger(context) })
-            TabButton(TABS[2], currentRoute == TABS[2].route) { onNavigate(TABS[2].route) }
-            TabButton(TABS[3], currentRoute == TABS[3].route) { onNavigate(TABS[3].route) }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(76.dp)
+                    .align(Alignment.BottomCenter)
+                    .clip(dockShape)
+                    .background(SpaceDeep)
+                    .border(1.dp, GlassBorder, dockShape),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    TabButton(TABS[0], currentRoute == TABS[0].route, modifier = Modifier.weight(1f)) {
+                        onNavigate(TABS[0].route)
+                    }
+                    TabButton(TABS[1], currentRoute == TABS[1].route, modifier = Modifier.weight(1f)) {
+                        onNavigate(TABS[1].route)
+                    }
+                    Spacer(modifier = Modifier.width(76.dp))
+                    TabButton(TABS[2], currentRoute == TABS[2].route, modifier = Modifier.weight(1f)) {
+                        onNavigate(TABS[2].route)
+                    }
+                    TabButton(TABS[3], currentRoute == TABS[3].route, modifier = Modifier.weight(1f)) {
+                        onNavigate(TABS[3].route)
+                    }
+                }
+            }
+
+            OrbitNavButton(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = 2.dp),
+                onClick = { OrbitBubbleService.trigger(context) },
+            )
         }
     }
 }
@@ -429,20 +491,23 @@ private fun OrbitBottomBar(
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
-private fun OrbitNavButton(onClick: () -> Unit) {
+private fun OrbitNavButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     var isActivated by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isActivated) 1.12f else 1f,
+        targetValue = if (isActivated) 1.08f else 1f,
         animationSpec = tween(durationMillis = 220),
         label = "orbit_nav_scale",
     )
     val buttonColor by animateColorAsState(
-        targetValue = if (isActivated) VioletCore else TextPrimary,
+        targetValue = if (isActivated) VioletCore.copy(alpha = 0.20f) else TextPrimary.copy(alpha = 0.06f),
         animationSpec = tween(durationMillis = 220),
         label = "orbit_nav_bg",
     )
     val ringColor by animateColorAsState(
-        targetValue = if (isActivated) VioletGlow.copy(alpha = 0.7f) else Color.Transparent,
+        targetValue = if (isActivated) VioletGlow.copy(alpha = 0.55f) else GlassBorder,
         animationSpec = tween(durationMillis = 220),
         label = "orbit_nav_ring",
     )
@@ -456,18 +521,18 @@ private fun OrbitNavButton(onClick: () -> Unit) {
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier            = Modifier.offset(y = (-18).dp),
+        modifier            = modifier,
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(62.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
                 }
                 .clip(CircleShape)
-                .background(buttonColor)
-                .border(width = 2.dp, color = ringColor, shape = CircleShape)
+                .background(SpaceDeep)
+                .border(width = 1.5.dp, color = ringColor, shape = CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication        = null,
@@ -478,19 +543,20 @@ private fun OrbitNavButton(onClick: () -> Unit) {
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                painter            = painterResource(R.drawable.vector_logo),
-                contentDescription = "Orbit",
-                modifier           = Modifier.size(28.dp),
-            )
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(buttonColor),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter            = painterResource(R.drawable.vector_logo),
+                    contentDescription = "Orbit",
+                    modifier           = Modifier.size(26.dp),
+                )
+            }
         }
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text      = "Orbit",
-            style     = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            color     = if (isActivated) VioletGlow else TextPrimary,
-        )
     }
 }
 
@@ -502,13 +568,14 @@ private fun OrbitNavButton(onClick: () -> Unit) {
 private fun TabButton(
     tab: TabItem,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val tint = TextPrimary.copy(alpha = if (selected) 1f else 0.4f)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier            = Modifier
+        modifier            = modifier
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication        = null,
