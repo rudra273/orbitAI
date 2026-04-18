@@ -11,8 +11,6 @@ import com.example.orbitai.core.model.EmbeddingModelConfig
 import com.example.orbitai.core.model.DownloadProgress
 import com.example.orbitai.core.model.DownloadStatus
 import com.example.orbitai.core.model.LlmModel
-import com.example.orbitai.core.model.MODEL_DOWNLOAD_URLS
-import com.example.orbitai.core.model.MODEL_DOWNLOAD_REQUIRES_AUTH
 import com.example.orbitai.core.model.ModelDownloader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,23 +37,31 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     private val jobs = mutableMapOf<String, Job>()
 
     fun startDownload(model: LlmModel, customUrl: String? = null) {
-        val url = customUrl?.trim()?.takeIf { it.isNotEmpty() }
-            ?: MODEL_DOWNLOAD_URLS[model.id]
-            ?: run {
+        val customDownloadUrl = customUrl?.trim()?.takeIf { it.isNotEmpty() }
+        if (customDownloadUrl != null) {
+            jobs[model.id]?.cancel()
+            jobs[model.id] = viewModelScope.launch {
+                downloader.download(model.id, customDownloadUrl, model.fileName, requiresAuth = false).collect { p ->
+                    _progress.update { it + (model.id to p) }
+                }
+            }
+            return
+        }
+
+        if (!com.example.orbitai.core.model.MODEL_DOWNLOAD_SPECS.containsKey(model.id)) {
                 _progress.update {
                     it + (model.id to DownloadProgress(
                         modelId = model.id,
                         status = DownloadStatus.FAILED,
-                        error = "Download URL not configured for ${model.displayName}",
+                        error = "Download spec not configured for ${model.displayName}",
                     ))
                 }
                 return
-            }
-        val requiresAuth = MODEL_DOWNLOAD_REQUIRES_AUTH[model.id] ?: false
+        }
 
         jobs[model.id]?.cancel()
         jobs[model.id] = viewModelScope.launch {
-            downloader.download(model.id, url, model.fileName, requiresAuth = requiresAuth).collect { p ->
+            downloader.download(model).collect { p ->
                 _progress.update { it + (model.id to p) }
             }
         }

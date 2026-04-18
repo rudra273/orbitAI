@@ -127,6 +127,8 @@ dependencies {
 
     implementation(libs.mediapipe.llm.inference)
     implementation(libs.litertlm.android)
+    implementation(libs.onnxruntime.android)
+    implementation(files("libs/onnxruntime-genai-android-0.13.1.aar"))
     implementation(libs.mediapipe.text)
     implementation(libs.pdfbox.android)
     implementation(libs.room.runtime)

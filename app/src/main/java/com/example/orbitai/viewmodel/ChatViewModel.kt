@@ -26,7 +26,7 @@ import com.example.orbitai.feature.automation.executor.AutomationExecutor
 import com.example.orbitai.feature.automation.parser.AutomationExecutionResult
 import com.example.orbitai.feature.automation.parser.AutomationRequest
 import com.example.orbitai.feature.memory.MemoryRepository
-import com.example.orbitai.core.prompt.GemmaChatPromptBuilder
+import com.example.orbitai.core.prompt.ModelPromptBuilder
 import com.example.orbitai.feature.automation.parser.EmailDraftParser
 import com.example.orbitai.feature.automation.parser.ReminderDraftParser
 import com.example.orbitai.feature.automation.parser.RuntimeToolPermission
@@ -285,16 +285,34 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        if (preferredModelId.isBlank()) {
+        val preferredModel = currentAvailableModels.find { it.id == preferredModelId }
+        val model = when {
+            preferredModelId.isBlank() -> currentAvailableModels.singleOrNull() ?: currentAvailableModels.firstOrNull()
+            else -> preferredModel ?: currentAvailableModels.firstOrNull()
+        } ?: run {
             _uiState.update {
-                it.copy(loadError = "Select a model first from the model picker.")
+                it.copy(
+                    loadError = if (preferredModelId.isBlank()) {
+                        "Select a model first from the model picker."
+                    } else {
+                        "Selected model is no longer available. Please choose another model."
+                    }
+                )
             }
             return
         }
-
-        val model = currentAvailableModels.find { it.id == preferredModelId } ?: run {
+        if (preferredModelId.isNotBlank() && preferredModel == null) {
+            tokenStore.lastSelectedModelId = model.id
             _uiState.update {
-                it.copy(loadError = "Selected model is no longer available. Please choose another model.")
+                it.copy(
+                    loadError = null,
+                    infoMessage = "Switched to ${model.displayName} because the previous model is no longer available.",
+                )
+            }
+        }
+        if (imageUris.isNotEmpty() && !model.supportsVision) {
+            _uiState.update {
+                it.copy(loadError = "${model.displayName} does not support image input. Pick a vision-capable model.")
             }
             return
         }
@@ -350,20 +368,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             val systemPrompt = activeMode?.systemPrompt
             val prompt = when (toolRequest) {
-                is AutomationRequest.DraftEmail -> EmailDraftPromptBuilder.build(
-                    messages = history,
-                    topicHint = toolRequest.topicHint,
-                    memories = memories,
+                is AutomationRequest.DraftEmail -> ModelPromptBuilder.wrapInstructionPrompt(
+                    promptStyle = model.promptStyle,
+                    instruction = EmailDraftPromptBuilder.build(
+                        messages = history,
+                        topicHint = toolRequest.topicHint,
+                        memories = memories,
+                    ),
                 )
-                is AutomationRequest.DraftWhatsApp -> WhatsAppDraftPromptBuilder.build(
-                    messages = history,
-                    topicHint = toolRequest.topicHint,
-                    memories = memories,
+                is AutomationRequest.DraftWhatsApp -> ModelPromptBuilder.wrapInstructionPrompt(
+                    promptStyle = model.promptStyle,
+                    instruction = WhatsAppDraftPromptBuilder.build(
+                        messages = history,
+                        topicHint = toolRequest.topicHint,
+                        memories = memories,
+                    ),
                 )
-                is AutomationRequest.CreateReminder -> ReminderPromptBuilder.build(
-                    messages = history,
-                    topicHint = toolRequest.topicHint,
-                    memories = memories,
+                is AutomationRequest.CreateReminder -> ModelPromptBuilder.wrapInstructionPrompt(
+                    promptStyle = model.promptStyle,
+                    instruction = ReminderPromptBuilder.build(
+                        messages = history,
+                        topicHint = toolRequest.topicHint,
+                        memories = memories,
+                    ),
                 )
                 null -> {
                     val ragContext = spaceRepo.searchChunksInSpaces(
@@ -371,7 +398,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         activeSpaceIds,
                         limit = 5,
                     ).map { it.content }
-                    GemmaChatPromptBuilder.build(history, ragContext, memories, systemPrompt)
+                    ModelPromptBuilder.buildChatPrompt(
+                        promptStyle = model.promptStyle,
+                        messages = history,
+                        ragContext = ragContext,
+                        memories = memories,
+                        systemPrompt = systemPrompt,
+                        includeImageTokens = model.format == com.example.orbitai.core.model.ModelFormat.ONNX_GENAI && model.supportsVision,
+                    )
                 }
             }
             

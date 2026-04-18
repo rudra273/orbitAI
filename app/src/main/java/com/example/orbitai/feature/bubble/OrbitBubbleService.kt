@@ -51,6 +51,7 @@ import com.example.orbitai.core.engine.ToolCallResult
 import com.example.orbitai.core.model.ModelFormat
 import com.example.orbitai.core.model.ModelDownloader
 import com.example.orbitai.core.model.ModelProvider
+import com.example.orbitai.core.prompt.ModelPromptBuilder
 import com.example.orbitai.feature.automation.AutomationRoute
 import com.example.orbitai.feature.automation.AutomationRouter
 import com.google.ai.edge.litertlm.Content
@@ -479,8 +480,11 @@ class OrbitBubbleService : Service() {
             val startedAt = SystemClock.elapsedRealtime()
             val downloader = ModelDownloader(this@OrbitBubbleService)
             val selectedModelId = BubbleSettingsStore(this@OrbitBubbleService).bubbleModelId
-            val model = AVAILABLE_MODELS.firstOrNull { it.id == selectedModelId && downloader.isDownloaded(it) }
-                ?: AVAILABLE_MODELS.firstOrNull { downloader.isDownloaded(it) }
+            val model = AVAILABLE_MODELS.firstOrNull {
+                it.isChatSelectable && it.id == selectedModelId && downloader.isDownloaded(it)
+            } ?: AVAILABLE_MODELS.firstOrNull {
+                it.isChatSelectable && downloader.isDownloaded(it)
+            }
 
             if (model == null) {
                 withContext(Dispatchers.Main) {
@@ -515,6 +519,7 @@ class OrbitBubbleService : Service() {
                         }
                     }
                     runLegacyOverlayStreaming(
+                        model = model,
                         initialTranscript = initialTranscript,
                         repo = repo,
                         settings = settings,
@@ -665,6 +670,7 @@ class OrbitBubbleService : Service() {
     }
 
     private suspend fun runLegacyOverlayStreaming(
+        model: com.example.orbitai.core.model.LlmModel,
         initialTranscript: String,
         repo: LlmRepository,
         settings: com.example.orbitai.core.common.InferenceSettings,
@@ -677,7 +683,12 @@ class OrbitBubbleService : Service() {
         }
 
         repo.generateResponseStream(
-            input = com.example.orbitai.core.engine.InferenceInput(prompt = initialTranscript),
+            input = com.example.orbitai.core.engine.InferenceInput(
+                prompt = ModelPromptBuilder.wrapInstructionPrompt(
+                    promptStyle = model.promptStyle,
+                    instruction = initialTranscript,
+                )
+            ),
             maxDecodedTokens = settings.maxDecodedTokens,
         ).collect { token ->
             withContext(Dispatchers.Main) {

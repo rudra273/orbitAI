@@ -21,6 +21,8 @@ fun availableChatModels(
     tokenStore: TokenStore,
 ): List<LlmModel> {
     val cloudModels = listOfNotNull(tokenStore.geminiChatModelOrNull())
-    val downloadedLocalModels = AVAILABLE_MODELS.filter(modelDownloader::isDownloaded)
+    val downloadedLocalModels = AVAILABLE_MODELS.filter { model ->
+        model.isChatSelectable && modelDownloader.isDownloaded(model)
+    }
     return cloudModels + downloadedLocalModels
 }

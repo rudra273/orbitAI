@@ -55,6 +55,7 @@ import com.example.orbitai.core.model.AVAILABLE_MODELS
 import com.example.orbitai.core.model.DownloadProgress
 import com.example.orbitai.core.model.DownloadStatus
 import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.model.MODEL_DOWNLOAD_SPECS
 import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
@@ -93,6 +94,8 @@ fun ModelSettingsScreen(
     var geminiApiKey by remember { mutableStateOf(tokenStore.geminiApiKey) }
     var geminiSaved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
     var showGeminiKey by remember { mutableStateOf(false) }
+    val publicModels = AVAILABLE_MODELS.filter { MODEL_DOWNLOAD_SPECS[it.id]?.requiresAuth == false }
+    val authModels = AVAILABLE_MODELS.filter { MODEL_DOWNLOAD_SPECS[it.id]?.requiresAuth == true }
 
     LazyColumn(
         modifier = Modifier
@@ -267,18 +270,53 @@ fun ModelSettingsScreen(
 
         item { SectionHeader("ON-DEVICE") }
 
-        item {
-            FlatCard(padding = 0.dp) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    AVAILABLE_MODELS.forEachIndexed { index, model ->
-                        ModelRow(
-                            model = model,
-                            progress = progressMap[model.id],
-                            onDownload = { downloadViewModel.startDownload(model) },
-                            onDelete = { downloadViewModel.deleteModel(model) },
-                            onCancel = { downloadViewModel.cancelDownload(model) },
-                        )
-                        if (index != AVAILABLE_MODELS.lastIndex) HairlineDivider()
+        if (publicModels.isNotEmpty()) {
+            item {
+                ModelGroupHeader(
+                    title = "PUBLIC DOWNLOADS",
+                    subtitle = "No token required",
+                )
+            }
+
+            item {
+                FlatCard(padding = 0.dp) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        publicModels.forEachIndexed { index, model ->
+                            ModelRow(
+                                model = model,
+                                progress = progressMap[model.id],
+                                onDownload = { downloadViewModel.startDownload(model) },
+                                onDelete = { downloadViewModel.deleteModel(model) },
+                                onCancel = { downloadViewModel.cancelDownload(model) },
+                            )
+                            if (index != publicModels.lastIndex) HairlineDivider()
+                        }
+                    }
+                }
+            }
+        }
+
+        if (authModels.isNotEmpty()) {
+            item {
+                ModelGroupHeader(
+                    title = "REQUIRES HUGGINGFACE TOKEN",
+                    subtitle = "Login token needed for download",
+                )
+            }
+
+            item {
+                FlatCard(padding = 0.dp) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        authModels.forEachIndexed { index, model ->
+                            ModelRow(
+                                model = model,
+                                progress = progressMap[model.id],
+                                onDownload = { downloadViewModel.startDownload(model) },
+                                onDelete = { downloadViewModel.deleteModel(model) },
+                                onCancel = { downloadViewModel.cancelDownload(model) },
+                            )
+                            if (index != authModels.lastIndex) HairlineDivider()
+                        }
                     }
                 }
             }
@@ -564,6 +602,32 @@ private fun SectionHeader(text: String) {
         letterSpacing = 1.2.sp,
         modifier = Modifier.padding(start = 4.dp, top = 2.dp),
     )
+}
+
+@Composable
+private fun ModelGroupHeader(
+    title: String,
+    subtitle: String,
+) {
+    Column(
+        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+        Text(
+            text = title,
+            color = SettingsInk.copy(alpha = 0.30f),
+            fontFamily = SettingsMono,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.2.sp,
+        )
+        Text(
+            text = subtitle,
+            color = SettingsInk.copy(alpha = 0.22f),
+            fontFamily = SettingsSans,
+            fontSize = 11.sp,
+        )
+    }
 }
 
 @Composable
