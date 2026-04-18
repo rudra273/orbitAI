@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -155,16 +155,19 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 24.dp),
             ) {
-                items(groupedItems, key = {
+                itemsIndexed(groupedItems, key = { _, it ->
                     when (it) {
                         is ChatListItem.Header -> "h_${it.label}"
                         is ChatListItem.Row -> it.chat.id
                     }
-                }) { item ->
+                }) { index, item ->
                     when (item) {
-                        is ChatListItem.Header -> GroupHeader(item.label)
+                        is ChatListItem.Header -> GroupHeader(
+                            label = item.label,
+                            isFirst = index == 0,
+                        )
                         is ChatListItem.Row -> {
                             ChatRow(
                                 chat = item.chat,
@@ -382,14 +385,14 @@ private fun ChatHistoryTopBar(
 }
 
 @Composable
-private fun GroupHeader(label: String) {
+private fun GroupHeader(label: String, isFirst: Boolean = false) {
     Text(
         text = label,
         color = inkColor.copy(alpha = 0.35f),
         fontFamily = Mono,
         fontSize = 10.sp,
         fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+        modifier = Modifier.padding(top = if (isFirst) 4.dp else 12.dp, bottom = 4.dp),
     )
 }
 

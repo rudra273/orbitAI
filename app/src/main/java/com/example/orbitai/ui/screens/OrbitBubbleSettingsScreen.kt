@@ -130,6 +130,28 @@ fun OrbitBubbleSettingsScreen(
         if (bubbleEnabled) OrbitBubbleService.start(context)
     }
 
+    fun resetDefaults() {
+        val defaultBubbleSizeDp = 48
+        val defaultResponseHeightDp = 220
+        val defaultBubbleIdleAlphaPercent = 20
+        val defaultResultsInOverlay = true
+        val defaultResponseAlphaPercent = 50
+
+        bubbleSizeDp = defaultBubbleSizeDp
+        responseHeightDp = defaultResponseHeightDp
+        bubbleIdleAlphaPercent = defaultBubbleIdleAlphaPercent
+        resultsInOverlay = defaultResultsInOverlay
+        bubbleResponseAlphaPercent = defaultResponseAlphaPercent
+
+        toolSettingsStore.bubbleSizeDp = defaultBubbleSizeDp
+        toolSettingsStore.bubbleResponseHeightDp = defaultResponseHeightDp
+        toolSettingsStore.bubbleIdleAlphaPercent = defaultBubbleIdleAlphaPercent
+        toolSettingsStore.bubbleResultsInOverlay = defaultResultsInOverlay
+        toolSettingsStore.bubbleResponseAlphaPercent = defaultResponseAlphaPercent
+
+        if (bubbleEnabled) OrbitBubbleService.start(context)
+    }
+
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -202,6 +224,9 @@ fun OrbitBubbleSettingsScreen(
         bubbleStyle = toolSettingsStore.bubbleStyle
         resultsInOverlay = toolSettingsStore.bubbleResultsInOverlay
         bubbleModelId = toolSettingsStore.bubbleModelId
+        bubbleModeId = toolSettingsStore.bubbleModeId
+        bubbleResponseAlphaPercent = toolSettingsStore.bubbleResponseAlphaPercent
+        bubbleResponseTheme = toolSettingsStore.bubbleResponseTheme
         if (bubbleEnabled) OrbitBubbleService.start(context)
     }
 
@@ -246,20 +271,40 @@ fun OrbitBubbleSettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
-                    text = "Orbit Bubble",
-                    color = BubbleInk,
-                    fontFamily = BubbleSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 28.sp,
-                )
-                Text(
-                    text = "Floating assistant behavior",
-                    color = BubbleInk.copy(alpha = 0.35f),
-                    fontFamily = BubbleMono,
-                    fontSize = 11.sp,
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = "Orbit Bubble",
+                            color = BubbleInk,
+                            fontFamily = BubbleSans,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 20.sp,
+                        )
+                        Text(
+                            text = "Floating assistant behavior",
+                            color = BubbleInk.copy(alpha = 0.35f),
+                            fontFamily = BubbleMono,
+                            fontSize = 11.sp,
+                        )
+                    }
+
+                    BubbleToggle(
+                        checked = bubbleEnabled,
+                        onCheckedChange = ::updateBubble,
+                    )
+                }
+
+                ResetDefaultsButton(
+                    onClick = ::resetDefaults,
                 )
             }
         }
@@ -319,17 +364,6 @@ fun OrbitBubbleSettingsScreen(
         item { BubbleSectionLabel("BEHAVIOUR") }
         item {
             GroupedCard {
-                ToggleRow(
-                    title = "Enable bubble",
-                    subtitle = if (bubbleEnabled) {
-                        "Bubble is active over other apps"
-                    } else {
-                        "Show a draggable floating bubble"
-                    },
-                    checked = bubbleEnabled,
-                    onCheckedChange = ::updateBubble,
-                )
-                HairlineDivider()
                 ToggleRow(
                     title = "Response mode",
                     subtitle = if (resultsInOverlay) {
@@ -413,6 +447,7 @@ fun OrbitBubbleSettingsScreen(
                         if (bubbleEnabled) OrbitBubbleService.start(context)
                     },
                 )
+                HairlineDivider()
                 AppearanceSliderRow(
                     title = "Response opacity",
                     valueLabel = "${bubbleResponseAlphaPercent}%",
@@ -458,6 +493,32 @@ fun OrbitBubbleSettingsScreen(
                 textAlign = TextAlign.Center,
             )
         }
+    }
+}
+
+@Composable
+private fun ResetDefaultsButton(
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(BubbleInk.copy(alpha = 0.06f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Reset defaults",
+            color = BubbleInk.copy(alpha = 0.65f),
+            fontFamily = BubbleMono,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 
