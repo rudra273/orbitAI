@@ -74,13 +74,13 @@ val MODEL_DOWNLOAD_SPECS = mapOf(
         repo = "litert-community/gemma-4-E2B-it-litert-lm",
         remotePath = "gemma-4-E2B-it.litertlm",
         localPath = "gemma-4-E2B-it-int4.litertlm",
-        requiresAuth = true,
+        requiresAuth = false,
     ),
     "gemma4-e4b" to singleFileSpec(
         repo = "litert-community/gemma-4-E4B-it-litert-lm",
         remotePath = "gemma-4-E4B-it.litertlm",
         localPath = "gemma-4-E4B-it-int4.litertlm",
-        requiresAuth = true,
+        requiresAuth = false,
     ),
     "gemma2-2b" to singleFileSpec(
         repo = "litert-community/Gemma2-2B-IT",

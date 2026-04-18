@@ -87,6 +87,7 @@ sealed class Screen(val route: String) {
 
     // ── Settings sub-screens ─────────────────────────────────────────────────
     data object SettingsModel     : Screen("settings/model")
+    data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
     data object SettingsTools     : Screen("settings/tools")
     data object SettingsOrbitBubble : Screen("settings/orbit_bubble")
@@ -252,6 +253,15 @@ fun OrbitNavGraph(
                 val tokenStore = remember { TokenStore(context) }
                 ModelSettingsScreen(
                     downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
+                    onNavigateToToken = { navController.navigate(Screen.SettingsHfToken.route) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.SettingsHfToken.route) {
+                val context = LocalContext.current
+                val tokenStore = remember { TokenStore(context) }
+                com.example.orbitai.ui.screens.SettingsHfTokenScreen(
                     tokenStore = tokenStore,
                     onBack = { navController.popBackStack() },
                 )

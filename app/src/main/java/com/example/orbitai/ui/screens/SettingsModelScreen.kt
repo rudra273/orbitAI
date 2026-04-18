@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,12 +27,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,6 +61,8 @@ import com.example.orbitai.core.model.DownloadProgress
 import com.example.orbitai.core.model.DownloadStatus
 import com.example.orbitai.core.model.LlmModel
 import com.example.orbitai.core.model.MODEL_DOWNLOAD_SPECS
+import com.example.orbitai.core.model.AVAILABLE_EMBEDDING_MODELS
+import com.example.orbitai.core.model.EmbeddingModelConfig
 import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
@@ -82,20 +89,24 @@ private val SettingsInk: Color
 fun ModelSettingsScreen(
     downloadViewModel: DownloadViewModel,
     tokenStore: TokenStore,
+    onNavigateToToken: () -> Unit,
     onBack: () -> Unit,
 ) {
     val progressMap by downloadViewModel.progress.collectAsState()
+    val embeddingProgressMap by downloadViewModel.embeddingProgress.collectAsState()
 
-    var token by remember { mutableStateOf(tokenStore.huggingFaceToken) }
     var tokenSaved by remember { mutableStateOf(tokenStore.hasToken()) }
-    var showToken by remember { mutableStateOf(false) }
     var geminiExpanded by remember { mutableStateOf(false) }
     var geminiModelName by remember { mutableStateOf(tokenStore.geminiModelName) }
     var geminiApiKey by remember { mutableStateOf(tokenStore.geminiApiKey) }
     var geminiSaved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
     var showGeminiKey by remember { mutableStateOf(false) }
-    val publicModels = AVAILABLE_MODELS.filter { MODEL_DOWNLOAD_SPECS[it.id]?.requiresAuth == false }
-    val authModels = AVAILABLE_MODELS.filter { MODEL_DOWNLOAD_SPECS[it.id]?.requiresAuth == true }
+    var showAllModels by remember { mutableStateOf(false) }
+
+    val topPickIds = setOf("gemma4-e2b", "gemma4-e4b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b")
+    // Sort top picks based on the order in the set
+    val topPickModels = topPickIds.mapNotNull { id -> AVAILABLE_MODELS.find { it.id == id } }
+    val allModels = AVAILABLE_MODELS.filter { it.id !in topPickIds }
 
     LazyColumn(
         modifier = Modifier
@@ -156,167 +167,147 @@ fun ModelSettingsScreen(
             }
         }
 
+
+
+        item { SectionHeader("EMBEDDING") }
+
+        item {
+            FlatCard(padding = 0.dp) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    AVAILABLE_EMBEDDING_MODELS.forEachIndexed { index, model ->
+                        EmbeddingModelRow(
+                            model = model,
+                            progress = embeddingProgressMap[model.id],
+                            onDownload = { downloadViewModel.startEmbeddingDownload(model) },
+                            onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
+                            onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
+                        )
+                        if (index != AVAILABLE_EMBEDDING_MODELS.lastIndex) HairlineDivider()
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader("ON-DEVICE LLMs") }
+
+        item {
+            FlatCard(padding = 0.dp) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    topPickModels.forEachIndexed { index, model ->
+                        ModelRow(
+                            model = model,
+                            progress = progressMap[model.id],
+                            onDownload = {
+                                if (MODEL_DOWNLOAD_SPECS[model.id]?.requiresAuth == true && !tokenStore.hasToken()) {
+                                    onNavigateToToken()
+                                } else {
+                                    downloadViewModel.startDownload(model)
+                                }
+                            },
+                            onDelete = { downloadViewModel.deleteModel(model) },
+                            onCancel = { downloadViewModel.cancelDownload(model) },
+                        )
+                        if (index != topPickModels.lastIndex) HairlineDivider()
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showAllModels = !showAllModels },
+                    )
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (showAllModels) "HIDE OTHER MODELS" else "SHOW ALL MODELS",
+                    color = SettingsInk.copy(alpha = 0.6f),
+                    fontFamily = SettingsMono,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = if (showAllModels) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = SettingsInk.copy(alpha = 0.6f),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        if (showAllModels) {
+            item {
+                FlatCard(padding = 0.dp) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        allModels.forEachIndexed { index, model ->
+                            ModelRow(
+                                model = model,
+                                progress = progressMap[model.id],
+                                onDownload = {
+                                    if (MODEL_DOWNLOAD_SPECS[model.id]?.requiresAuth == true && !tokenStore.hasToken()) {
+                                        onNavigateToToken()
+                                    } else {
+                                        downloadViewModel.startDownload(model)
+                                    }
+                                },
+                                onDelete = { downloadViewModel.deleteModel(model) },
+                                onCancel = { downloadViewModel.cancelDownload(model) },
+                            )
+                            if (index != allModels.lastIndex) HairlineDivider()
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             FlatCard {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = "HuggingFace Config",
-                            color = SettingsInk,
-                            fontFamily = SettingsSans,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 13.sp,
-                        )
-                        Text(
-                            text = "Token · on-device model downloads",
-                            color = SettingsInk.copy(alpha = 0.35f),
-                            fontFamily = SettingsMono,
-                            fontSize = 10.sp,
-                        )
-                    }
-
+                    Text(
+                        text = "HuggingFace Config",
+                        color = SettingsInk,
+                        fontFamily = SettingsSans,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                    )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(7.dp))
-                                .background(SettingsInk.copy(alpha = 0.06f))
-                                .padding(start = 10.dp, end = 4.dp),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            val displayToken = if (showToken) token else "*".repeat(token.length)
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                BasicTextField(
-                                    value = displayToken,
-                                    onValueChange = { entered ->
-                                        if (showToken) {
-                                            token = entered
-                                            tokenSaved = false
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = showToken,
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = SettingsMono,
-                                        color = SettingsInk,
-                                        fontSize = 11.sp,
-                                    ),
-                                    cursorBrush = SolidColor(SettingsInk),
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Password,
-                                        imeAction = ImeAction.Done,
-                                    ),
-                                    decorationBox = { innerTextField ->
-                                        if (displayToken.isEmpty()) {
-                                            Text(
-                                                "hf_xxx...",
-                                                color = SettingsInk.copy(alpha = 0.45f),
-                                                fontFamily = SettingsMono,
-                                                fontSize = 11.sp,
-                                            )
-                                        }
-                                        innerTextField()
-                                    },
-                                )
-
-                                IconButton(onClick = { showToken = !showToken }) {
-                                    Icon(
-                                        imageVector = if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = null,
-                                        tint = SettingsInk.copy(alpha = 0.55f),
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            }
+                        if (tokenStore.hasToken()) {
+                            Text(
+                                text = "✓ Configured",
+                                color = SettingsGreen,
+                                fontFamily = SettingsMono,
+                                fontSize = 11.sp,
+                            )
+                        } else {
+                            Text(
+                                text = "No Token",
+                                color = SettingsInk.copy(alpha = 0.45f),
+                                fontFamily = SettingsMono,
+                                fontSize = 11.sp,
+                            )
                         }
-
                         SmallFilledButton(
-                            label = if (tokenSaved) "Saved" else "Save",
+                            label = if (tokenStore.hasToken()) "Update" else "Set Token",
                             color = SettingsInk,
-                            enabled = token.isNotBlank() && !tokenSaved,
-                            onClick = {
-                                tokenStore.huggingFaceToken = token
-                                tokenSaved = true
-                            },
+                            enabled = true,
+                            onClick = onNavigateToToken,
                         )
-
-                        SmallOutlineButton(
-                            label = "Clear",
-                            color = SettingsRed,
-                            onClick = {
-                                token = ""
-                                tokenStore.huggingFaceToken = ""
-                                tokenSaved = false
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        item { SectionHeader("ON-DEVICE") }
-
-        if (publicModels.isNotEmpty()) {
-            item {
-                ModelGroupHeader(
-                    title = "PUBLIC DOWNLOADS",
-                    subtitle = "No token required",
-                )
-            }
-
-            item {
-                FlatCard(padding = 0.dp) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        publicModels.forEachIndexed { index, model ->
-                            ModelRow(
-                                model = model,
-                                progress = progressMap[model.id],
-                                onDownload = { downloadViewModel.startDownload(model) },
-                                onDelete = { downloadViewModel.deleteModel(model) },
-                                onCancel = { downloadViewModel.cancelDownload(model) },
-                            )
-                            if (index != publicModels.lastIndex) HairlineDivider()
-                        }
-                    }
-                }
-            }
-        }
-
-        if (authModels.isNotEmpty()) {
-            item {
-                ModelGroupHeader(
-                    title = "REQUIRES HUGGINGFACE TOKEN",
-                    subtitle = "Login token needed for download",
-                )
-            }
-
-            item {
-                FlatCard(padding = 0.dp) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        authModels.forEachIndexed { index, model ->
-                            ModelRow(
-                                model = model,
-                                progress = progressMap[model.id],
-                                onDownload = { downloadViewModel.startDownload(model) },
-                                onDelete = { downloadViewModel.deleteModel(model) },
-                                onCancel = { downloadViewModel.cancelDownload(model) },
-                            )
-                            if (index != authModels.lastIndex) HairlineDivider()
-                        }
                     }
                 }
             }
@@ -446,8 +437,8 @@ fun ModelSettingsScreen(
 }
 
 @Composable
-private fun ModelRow(
-    model: LlmModel,
+private fun EmbeddingModelRow(
+    model: EmbeddingModelConfig,
     progress: DownloadProgress?,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
@@ -457,6 +448,30 @@ private fun ModelRow(
     val isInstalled = status == DownloadStatus.COMPLETED
     val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
     val isFailed = status == DownloadStatus.FAILED
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Model", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            text = { Text("Are you sure you want to delete ${model.displayName}? You will need to re-download it to use it again.", fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) {
+                    Text("Delete", color = SettingsRed, fontFamily = SettingsSans)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = SettingsInk, fontFamily = SettingsSans)
+                }
+            },
+            containerColor = SettingsCard,
+            shape = RoundedCornerShape(14.dp)
+        )
+    }
 
     Row(
         modifier = Modifier
@@ -478,6 +493,166 @@ private fun ModelRow(
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
                 )
+            }
+            Text(
+                text = if (isFailed) (progress?.error ?: "Download failed") else model.description,
+                color = if (isFailed) SettingsRed else SettingsInk.copy(alpha = 0.38f),
+                fontFamily = SettingsSans,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        when {
+            isInstalled -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(SettingsGreen),
+                    )
+                    Text(
+                        text = "Delete",
+                        color = SettingsRed,
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showDeleteDialog = true },
+                        ),
+                    )
+                }
+            }
+
+            isDownloading -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "${progress?.progressPercent ?: 0}%",
+                        color = SettingsInk.copy(alpha = 0.55f),
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                    )
+                    Text(
+                        text = "Cancel",
+                        color = SettingsRed,
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onCancel,
+                        ),
+                    )
+                }
+            }
+
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SettingsInk.copy(alpha = 0.06f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDownload,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = if (isFailed) "Retry ${model.displayName}" else "Download ${model.displayName}",
+                        tint = SettingsInk.copy(alpha = 0.62f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelRow(
+    model: LlmModel,
+    progress: DownloadProgress?,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val status = progress?.status ?: DownloadStatus.IDLE
+    val isInstalled = status == DownloadStatus.COMPLETED
+    val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
+    val isFailed = status == DownloadStatus.FAILED
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Model", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            text = { Text("Are you sure you want to delete ${model.displayName}? You will need to re-download it to use it again.", fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) {
+                    Text("Delete", color = SettingsRed, fontFamily = SettingsSans)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = SettingsInk, fontFamily = SettingsSans)
+                }
+            },
+            containerColor = SettingsCard,
+            shape = RoundedCornerShape(14.dp)
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = model.displayName,
+                    color = SettingsInk,
+                    fontFamily = SettingsSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                )
+                if (MODEL_DOWNLOAD_SPECS[model.id]?.requiresAuth == true) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(SettingsInk.copy(alpha = 0.08f))
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "TOKEN REQ",
+                            color = SettingsInk.copy(alpha = 0.5f),
+                            fontFamily = SettingsMono,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Text(
                     text = "· ${model.paramCount}",
                     color = SettingsInk.copy(alpha = 0.30f),
@@ -515,7 +690,7 @@ private fun ModelRow(
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onDelete,
+                            onClick = { showDeleteDialog = true },
                         ),
                     )
                 }
