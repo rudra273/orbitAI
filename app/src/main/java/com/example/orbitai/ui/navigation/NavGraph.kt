@@ -43,6 +43,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.example.orbitai.OverlayPromptRequest
+import com.example.orbitai.core.common.OnboardingSettingsStore
 import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.feature.automation.AutomationSettingsStore
 import com.example.orbitai.feature.bubble.BubbleSettingsStore
@@ -57,6 +58,7 @@ import com.example.orbitai.ui.screens.SpacesScreen
 import com.example.orbitai.ui.screens.SettingsScreen
 import com.example.orbitai.ui.screens.OrbitBubbleSettingsScreen
 import com.example.orbitai.ui.screens.ToolsSettingsScreen
+import com.example.orbitai.ui.screens.WelcomeScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 import com.example.orbitai.viewmodel.AppUpdateViewModel
@@ -91,6 +93,7 @@ sealed class Screen(val route: String) {
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
     data object SettingsTools     : Screen("settings/tools")
     data object SettingsOrbitBubble : Screen("settings/orbit_bubble")
+    data object Welcome : Screen("welcome")
 }
 
 private val TAB_ROUTES = setOf(
@@ -125,10 +128,21 @@ fun OrbitNavGraph(
     isDarkTheme:       Boolean,
     onThemeChanged:    (Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
+    val onboardingStore = remember { OnboardingSettingsStore(context) }
+    val bubbleSettingsStore = remember { BubbleSettingsStore(context) }
+    var hasCompletedWelcome by rememberSaveable { mutableStateOf(onboardingStore.hasCompletedWelcome) }
+    var shouldAutoOpenInitialChat by rememberSaveable { mutableStateOf(onboardingStore.hasCompletedWelcome) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
-    val initialChatId = rememberSaveable { overlayPromptRequest?.chatId ?: chatViewModel.createNewChat() }
+    val initialChatId = remember(hasCompletedWelcome, shouldAutoOpenInitialChat, overlayPromptRequest?.chatId) {
+        if (hasCompletedWelcome && shouldAutoOpenInitialChat) {
+            overlayPromptRequest?.chatId ?: chatViewModel.createNewChat()
+        } else {
+            null
+        }
+    }
     val swipeModifier = rememberTabSwipeModifier(
         currentRoute = currentRoute,
         onNavigate = { route ->
@@ -140,13 +154,16 @@ fun OrbitNavGraph(
         },
     )
 
-    LaunchedEffect(initialChatId) {
-        navController.navigate(Screen.ChatDetail.go(initialChatId)) {
+    LaunchedEffect(initialChatId, hasCompletedWelcome) {
+        val chatId = initialChatId ?: return@LaunchedEffect
+        if (!hasCompletedWelcome) return@LaunchedEffect
+        navController.navigate(Screen.ChatDetail.go(chatId)) {
             launchSingleTop = true
         }
     }
 
-    LaunchedEffect(overlayPromptRequest?.id) {
+    LaunchedEffect(overlayPromptRequest?.id, hasCompletedWelcome) {
+        if (!hasCompletedWelcome) return@LaunchedEffect
         val request = overlayPromptRequest ?: return@LaunchedEffect
         navController.navigate(Screen.ChatDetail.go(request.chatId)) {
             launchSingleTop = true
@@ -179,12 +196,28 @@ fun OrbitNavGraph(
         ) {
             NavHost(
                 navController    = navController,
-                startDestination = Screen.Chat.route,
+                startDestination = if (hasCompletedWelcome) Screen.Chat.route else Screen.Welcome.route,
                 modifier         = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
                     .then(swipeModifier),
             ) {
+
+            composable(Screen.Welcome.route) {
+                WelcomeScreen(
+                    onboardingStore = onboardingStore,
+                    bubbleSettingsStore = bubbleSettingsStore,
+                    memoryViewModel = memoryViewModel,
+                    onFinished = {
+                        hasCompletedWelcome = true
+                        shouldAutoOpenInitialChat = false
+                        navController.navigate(Screen.SettingsModel.route) {
+                            popUpTo(Screen.Welcome.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
 
             // ── Tab screens ────────────────────────────────────────────────
 
@@ -192,6 +225,7 @@ fun OrbitNavGraph(
                 HomeScreen(
                     viewModel  = chatViewModel,
                     onOpenChat = { navController.navigate(Screen.ChatDetail.go(it)) },
+                    onDownloadModel = { navController.navigate(Screen.SettingsModel.route) },
                 )
             }
 
@@ -199,6 +233,7 @@ fun OrbitNavGraph(
                 SpacesScreen(
                     viewModel   = spacesViewModel,
                     onOpenSpace = { navController.navigate(Screen.SpaceDetail.go(it)) },
+                    onDownloadModel = { navController.navigate(Screen.SettingsModel.route) },
                 )
             }
 

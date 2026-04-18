@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -84,8 +85,10 @@ private sealed interface ChatListItem {
 fun HomeScreen(
     viewModel: ChatViewModel,
     onOpenChat: (String) -> Unit,
+    onDownloadModel: () -> Unit,
 ) {
     val chats by viewModel.chats.collectAsState()
+    val availableModels by viewModel.availableModels.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var searchActive by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
@@ -146,6 +149,8 @@ fun HomeScreen(
     ) { padding ->
         if (groupedItems.isEmpty()) {
             EmptyChats(
+                hasModels = availableModels.isNotEmpty(),
+                onDownloadModel = onDownloadModel,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
@@ -542,7 +547,11 @@ private fun ChatRow(
 }
 
 @Composable
-private fun EmptyChats(modifier: Modifier = Modifier) {
+private fun EmptyChats(
+    hasModels: Boolean,
+    onDownloadModel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -555,12 +564,46 @@ private fun EmptyChats(modifier: Modifier = Modifier) {
             fontSize = 18.sp,
         )
         Text(
-            text = "Start a new chat to begin",
+            text = if (hasModels) "Start a new chat to begin" else "Download a model to start using OrbitAI",
             color = inkColor.copy(alpha = 0.3f),
             fontFamily = Mono,
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 6.dp),
         )
+        if (!hasModels) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 18.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(inkColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDownloadModel,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = null,
+                        tint = surfaceColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "Download a model to use",
+                        color = surfaceColor,
+                        fontFamily = Sans,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+        }
     }
 }
 

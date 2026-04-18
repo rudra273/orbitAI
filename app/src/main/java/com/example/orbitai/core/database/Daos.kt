@@ -109,6 +109,9 @@ interface MemoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMemory(memory: MemoryEntity)
 
+    @Query("DELETE FROM memories WHERE source = :source")
+    suspend fun deleteMemoriesBySource(source: String)
+
     @Query("DELETE FROM memories WHERE id = :id")
     suspend fun deleteMemory(id: String)
 

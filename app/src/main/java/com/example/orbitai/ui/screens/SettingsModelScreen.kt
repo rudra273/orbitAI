@@ -112,7 +112,7 @@ fun ModelSettingsScreen(
     var showAllModels by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val topPickIds = setOf("gemma4-e2b", "gemma4-e4b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b")
+    val topPickIds = setOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b")
     // Sort top picks based on the order in the set
     val topPickModels = topPickIds.mapNotNull { id -> AVAILABLE_MODELS.find { it.id == id } }
         .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
@@ -227,27 +227,6 @@ fun ModelSettingsScreen(
             }
         }
 
-        if (embedModels.isNotEmpty()) {
-            item { SectionHeader("EMBEDDING") }
-        }
-
-        item {
-            FlatCard(padding = 0.dp) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    embedModels.forEachIndexed { index, model ->
-                        EmbeddingModelRow(
-                            model = model,
-                            progress = embeddingProgressMap[model.id],
-                            onDownload = { downloadViewModel.startEmbeddingDownload(model) },
-                            onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
-                            onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
-                        )
-                        if (index != embedModels.lastIndex) HairlineDivider()
-                    }
-                }
-            }
-        }
-
         item { SectionHeader("ON-DEVICE LLMs") }
 
         item {
@@ -266,6 +245,7 @@ fun ModelSettingsScreen(
                             },
                             onDelete = { downloadViewModel.deleteModel(model) },
                             onCancel = { downloadViewModel.cancelDownload(model) },
+                            isOrbitRecommended = model.id == "gemma4-e2b",
                         )
                         if (index != topPickModels.lastIndex) HairlineDivider()
                     }
@@ -305,6 +285,7 @@ fun ModelSettingsScreen(
         }
 
         if (showAllModels) {
+            item { SectionHeader("ALL MODELS") }
             item {
                 FlatCard(padding = 0.dp) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -323,6 +304,26 @@ fun ModelSettingsScreen(
                                 onCancel = { downloadViewModel.cancelDownload(model) },
                             )
                             if (index != allModels.lastIndex) HairlineDivider()
+                        }
+                    }
+                }
+            }
+        }
+
+        if (embedModels.isNotEmpty()) {
+            item { SectionHeader("EMBEDDING") }
+            item {
+                FlatCard(padding = 0.dp) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        embedModels.forEachIndexed { index, model ->
+                            EmbeddingModelRow(
+                                model = model,
+                                progress = embeddingProgressMap[model.id],
+                                onDownload = { downloadViewModel.startEmbeddingDownload(model) },
+                                onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
+                                onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
+                            )
+                            if (index != embedModels.lastIndex) HairlineDivider()
                         }
                     }
                 }
@@ -645,6 +646,7 @@ private fun ModelRow(
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
+    isOrbitRecommended: Boolean = false,
 ) {
     val status = progress?.status ?: DownloadStatus.IDLE
     val isInstalled = status == DownloadStatus.COMPLETED
@@ -695,6 +697,22 @@ private fun ModelRow(
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
                 )
+                if (isOrbitRecommended) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0xFF5B4FE8).copy(alpha = 0.12f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "RECOMMENDED FOR ORBIT",
+                            color = Color(0xFF5B4FE8),
+                            fontFamily = SettingsMono,
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
                 if (MODEL_DOWNLOAD_SPECS[model.id]?.requiresAuth == true) {
                     Box(
                         modifier = Modifier
