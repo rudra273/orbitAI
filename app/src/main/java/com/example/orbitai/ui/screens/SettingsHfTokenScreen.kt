@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,6 +45,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.core.common.TokenStore
@@ -174,44 +177,42 @@ fun SettingsHfTokenScreen(
                                 .padding(start = 10.dp, end = 4.dp),
                             contentAlignment = Alignment.CenterStart,
                         ) {
-                            val displayToken = if (showToken) token else "*".repeat(token.length)
-
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 BasicTextField(
-                                    value = displayToken,
+                                    value = token,
                                     onValueChange = { entered ->
-                                        if (showToken) {
-                                            token = entered
-                                            tokenSaved = false
-                                        }
+                                        token = entered
+                                        tokenSaved = false
                                     },
                                     modifier = Modifier.weight(1f),
-                                    enabled = showToken,
+                                    enabled = true,
                                     singleLine = true,
                                     textStyle = MaterialTheme.typography.bodySmall.copy(
                                         fontFamily = SettingsMono,
                                         color = SettingsInk,
                                         fontSize = 12.sp,
                                     ),
+                                    visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
                                     cursorBrush = SolidColor(SettingsInk),
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Password,
                                         imeAction = ImeAction.Done,
                                     ),
                                     decorationBox = { innerTextField ->
-                                        if (displayToken.isEmpty()) {
-                                            Text(
-                                                "hf_xxx...",
-                                                color = SettingsInk.copy(alpha = 0.45f),
-                                                fontFamily = SettingsMono,
-                                                fontSize = 12.sp,
-                                            )
+                                        Box(contentAlignment = Alignment.CenterStart) {
+                                            if (token.isEmpty()) {
+                                                Text(
+                                                    "hf_xxx...",
+                                                    color = SettingsInk.copy(alpha = 0.45f),
+                                                    fontFamily = SettingsMono,
+                                                    fontSize = 12.sp,
+                                                )
+                                            }
+                                            innerTextField()
                                         }
-                                        innerTextField()
                                     },
                                 )
 

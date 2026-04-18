@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
@@ -52,6 +54,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +76,8 @@ import com.example.orbitai.viewmodel.DownloadViewModel
 private val SettingsSurfaceLight = Color(0xFFF9F8F5)
 private val SettingsCardLight = Color(0xFFFFFFFF)
 private val SettingsCardDark = Color(0xFF1E1E1C)
+private val SettingsSearchLight = Color(0xFFEEEDE8)
+private val SettingsSearchDark = Color(0xFF1E1E1C)
 private val SettingsInkLight = Color(0xFF0D0D0D)
 private val SettingsGreen = Color(0xFF17A865)
 private val SettingsRed = Color(0xFFD94F4F)
@@ -82,6 +88,8 @@ private val SettingsSurface: Color
     @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
 private val SettingsCard: Color
     @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
+private val SettingsSearchBg: Color
+    @Composable get() = if (IsOrbitDarkTheme) SettingsSearchDark else SettingsSearchLight
 private val SettingsInk: Color
     @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
 
@@ -102,11 +110,16 @@ fun ModelSettingsScreen(
     var geminiSaved by remember { mutableStateOf(tokenStore.hasGeminiConfig()) }
     var showGeminiKey by remember { mutableStateOf(false) }
     var showAllModels by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val topPickIds = setOf("gemma4-e2b", "gemma4-e4b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b")
     // Sort top picks based on the order in the set
     val topPickModels = topPickIds.mapNotNull { id -> AVAILABLE_MODELS.find { it.id == id } }
+        .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
     val allModels = AVAILABLE_MODELS.filter { it.id !in topPickIds }
+        .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
+    val embedModels = AVAILABLE_EMBEDDING_MODELS
+        .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
 
     LazyColumn(
         modifier = Modifier
@@ -169,12 +182,59 @@ fun ModelSettingsScreen(
 
 
 
-        item { SectionHeader("EMBEDDING") }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SettingsSearchBg)
+                    .border(1.dp, SettingsInk.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = SettingsInk.copy(alpha = 0.40f),
+                    modifier = Modifier.size(18.dp),
+                )
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.weight(1f),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = SettingsSans,
+                        color = SettingsInk,
+                    ),
+                    cursorBrush = SolidColor(SettingsInk),
+                    singleLine = true,
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    "Search models...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SettingsInk.copy(alpha = 0.40f),
+                                    fontFamily = SettingsSans,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+            }
+        }
+
+        if (embedModels.isNotEmpty()) {
+            item { SectionHeader("EMBEDDING") }
+        }
 
         item {
             FlatCard(padding = 0.dp) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    AVAILABLE_EMBEDDING_MODELS.forEachIndexed { index, model ->
+                    embedModels.forEachIndexed { index, model ->
                         EmbeddingModelRow(
                             model = model,
                             progress = embeddingProgressMap[model.id],
@@ -182,7 +242,7 @@ fun ModelSettingsScreen(
                             onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
                             onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
                         )
-                        if (index != AVAILABLE_EMBEDDING_MODELS.lastIndex) HairlineDivider()
+                        if (index != embedModels.lastIndex) HairlineDivider()
                     }
                 }
             }
@@ -373,14 +433,12 @@ fun ModelSettingsScreen(
                                 },
                             )
                             CompactInputField(
-                                value = if (showGeminiKey) geminiApiKey else "*".repeat(geminiApiKey.length),
+                                value = geminiApiKey,
                                 placeholder = "api key",
-                                readOnly = !showGeminiKey,
+                                isPassword = !showGeminiKey,
                                 onValueChange = {
-                                    if (showGeminiKey) {
-                                        geminiApiKey = it
-                                        geminiSaved = false
-                                    }
+                                    geminiApiKey = it
+                                    geminiSaved = false
                                 },
                                 trailing = {
                                     IconButton(onClick = { showGeminiKey = !showGeminiKey }) {
@@ -841,7 +899,7 @@ private fun CompactInputField(
     value: String,
     placeholder: String,
     onValueChange: (String) -> Unit,
-    readOnly: Boolean = false,
+    isPassword: Boolean = false,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     Box(
@@ -854,7 +912,7 @@ private fun CompactInputField(
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxHeight().fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -862,29 +920,31 @@ private fun CompactInputField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
-                enabled = !readOnly,
-                readOnly = readOnly,
+                enabled = true,
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = SettingsMono,
                     color = SettingsInk,
                     fontSize = 11.sp,
                 ),
+                visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
                 cursorBrush = SolidColor(SettingsInk),
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
+                    keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Text,
                     imeAction = ImeAction.Done,
                 ),
                 decorationBox = { innerTextField ->
-                    if (value.isEmpty()) {
-                        Text(
-                            placeholder,
-                            color = SettingsInk.copy(alpha = 0.45f),
-                            fontFamily = SettingsMono,
-                            fontSize = 11.sp,
-                        )
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                placeholder,
+                                color = SettingsInk.copy(alpha = 0.45f),
+                                fontFamily = SettingsMono,
+                                fontSize = 11.sp,
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
                 },
             )
             trailing?.invoke()
