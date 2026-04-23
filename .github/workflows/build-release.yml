@@ -32,67 +32,65 @@ jobs:
       - name: Validate signing secrets for tags
         if: startsWith(github.ref, 'refs/tags/')
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
-            echo "Missing one or more required signing secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
+          if [ -z "$ANDROID_UPLOAD_KEYSTORE_BASE64" ] || [ -z "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_UPLOAD_KEY_ALIAS" ] || [ -z "$ANDROID_UPLOAD_KEY_PASSWORD" ]; then
+            echo "Missing one or more required signing secrets: ANDROID_UPLOAD_KEYSTORE_BASE64, ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD"
             exit 1
           fi
 
-      - name: Prepare signing keystore for tags
+      - name: Prepare upload keystore for tags
         if: startsWith(github.ref, 'refs/tags/')
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
-          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-          echo "ORBIT_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "ORBIT_SIGNING_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "ORBIT_SIGNING_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "ORBIT_SIGNING_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+          KEYSTORE_PATH="$RUNNER_TEMP/upload-key.p12"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_PATH" \
+            "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" \
+            "$ANDROID_UPLOAD_KEY_ALIAS" \
+            "$ANDROID_UPLOAD_KEY_PASSWORD" > keystore.properties
+          chmod 600 keystore.properties
 
-      - name: Build release APK
-        env:
-          ORBIT_SIGNING_STORE_FILE: ${{ env.ORBIT_SIGNING_STORE_FILE }}
-          ORBIT_SIGNING_STORE_PASSWORD: ${{ env.ORBIT_SIGNING_STORE_PASSWORD }}
-          ORBIT_SIGNING_KEY_ALIAS: ${{ env.ORBIT_SIGNING_KEY_ALIAS }}
-          ORBIT_SIGNING_KEY_PASSWORD: ${{ env.ORBIT_SIGNING_KEY_PASSWORD }}
-          ORBIT_RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      - name: Build unsigned release APK
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         run: ./gradlew assembleRelease
+
+      - name: Build signed Play release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          ORBIT_RELEASE_VERSION: ${{ github.ref_name }}
+        run: ./gradlew bundleRelease assembleRelease
 
       - name: Collect release artifacts
         run: |
           mkdir -p release
           shopt -s nullglob
           apks=(app/build/outputs/apk/release/*.apk)
-          if [ ${#apks[@]} -eq 0 ]; then
-            echo "No release APK files found in app/build/outputs/apk/release"
+          aabs=(app/build/outputs/bundle/release/*.aab)
+          artifacts=("${apks[@]}" "${aabs[@]}")
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo "No release artifacts found"
             exit 1
           fi
-          cp -v "${apks[@]}" release/
+          cp -v "${artifacts[@]}" release/
 
-      - name: Upload release folder
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: ${{ startsWith(github.ref, 'refs/tags/') && 'signed-play-release' || 'unsigned-release-check' }}
           path: release/
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/*.apk
-          body: |
-            ## Highlights
-            - Check what is on screen.
-            - Gemma 4 with tool-calling support.
-            - Accessibility automation improvements.
-
-          append_body: true
+          files: release/*
           generate_release_notes: true

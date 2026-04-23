@@ -33,6 +33,68 @@ To view logs:
 adb logcat | grep orbitai
 ```
 
+### Play Store Upload Key
+
+Create or reuse one private upload key before the first Play Console upload:
+
+```sh
+mkdir -p ~/android-signing
+
+keytool -genkeypair \
+  -v \
+  -keystore ~/android-signing/upload-key.p12 \
+  -storetype PKCS12 \
+  -keyalg RSA \
+  -keysize 4096 \
+  -validity 10000 \
+  -alias upload-key \
+  -dname "CN=Upload Key, OU=Android, O=Private, L=Unknown, ST=Unknown, C=IN"
+```
+
+Create `keystore.properties` locally:
+
+```properties
+storeFile=/Users/rudrapratapmohanty/android-signing/upload-key.p12
+storePassword=your_keystore_password
+keyAlias=upload-key
+keyPassword=your_key_password
+```
+
+Both `upload-key.p12` and `keystore.properties` are ignored by git. Keep a private backup of the keystore and passwords. You can reuse this same upload key for other apps if you also register its certificate as the upload key in each app's Play Console setup.
+
+Print the certificate fingerprints:
+
+```sh
+keytool -list -v -keystore ~/android-signing/upload-key.p12 -alias upload-key
+```
+
+Use the SHA-1/SHA-256 fingerprints in Play Console to confirm this key is registered as the **upload key**, while Google Play manages the **app signing key**.
+
+Build the signed Play artifact locally:
+
+```sh
+./gradlew bundleRelease
+```
+
+Upload the generated `.aab` from `app/build/outputs/bundle/release/` to Play Console.
+
+For signed GitHub releases, add these repository secrets:
+
+```text
+ANDROID_UPLOAD_KEYSTORE_BASE64
+ANDROID_UPLOAD_KEYSTORE_PASSWORD
+ANDROID_UPLOAD_KEY_ALIAS
+ANDROID_UPLOAD_KEY_PASSWORD
+```
+
+Copy the keystore into `ANDROID_UPLOAD_KEYSTORE_BASE64` on macOS:
+
+```sh
+base64 -i ~/android-signing/upload-key.p12 | tr -d '\n' | pbcopy
+```
+
+Set `ANDROID_UPLOAD_KEY_ALIAS` to `upload-key`. Pushing a tag such as `v1.0.0` will build and upload signed release artifacts.
+
 ### Models
 - Place your LLM and embedding models in the app's external files directory under `models/`.
 - Example: `universal_sentence_encoder.tflite` for text embedding.
