@@ -17,6 +17,7 @@ mediapipeLlm = "0.10.27"
 mediapipeText = "0.10.32"
 litertlm = "0.10.0"
 pdfboxAndroid = "2.0.27.0"
+onnxruntimeAndroid = "1.23.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,6 +43,7 @@ mediapipe-llm-inference = { group = "com.google.mediapipe", name = "tasks-genai"
 mediapipe-text = { group = "com.google.mediapipe", name = "tasks-text", version.ref = "mediapipeText" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntimeAndroid" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

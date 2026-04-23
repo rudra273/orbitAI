@@ -14,10 +14,11 @@ object LlmInferenceEngineFactory {
             return GeminiApiEngine(context, settings)
         }
 
-        val modelPath = File(context.getExternalFilesDir(null), "models/${model.fileName}").absolutePath
+        val modelPath = resolveModelPath(context, model)
         return when (model.format) {
             ModelFormat.TASK -> MediaPipeTaskEngine(context, modelPath, settings)
             ModelFormat.LITERTLM -> LiteRtLmEngine(context, modelPath, settings)
+            ModelFormat.ONNX_GENAI -> OnnxGenAiEngine(context, model, settings)
         }
     }
 
@@ -33,7 +34,26 @@ object LlmInferenceEngineFactory {
         if (model.provider != ModelProvider.LOCAL || model.format != ModelFormat.LITERTLM) {
             return null
         }
-        val modelPath = File(context.getExternalFilesDir(null), "models/${model.fileName}").absolutePath
+        val modelPath = resolveModelPath(context, model)
         return LiteRtLmEngine(context, modelPath, settings)
+    }
+
+    private fun resolveModelPath(context: Context, model: LlmModel): String {
+        val modelRoot = File(context.getExternalFilesDir(null), "models/${model.fileName}")
+        if (model.format != ModelFormat.ONNX_GENAI && modelRoot.isDirectory) {
+            val nestedLegacyFile = File(modelRoot, modelRoot.name)
+            if (nestedLegacyFile.isFile) {
+                return nestedLegacyFile.absolutePath
+            }
+            throw IllegalStateException(
+                "Model path is a directory, not a file: ${modelRoot.absolutePath}. Delete and redownload ${model.displayName}."
+            )
+        }
+        if (model.format != ModelFormat.ONNX_GENAI && !modelRoot.isFile) {
+            throw IllegalStateException(
+                "Model file missing: ${modelRoot.absolutePath}. Delete and redownload ${model.displayName}."
+            )
+        }
+        return modelRoot.absolutePath
     }
 }

@@ -12,7 +12,6 @@ object WhatsAppDraftPromptBuilder {
     ): String {
         val sb = StringBuilder()
 
-        sb.append("<start_of_turn>user\n")
         sb.append("You are drafting a WhatsApp message on behalf of the user. ")
         sb.append("Understand what the user wants to send from the recent conversation and write the final WhatsApp message for them.\n\n")
         sb.append("Return exactly in this format:\n")
@@ -52,8 +51,6 @@ object WhatsAppDraftPromptBuilder {
             sb.append(message.content)
             sb.append("\n")
         }
-        sb.append("<end_of_turn>\n")
-        sb.append("<start_of_turn>model\n")
         return sb.toString()
     }
 }

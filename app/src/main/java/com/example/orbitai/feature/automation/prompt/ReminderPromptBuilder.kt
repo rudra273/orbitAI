@@ -17,7 +17,6 @@ object ReminderPromptBuilder {
     ): String {
         val sb = StringBuilder()
 
-        sb.append("<start_of_turn>user\n")
         sb.append("You are creating a reminder/calendar event on behalf of the user. ")
         sb.append("Understand what reminder the user wants, including date and time, from the recent conversation.\n\n")
         sb.append("Current local date and time: ")
@@ -62,8 +61,6 @@ object ReminderPromptBuilder {
             sb.append(message.content)
             sb.append("\n")
         }
-        sb.append("<end_of_turn>\n")
-        sb.append("<start_of_turn>model\n")
         return sb.toString()
     }
 }

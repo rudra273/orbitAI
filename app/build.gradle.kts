@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+import java.util.Properties
+
 fun parseReleaseVersionName(): String {
     val rawVersion = System.getenv("ORBIT_RELEASE_VERSION")
         ?: (findProperty("orbitReleaseVersion") as String?)
@@ -27,10 +29,17 @@ fun parseReleaseVersionCode(versionName: String): Int {
 }
 
 android {
-    val signingStoreFilePath = System.getenv("ORBIT_SIGNING_STORE_FILE")
-    val signingStorePassword = System.getenv("ORBIT_SIGNING_STORE_PASSWORD")
-    val signingKeyAlias = System.getenv("ORBIT_SIGNING_KEY_ALIAS")
-    val signingKeyPassword = System.getenv("ORBIT_SIGNING_KEY_PASSWORD")
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties().apply {
+        if (keystorePropertiesFile.isFile) {
+            keystorePropertiesFile.inputStream().use(::load)
+        }
+    }
+
+    val signingStoreFilePath = keystoreProperties.getProperty("storeFile")
+    val signingStorePassword = keystoreProperties.getProperty("storePassword")
+    val signingKeyAlias = keystoreProperties.getProperty("keyAlias")
+    val signingKeyPassword = keystoreProperties.getProperty("keyPassword")
     val hasReleaseSigning = !signingStoreFilePath.isNullOrBlank() &&
         !signingStorePassword.isNullOrBlank() &&
         !signingKeyAlias.isNullOrBlank() &&
@@ -56,7 +65,7 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = file(signingStoreFilePath!!)
+                storeFile = rootProject.file(signingStoreFilePath!!)
                 storePassword = signingStorePassword
                 keyAlias = signingKeyAlias
                 keyPassword = signingKeyPassword
@@ -127,6 +136,8 @@ dependencies {
 
     implementation(libs.mediapipe.llm.inference)
     implementation(libs.litertlm.android)
+    implementation(libs.onnxruntime.android)
+    implementation(files("libs/onnxruntime-genai-android-0.13.1.aar"))
     implementation(libs.mediapipe.text)
     implementation(libs.pdfbox.android)
     implementation(libs.room.runtime)

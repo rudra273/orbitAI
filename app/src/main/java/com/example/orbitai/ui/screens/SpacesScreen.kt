@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.HourglassEmpty
@@ -99,6 +100,7 @@ private val processingTint @Composable get() = if (IsOrbitDarkTheme) ProcessingD
 fun SpacesScreen(
     viewModel: SpacesViewModel,
     onOpenSpace: (spaceId: String) -> Unit,
+    onDownloadModel: () -> Unit,
 ) {
     val spaces by viewModel.spaces.collectAsState()
     val semanticReady = remember(spaces) { viewModel.isSemanticModelReady() }
@@ -137,19 +139,53 @@ fun SpacesScreen(
             )
 
             if (!semanticReady) {
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(SpaceDust)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        "Semantic model not downloaded. Go to Settings › Model to download it.",
+                        "Download the semantic model to use RAG in Spaces.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
+                        modifier = Modifier.weight(1f),
                     )
+                    Spacer(modifier = Modifier.size(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(TextPrimary)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onDownloadModel,
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDownload,
+                                contentDescription = null,
+                                tint = SpaceDeep,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Text(
+                                text = "Download",
+                                color = SpaceDeep,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
                 }
             }
 

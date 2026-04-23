@@ -29,4 +29,8 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
     fun addMemory(content: String) {
         viewModelScope.launch(Dispatchers.IO) { repository.addMemory(content, source = "explicit") }
     }
+
+    fun setUserName(name: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.setUserNameMemory(name) }
+    }
 }

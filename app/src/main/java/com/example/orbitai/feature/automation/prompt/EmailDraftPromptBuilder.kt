@@ -12,7 +12,6 @@ object EmailDraftPromptBuilder {
     ): String {
         val sb = StringBuilder()
 
-        sb.append("<start_of_turn>user\n")
         sb.append("You are drafting an email on behalf of the user. ")
         sb.append("Understand what the user wants to send from the recent conversation and write the email for them.\n\n")
         sb.append("Return exactly in this format:\n")
@@ -52,8 +51,6 @@ object EmailDraftPromptBuilder {
             sb.append(message.content)
             sb.append("\n")
         }
-        sb.append("<end_of_turn>\n")
-        sb.append("<start_of_turn>model\n")
         return sb.toString()
     }
 }

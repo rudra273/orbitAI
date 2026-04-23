@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -61,6 +63,8 @@ private val Violet = Color(0xFF5B4FE8)
 private val Green = Color(0xFF17A865)
 private val DeleteRed = Color(0xFFD94F4F)
 private val PopupDark = Color(0xFF1E1E1C)
+private val SearchBgLight = Color(0xFFF9F8F5) // Or similar to SpaceDeep if needed
+private val SearchBgDark = Color(0xFF1E1E1C)
 
 private val surfaceColor @Composable get() = SpaceDeep
 private val inkColor @Composable get() = if (IsOrbitDarkTheme) InkDark else InkLight
@@ -81,15 +85,38 @@ private sealed interface ChatListItem {
 fun HomeScreen(
     viewModel: ChatViewModel,
     onOpenChat: (String) -> Unit,
+    onDownloadModel: () -> Unit,
 ) {
     val chats by viewModel.chats.collectAsState()
-    val groupedItems = remember(chats) {
-        buildListItems(chats.sortedByDescending { chatTimestamp(it) })
+    val availableModels by viewModel.availableModels.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    var searchActive by remember { mutableStateOf(false) }
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    val filteredChats = remember(chats, searchQuery) {
+        val lowerq = searchQuery.lowercase()
+        chats.filter { displayTitle(it).lowercase().contains(lowerq) || previewText(it).lowercase().contains(lowerq) }
+    }
+
+    val groupedItems = remember(filteredChats) {
+        buildListItems(filteredChats.sortedByDescending { chatTimestamp(it) })
     }
 
     Scaffold(
         containerColor = surfaceColor,
-        topBar = { ChatHistoryTopBar(chatCount = chats.size) },
+        topBar = { 
+            ChatHistoryTopBar(
+                chatCount = filteredChats.size,
+                searchQuery = searchQuery,
+                onSearchChange = { searchQuery = it },
+                searchActive = searchActive,
+                onSearchToggle = { 
+                    searchActive = !searchActive
+                    if (!searchActive) searchQuery = "" 
+                },
+                onClearAll = { showClearConfirm = true }
+            ) 
+        },
         floatingActionButton = {
             Box(
                 modifier = Modifier.size(56.dp),
@@ -122,6 +149,8 @@ fun HomeScreen(
     ) { padding ->
         if (groupedItems.isEmpty()) {
             EmptyChats(
+                hasModels = availableModels.isNotEmpty(),
+                onDownloadModel = onDownloadModel,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
@@ -131,16 +160,19 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 24.dp),
             ) {
-                items(groupedItems, key = {
+                itemsIndexed(groupedItems, key = { _, it ->
                     when (it) {
                         is ChatListItem.Header -> "h_${it.label}"
                         is ChatListItem.Row -> it.chat.id
                     }
-                }) { item ->
+                }) { index, item ->
                     when (item) {
-                        is ChatListItem.Header -> GroupHeader(item.label)
+                        is ChatListItem.Header -> GroupHeader(
+                            label = item.label,
+                            isFirst = index == 0,
+                        )
                         is ChatListItem.Row -> {
                             ChatRow(
                                 chat = item.chat,
@@ -153,71 +185,219 @@ fun HomeScreen(
             }
         }
     }
-}
 
-@Composable
-private fun ChatHistoryTopBar(chatCount: Int) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "OrbitAI",
-                color = inkColor,
-                fontFamily = Mono,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = inkColor,
-                    modifier = Modifier.size(20.dp),
+    if (showClearConfirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            containerColor = popupSurface,
+            tonalElevation = 0.dp,
+            shape = RoundedCornerShape(18.dp),
+            title = {
+                Text(
+                    "Clear All Chats",
+                    color = inkColor,
+                    fontFamily = Sans,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
-                    tint = inkColor,
-                    modifier = Modifier.size(20.dp),
+            },
+            text = {
+                Text(
+                    "Are you sure you want to delete all conversations? This action cannot be undone.",
+                    color = inkColor.copy(alpha = 0.7f),
+                    fontFamily = Sans,
+                    fontSize = 14.sp
                 )
+            },
+            confirmButton = {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DeleteRed.copy(alpha = 0.15f))
+                        .clickable(onClick = {
+                            chats.forEach { viewModel.deleteChat(it.id) }
+                            showClearConfirm = false
+                        })
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Delete All",
+                        color = DeleteRed,
+                        fontFamily = Sans,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showClearConfirm = false }) {
+                    Text(
+                        "Cancel",
+                        color = inkColor,
+                        fontFamily = Sans,
+                        fontSize = 13.sp,
+                    )
+                }
             }
-        }
-
-        Spacer(Modifier.height(18.dp))
-
-        Text(
-            text = "Chats",
-            color = inkColor,
-            fontFamily = Sans,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = "$chatCount conversation${if (chatCount == 1) "" else "s"}",
-            color = inkColor.copy(alpha = 0.35f),
-            fontFamily = Mono,
-            fontSize = 11.sp,
         )
     }
 }
 
 @Composable
-private fun GroupHeader(label: String) {
+private fun ChatHistoryTopBar(
+    chatCount: Int,
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    searchActive: Boolean,
+    onSearchToggle: () -> Unit,
+    onClearAll: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(surfaceColor)
+            .padding(start = 20.dp, end = 16.dp, top = 18.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = if (searchActive) Alignment.CenterVertically else Alignment.Top,
+    ) {
+        if (searchActive) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = inkColor,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onSearchToggle
+                    )
+            )
+            Spacer(Modifier.size(12.dp))
+            androidx.compose.foundation.text.BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(inkColor.copy(alpha = 0.05f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                textStyle = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
+                    color = inkColor,
+                    fontFamily = Sans
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(inkColor),
+                singleLine = true,
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                "Search chats...", 
+                                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                color = inkColor.copy(alpha = 0.4f),
+                                fontFamily = Sans
+                            )
+                        }
+                        inner()
+                    }
+                }
+            )
+        } else {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Chats",
+                    style = androidx.compose.material3.MaterialTheme.typography.displaySmall.copy(
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.5).sp,
+                    ),
+                    color = inkColor,
+                )
+                Text(
+                    text = "$chatCount conversation${if (chatCount == 1) "" else "s"}",
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = inkColor.copy(alpha = 0.5f),
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSearchToggle
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = inkColor,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { menuExpanded = true }
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More options",
+                        tint = inkColor,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        shape = RoundedCornerShape(8.dp),
+                        containerColor = popupSurface,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, inkColor.copy(alpha = 0.10f)),
+                    ) {
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    "Clear all chats", 
+                                    color = DeleteRed, 
+                                    fontFamily = Sans, 
+                                    fontSize = 14.sp 
+                                ) 
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onClearAll()
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroupHeader(label: String, isFirst: Boolean = false) {
     Text(
         text = label,
         color = inkColor.copy(alpha = 0.35f),
         fontFamily = Mono,
         fontSize = 10.sp,
         fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+        modifier = Modifier.padding(top = if (isFirst) 4.dp else 12.dp, bottom = 4.dp),
     )
 }
 
@@ -367,7 +547,11 @@ private fun ChatRow(
 }
 
 @Composable
-private fun EmptyChats(modifier: Modifier = Modifier) {
+private fun EmptyChats(
+    hasModels: Boolean,
+    onDownloadModel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -380,12 +564,46 @@ private fun EmptyChats(modifier: Modifier = Modifier) {
             fontSize = 18.sp,
         )
         Text(
-            text = "Start a new chat to begin",
+            text = if (hasModels) "Start a new chat to begin" else "Download a model to start using OrbitAI",
             color = inkColor.copy(alpha = 0.3f),
             fontFamily = Mono,
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 6.dp),
         )
+        if (!hasModels) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 18.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(inkColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDownloadModel,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = null,
+                        tint = surfaceColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "Download a model to use",
+                        color = surfaceColor,
+                        fontFamily = Sans,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+        }
     }
 }
 

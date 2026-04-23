@@ -31,6 +31,22 @@ class MemoryRepository(context: Context) {
         )
     }
 
+    suspend fun setUserNameMemory(name: String) = withContext(Dispatchers.IO) {
+        if (!memoryFeatureStore.isEnabled) return@withContext
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return@withContext
+
+        dao.deleteMemoriesBySource(USER_PROFILE_SOURCE)
+        dao.insertMemory(
+            MemoryEntity(
+                id = UUID.randomUUID().toString(),
+                content = "The user's name is $trimmed.",
+                source = USER_PROFILE_SOURCE,
+                createdAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
     suspend fun deleteMemory(id: String) = withContext(Dispatchers.IO) {
         dao.deleteMemory(id)
     }
@@ -45,5 +61,9 @@ class MemoryRepository(context: Context) {
         } else {
             dao.getAllMemories()
         }
+    }
+
+    companion object {
+        private const val USER_PROFILE_SOURCE = "user_profile"
     }
 }

@@ -13,13 +13,13 @@ class BubbleSettingsStore(context: Context) {
         }
 
     var bubbleSizeDp: Int
-        get() = prefs.getInt("bubble_size_dp", 64)
+        get() = prefs.getInt("bubble_size_dp", 48)
         set(value) {
             prefs.edit().putInt("bubble_size_dp", value).apply()
         }
 
     var bubbleResultsInOverlay: Boolean
-        get() = prefs.getBoolean("bubble_results_in_overlay", false)
+        get() = prefs.getBoolean("bubble_results_in_overlay", true)
         set(value) {
             prefs.edit().putBoolean("bubble_results_in_overlay", value).apply()
         }
@@ -31,7 +31,7 @@ class BubbleSettingsStore(context: Context) {
         }
 
     var bubbleIdleAlphaPercent: Int
-        get() = prefs.getInt("bubble_idle_alpha_percent", 42)
+        get() = prefs.getInt("bubble_idle_alpha_percent", 20)
         set(value) {
             prefs.edit().putInt("bubble_idle_alpha_percent", value.coerceIn(20, 100)).apply()
         }
@@ -55,7 +55,7 @@ class BubbleSettingsStore(context: Context) {
         }
 
     var bubbleResponseAlphaPercent: Int
-        get() = prefs.getInt("bubble_response_alpha_percent", 38)
+        get() = prefs.getInt("bubble_response_alpha_percent", 50)
         set(value) {
             prefs.edit().putInt("bubble_response_alpha_percent", value.coerceIn(10, 100)).apply()
         }
