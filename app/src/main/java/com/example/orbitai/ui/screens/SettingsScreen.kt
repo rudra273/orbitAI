@@ -102,7 +102,6 @@ fun SettingsScreen(
         when {
             updateState.isDownloading -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Downloading update"
             updateState.isChecking -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Checking for updates"
-            updateState.isReadyToInstall -> "Download complete · Tap Install to apply"
             !updateState.installMessage.isNullOrBlank() -> updateState.installMessage.orEmpty()
             updateState.isUpdateAvailable && !updateState.latestVersion.isNullOrBlank() ->
                 "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · New ${updateState.latestVersion} available"
@@ -121,8 +120,7 @@ fun SettingsScreen(
         when {
             updateState.isDownloading -> "${updateState.downloadProgress}%"
             updateState.isChecking -> "Checking"
-            updateState.isReadyToInstall -> "Install"
-            updateState.isUpdateAvailable -> "Update"
+            updateState.isUpdateAvailable -> "Open"
             !updateState.errorMessage.isNullOrBlank() -> "Retry"
             else -> "Current"
         }
@@ -264,10 +262,8 @@ fun SettingsScreen(
                         if (updateState.isDownloading) {
                             return@SettingsGroupRow
                         }
-                        if (updateState.isReadyToInstall) {
-                            appUpdateViewModel.installDownloadedUpdate()
-                        } else if (updateState.isUpdateAvailable && !updateState.downloadUrl.isNullOrBlank()) {
-                            appUpdateViewModel.downloadAndInstallUpdate()
+                        if (updateState.isUpdateAvailable) {
+                            appUpdateViewModel.openUpdatePage()
                         } else {
                             appUpdateViewModel.checkForUpdates()
                         }

@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OrbitAI</string>
-    <string name="accessibility_service_description">Orbit AI uses Accessibility Services to instantly read the text you select on the screen when you use the Radial Quick Menu (Summarize, Translate, etc).</string>
 </resources>

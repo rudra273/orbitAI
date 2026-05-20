@@ -1,11 +1,14 @@
 package com.example.orbitai.feature.bubble
 
 import android.Manifest
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,9 +18,17 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.media.Image
+import android.media.ImageReader
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.SystemClock
 import android.provider.Settings
@@ -56,6 +67,7 @@ import com.example.orbitai.feature.automation.AutomationRoute
 import com.example.orbitai.feature.automation.AutomationRouter
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,9 +75,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 
 class OrbitBubbleService : Service() {
 
@@ -114,8 +127,7 @@ class OrbitBubbleService : Service() {
     private var bubbleStyle = "round"
 
     private enum class ScreenCaptureSource {
-        WINDOW,
-        DISPLAY_FALLBACK,
+        MEDIA_PROJECTION,
         UNAVAILABLE,
     }
 
@@ -144,7 +156,7 @@ class OrbitBubbleService : Service() {
             ACTION_APP_BACKGROUND -> {
                 isAppForeground = false
             }
-            ACTION_START, ACTION_TRIGGER, ACTION_INJECT_TEXT, null -> Unit
+            ACTION_START, ACTION_TRIGGER, ACTION_USE_TEXT, null -> Unit
             else -> return START_NOT_STICKY
         }
 
@@ -180,11 +192,11 @@ class OrbitBubbleService : Service() {
             } else {
                 bubbleView?.post { toggleListening() }
             }
-        } else if (intent?.action == ACTION_INJECT_TEXT) {
-            val text = intent.getStringExtra(EXTRA_INJECTED_TEXT)
+        } else if (intent?.action == ACTION_USE_TEXT) {
+            val text = intent.getStringExtra(EXTRA_SHARED_TEXT)
             if (!text.isNullOrBlank()) {
                 pendingSelectedText = text
-                showResultOverlay("Selected: $text")
+                showResultOverlay("Shared text: $text")
                 updateResultText("Speak your instruction...")
                 bubbleView?.post {
                     if (!isListening) startListening()
@@ -257,12 +269,7 @@ class OrbitBubbleService : Service() {
 
         val longPressRunnable = Runnable {
             longPressTriggered = true
-            if (OrbitAccessibilityService.instance != null) {
-                showRadialMenu()
-            } else {
-                dismissBubble()
-                android.widget.Toast.makeText(this@OrbitBubbleService, "Enable Orbit Accessibility in Settings for quick actions", android.widget.Toast.LENGTH_LONG).show()
-            }
+            showRadialMenu()
         }
 
         bubble.setOnTouchListener { _, event ->
@@ -435,10 +442,6 @@ class OrbitBubbleService : Service() {
         var finalTranscript = transcript
         var selectedText = pendingSelectedText
 
-        if (selectedText.isNullOrBlank()) {
-            selectedText = OrbitAccessibilityService.instance?.consumeInterceptedText()
-        }
-
         if (!selectedText.isNullOrBlank()) {
             finalTranscript = "Instruction: $transcript\n\nSelected text: ${selectedText}"
             pendingSelectedText = null
@@ -466,13 +469,8 @@ class OrbitBubbleService : Service() {
         hideResultOverlay()
         Log.d(logTag, "runAgenticInference transcript=${initialTranscript.take(120)}")
         val isScreenIntent = isLikelyScreenUnderstandingRequest(initialTranscript)
-        val targetWindowId = if (isScreenIntent) {
-            OrbitAccessibilityService.instance?.resolvePreferredCaptureWindowId()
-        } else {
-            null
-        }
         if (isScreenIntent) {
-            Log.d(logTag, "Screen-understanding route selected targetWindowId=$targetWindowId")
+            Log.d(logTag, "Screen-understanding route selected; requesting user-approved capture when needed")
         }
 
         llmJob?.cancel()
@@ -533,7 +531,6 @@ class OrbitBubbleService : Service() {
                 if (isScreenIntent) {
                     runDedicatedScreenUnderstanding(
                         initialTranscript = initialTranscript,
-                        targetWindowId = targetWindowId,
                         convEngine = convEngine,
                         settings = settings,
                         startedAt = startedAt,
@@ -550,8 +547,8 @@ class OrbitBubbleService : Service() {
                 val systemInstruction = """
                     You are Orbit AI running fully on-device in an Android floating bubble.
                     Answer the user directly unless a tool is truly required.
-                    Use inject_into_textfield only when the user wants you to write, paste, reply, or fill text into the currently focused text field.
-                    Use take_screenshot only when the user is asking about what is currently visible on-screen and visual context is required.
+                    Use copy_to_clipboard only when the user wants you to draft, write, paste, reply, or fill text in another app.
+                    Use take_screenshot only when the user is asking about what is currently visible on-screen and visual context is required. The user will approve screen capture first.
                     Never expose raw tool names or tool arguments to the user.
                     Keep answers concise by default.
                     Call at most one tool in a turn.
@@ -586,18 +583,18 @@ class OrbitBubbleService : Service() {
                     withContext(Dispatchers.Main) { updateResultText("") }
 
                     when (firstToolCall.name) {
-                        "inject_into_textfield" -> {
-                            handleInjectToolCall(firstToolCall, startedAt)
+                        "copy_to_clipboard" -> {
+                            handleCopyToolCall(firstToolCall, startedAt)
                         }
 
                         "take_screenshot" -> {
                             withContext(Dispatchers.Main) { updateResultStatus("Capturing screen...") }
-                            val capture = captureBestScreenBitmap(targetWindowId = null)
+                            val capture = captureBestScreenBitmap()
                             val bitmap = capture.bitmap
                             if (bitmap == null) {
                                 withContext(Dispatchers.Main) {
                                     updateResultStatus("Screenshot unavailable")
-                                    updateResultText("I couldn't capture the current screen. Make sure Orbit Accessibility is enabled and try again.")
+                                    updateResultText("I couldn't capture the current screen. Approve screen capture when Android asks, then try again.")
                                 }
                                 return@launch
                             }
@@ -605,10 +602,10 @@ class OrbitBubbleService : Service() {
                             try {
                                 withContext(Dispatchers.Main) {
                                     updateResultStatus(
-                                        if (capture.source == ScreenCaptureSource.WINDOW) {
+                                        if (capture.source == ScreenCaptureSource.MEDIA_PROJECTION) {
                                             "Analyzing screenshot..."
                                         } else {
-                                            "Analyzing screenshot (fallback)..."
+                                            "Screenshot unavailable"
                                         }
                                     )
                                     updateResultText("")
@@ -626,8 +623,8 @@ class OrbitBubbleService : Service() {
                                 }
 
                                 val followUpToolCall = followUpTurn.toolCalls.firstOrNull()
-                                if (followUpToolCall?.name == "inject_into_textfield") {
-                                    handleInjectToolCall(followUpToolCall, startedAt)
+                                if (followUpToolCall?.name == "copy_to_clipboard") {
+                                    handleCopyToolCall(followUpToolCall, startedAt)
                                 } else {
                                     withContext(Dispatchers.Main) {
                                         updateResultStatus("Done in ${formatElapsed(startedAt)}")
@@ -706,20 +703,18 @@ class OrbitBubbleService : Service() {
 
     private suspend fun runDedicatedScreenUnderstanding(
         initialTranscript: String,
-        targetWindowId: Int?,
         convEngine: LlmConversationEngine,
         settings: com.example.orbitai.core.common.InferenceSettings,
         startedAt: Long,
     ) {
-        val capture = captureBestScreenBitmap(targetWindowId)
+        val capture = captureBestScreenBitmap()
         val bitmap = capture.bitmap
 
         withContext(Dispatchers.Main) {
             showResultOverlay(initialTranscript, cancelExistingJob = false)
             updateResultStatus(
                 when (capture.source) {
-                    ScreenCaptureSource.WINDOW -> "Analyzing screenshot..."
-                    ScreenCaptureSource.DISPLAY_FALLBACK -> "Analyzing screenshot (fallback)..."
+                    ScreenCaptureSource.MEDIA_PROJECTION -> "Analyzing screenshot..."
                     ScreenCaptureSource.UNAVAILABLE -> "Screenshot unavailable"
                 }
             )
@@ -728,7 +723,7 @@ class OrbitBubbleService : Service() {
 
         if (bitmap == null) {
             withContext(Dispatchers.Main) {
-                updateResultText("I couldn't capture the current screen. Make sure Orbit Accessibility is enabled and try again.")
+                updateResultText("I couldn't capture the current screen. Approve screen capture when Android asks, then try again.")
             }
             return
         }
@@ -774,33 +769,24 @@ class OrbitBubbleService : Service() {
         }
     }
 
-    private suspend fun handleInjectToolCall(
+    private suspend fun handleCopyToolCall(
         toolCall: ToolCallResult,
         startedAt: Long,
     ) {
-        val textToInject = toolCall.arguments["text"]?.toString()?.takeIf { it.isNotBlank() }
-        if (textToInject.isNullOrBlank()) {
+        val textToCopy = toolCall.arguments["text"]?.toString()?.takeIf { it.isNotBlank() }
+        if (textToCopy.isNullOrBlank()) {
             withContext(Dispatchers.Main) {
                 updateResultStatus("Missing tool input")
-                updateResultText("Orbit requested text insertion but did not return any text to insert.")
+                updateResultText("Orbit tried to prepare text, but did not return anything to copy.")
             }
             return
         }
 
-        withContext(Dispatchers.Main) { updateResultStatus("Writing into field...") }
-        val injected = OrbitAccessibilityService.instance?.injectTextIntoActiveField(textToInject) == true
         withContext(Dispatchers.Main) {
-            if (injected) {
-                updateResultStatus("Inserted in ${formatElapsed(startedAt)}")
-                updateResultText(textToInject)
-                Toast.makeText(this@OrbitBubbleService, "Text inserted", Toast.LENGTH_SHORT).show()
-            } else {
-                updateResultStatus("No text field found")
-                updateResultText(
-                    "I generated the text, but I couldn't find an active text field to insert it into.\n\n$textToInject",
-                )
-                Toast.makeText(this@OrbitBubbleService, "No active text box found", Toast.LENGTH_SHORT).show()
-            }
+            copyTextToClipboard(textToCopy)
+            updateResultStatus("Copied in ${formatElapsed(startedAt)}")
+            updateResultText(textToCopy)
+            Toast.makeText(this@OrbitBubbleService, "Copied. Paste it where you want.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -817,29 +803,12 @@ class OrbitBubbleService : Service() {
         )
     }
 
-    private suspend fun captureBestScreenBitmap(targetWindowId: Int?): ScreenCaptureResult {
-        val service = OrbitAccessibilityService.instance
-        if (service == null) {
-            return ScreenCaptureResult(bitmap = null, source = ScreenCaptureSource.UNAVAILABLE)
-        }
-
-        val windowBitmap = suspendCaptureBitmap { callback ->
-            when {
-                targetWindowId != null -> service.captureWindowAsBitmap(targetWindowId, callback)
-                else -> service.captureActiveWindowAsBitmap(callback)
-            }
-        }
-        if (windowBitmap != null) {
-            Log.d(logTag, "Using window-only screenshot path for screen understanding targetWindowId=$targetWindowId")
-            return ScreenCaptureResult(bitmap = windowBitmap, source = ScreenCaptureSource.WINDOW)
-        }
-
-        Log.w(logTag, "Window screenshot unavailable; falling back to full-display capture targetWindowId=$targetWindowId")
+    private suspend fun captureBestScreenBitmap(): ScreenCaptureResult {
         val displayBitmap = captureDisplayBitmapWithOrbitUiHidden()
         return ScreenCaptureResult(
             bitmap = displayBitmap,
             source = if (displayBitmap != null) {
-                ScreenCaptureSource.DISPLAY_FALLBACK
+                ScreenCaptureSource.MEDIA_PROJECTION
             } else {
                 ScreenCaptureSource.UNAVAILABLE
             },
@@ -852,9 +821,7 @@ class OrbitBubbleService : Service() {
         }
         delay(90)
         return try {
-            suspendCaptureBitmap { callback ->
-                OrbitAccessibilityService.instance?.captureScreenAsBitmap(callback) ?: callback(null)
-            }
+            captureScreenWithUserConsent()
         } finally {
             withContext(Dispatchers.Main) {
                 setOrbitOverlayVisibility(isVisible = true)
@@ -862,14 +829,117 @@ class OrbitBubbleService : Service() {
         }
     }
 
-    private suspend fun suspendCaptureBitmap(
-        request: ((Bitmap?) -> Unit) -> Unit,
-    ): Bitmap? {
+    private suspend fun captureScreenWithUserConsent(): Bitmap? {
+        val permission = requestMediaProjectionPermission() ?: return null
+        return try {
+            startBubbleForeground(isListening = isListening, isScreenCapture = true)
+            captureBitmapWithMediaProjection(permission.first, permission.second)
+        } finally {
+            startBubbleForeground(isListening = isListening, isScreenCapture = false)
+        }
+    }
+
+    private suspend fun requestMediaProjectionPermission(): Pair<Int, Intent>? {
         return suspendCancellableCoroutine { continuation ->
-            request { bitmap ->
-                continuation.resumeWith(Result.success(bitmap))
+            val registered = registerMediaProjectionContinuation(continuation)
+            if (!registered) {
+                continuation.resume(null)
+                return@suspendCancellableCoroutine
+            }
+            val intent = Intent(this, MediaProjectionPermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            try {
+                startActivity(intent)
+            } catch (e: Exception) {
+                clearMediaProjectionContinuation(continuation)
+                if (continuation.isActive) continuation.resume(null)
+                Log.e(logTag, "Failed to request screen capture permission", e)
             }
         }
+    }
+
+    private suspend fun captureBitmapWithMediaProjection(resultCode: Int, resultData: Intent): Bitmap? {
+        return withContext(Dispatchers.IO) {
+            val manager = getSystemService(MediaProjectionManager::class.java)
+            val projection = manager.getMediaProjection(resultCode, resultData) ?: return@withContext null
+            val handlerThread = HandlerThread("OrbitScreenCapture").apply { start() }
+            val handler = Handler(handlerThread.looper)
+            var virtualDisplay: VirtualDisplay? = null
+            var imageReader: ImageReader? = null
+            val callback = object : MediaProjection.Callback() {
+                override fun onStop() = Unit
+            }
+
+            try {
+                projection.registerCallback(callback, handler)
+                val (screenW, screenH) = getScreenSize()
+                val densityDpi = resources.configuration.densityDpi
+                imageReader = ImageReader.newInstance(screenW, screenH, PixelFormat.RGBA_8888, 2)
+                virtualDisplay = projection.createVirtualDisplay(
+                    "OrbitScreenCapture",
+                    screenW,
+                    screenH,
+                    densityDpi,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader.surface,
+                    null,
+                    handler,
+                )
+                delay(420)
+
+                var image: Image? = null
+                repeat(6) {
+                    if (image == null) {
+                        image = imageReader.acquireLatestImage()
+                        if (image == null) delay(120)
+                    }
+                }
+                image?.use { convertImageToBitmap(it, screenW, screenH) }
+            } catch (e: Exception) {
+                Log.e(logTag, "MediaProjection screenshot failed", e)
+                null
+            } finally {
+                virtualDisplay?.release()
+                imageReader?.close()
+                projection.unregisterCallback(callback)
+                projection.stop()
+                handlerThread.quitSafely()
+            }
+        }
+    }
+
+    private fun convertImageToBitmap(image: Image, width: Int, height: Int): Bitmap? {
+        return try {
+            val plane = image.planes.firstOrNull() ?: return null
+            val buffer = plane.buffer
+            val pixelStride = plane.pixelStride
+            val rowStride = plane.rowStride
+            val rowPadding = rowStride - pixelStride * width
+            val paddedWidth = width + rowPadding / pixelStride
+            val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+            paddedBitmap.copyPixelsFromBuffer(buffer)
+            val cropped = Bitmap.createBitmap(paddedBitmap, 0, 0, width, height)
+            if (paddedBitmap != cropped) paddedBitmap.recycle()
+
+            val maxWidth = 1024
+            if (cropped.width <= maxWidth) {
+                cropped
+            } else {
+                val ratio = cropped.width.toFloat() / cropped.height.toFloat()
+                val resized = Bitmap.createScaledBitmap(cropped, maxWidth, (maxWidth / ratio).toInt(), true)
+                cropped.recycle()
+                resized.copy(Bitmap.Config.ARGB_8888, false).also { resized.recycle() }
+            }
+        } catch (e: Exception) {
+            Log.e(logTag, "Failed to convert MediaProjection image", e)
+            null
+        }
+    }
+
+    private fun copyTextToClipboard(text: String) {
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("Orbit AI", text))
     }
 
     private fun setOrbitOverlayVisibility(isVisible: Boolean) {
@@ -1051,10 +1121,10 @@ class OrbitBubbleService : Service() {
                 setOnClickListener {
                     hideRadialMenu()
                     when (actionName) {
-                        "Summarize" -> handleTranscript("Summarize this context")
-                        "Translate" -> handleTranscript("Translate this to English")
-                        "Explain" -> handleTranscript("Explain this context")
-                        "Reply" -> handleTranscript("Write a reply to this based on its context")
+                        "Summarize" -> handleTranscript("Summarize this screen")
+                        "Translate" -> handleTranscript("Translate this screen to English")
+                        "Explain" -> handleTranscript("Explain this screen")
+                        "Reply" -> handleTranscript("Write a reply I can paste based on this screen")
                         "Close" -> dismissBubble()
                     }
                 }
@@ -1241,6 +1311,28 @@ class OrbitBubbleService : Service() {
         openBtn.setOnClickListener { hideResultOverlay(); launchApp(lastTranscript) }
         if (!compact) {
             header.addView(openBtn)
+        }
+        val copyBtn = TextView(this).apply {
+            text = "Copy"
+            setTextColor(theme.primaryText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(9).toFloat()
+                setColor(Color.argb(42, 255, 255, 255))
+                setStroke(1, Color.argb(96, 255, 255, 255))
+            }
+        }
+        copyBtn.setOnClickListener {
+            val textToCopy = resultTextView?.text?.toString().orEmpty()
+            if (textToCopy.isNotBlank()) {
+                copyTextToClipboard(textToCopy)
+                Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+            }
+        }
+        if (!compact) {
+            header.addView(copyBtn)
         }
         val closeBtn = TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
@@ -1520,10 +1612,12 @@ class OrbitBubbleService : Service() {
         stopSelf()
     }
 
-    private fun startBubbleForeground(isListening: Boolean) {
+    private fun startBubbleForeground(isListening: Boolean, isScreenCapture: Boolean = false) {
         val notification = buildNotification(isListening)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            val serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                (if (isScreenCapture) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)
+            startForeground(NOTIFICATION_ID, notification, serviceType)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -1548,7 +1642,7 @@ class OrbitBubbleService : Service() {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(if (isListening) "Orbit bubble is listening" else "Orbit bubble is ready")
-            .setContentText(if (isListening) "Speak now. Orbit will send your transcript to chat." else "Tap the bubble to speak, or long press it to dismiss.")
+            .setContentText(if (isListening) "Speak now. Orbit will answer with on-device AI." else "Tap to speak. Long press for screen actions that ask for screen-capture approval.")
             .setContentIntent(openAppIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -1634,8 +1728,8 @@ class OrbitBubbleService : Service() {
 
         private const val ACTION_START = "com.example.orbitai.feature.bubble.START"
         private const val ACTION_TRIGGER = "com.example.orbitai.feature.bubble.TRIGGER"
-        const val ACTION_INJECT_TEXT = "com.example.orbitai.feature.bubble.INJECT_TEXT"
-        const val EXTRA_INJECTED_TEXT = "com.example.orbitai.feature.bubble.EXTRA_TEXT"
+        const val ACTION_USE_TEXT = "com.example.orbitai.feature.bubble.USE_TEXT"
+        const val EXTRA_SHARED_TEXT = "com.example.orbitai.feature.bubble.EXTRA_TEXT"
         private const val ACTION_APP_FOREGROUND = "com.example.orbitai.feature.bubble.APP_FOREGROUND"
         private const val ACTION_APP_BACKGROUND = "com.example.orbitai.feature.bubble.APP_BACKGROUND"
         private const val ACTION_STOP = "com.example.orbitai.feature.bubble.STOP"
@@ -1644,6 +1738,7 @@ class OrbitBubbleService : Service() {
         const val SIZE_SMALL_DP  = 52
         const val SIZE_MEDIUM_DP = 64
         const val SIZE_LARGE_DP  = 80
+        private var mediaProjectionContinuation: CancellableContinuation<Pair<Int, Intent>?>? = null
 
         fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
 
@@ -1665,6 +1760,36 @@ class OrbitBubbleService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, OrbitBubbleService::class.java))
+        }
+
+        fun deliverMediaProjectionResult(resultCode: Int, data: Intent?) {
+            val continuation = mediaProjectionContinuation ?: return
+            mediaProjectionContinuation = null
+            val result = if (resultCode == Activity.RESULT_OK && data != null) {
+                resultCode to data
+            } else {
+                null
+            }
+            continuation.resume(result)
+        }
+
+        private fun registerMediaProjectionContinuation(
+            continuation: CancellableContinuation<Pair<Int, Intent>?>,
+        ): Boolean {
+            if (mediaProjectionContinuation != null) return false
+            mediaProjectionContinuation = continuation
+            continuation.invokeOnCancellation {
+                clearMediaProjectionContinuation(continuation)
+            }
+            return true
+        }
+
+        private fun clearMediaProjectionContinuation(
+            continuation: CancellableContinuation<Pair<Int, Intent>?>,
+        ) {
+            if (mediaProjectionContinuation == continuation) {
+                mediaProjectionContinuation = null
+            }
         }
 
         fun overlayPermissionIntent(context: Context): Intent {
