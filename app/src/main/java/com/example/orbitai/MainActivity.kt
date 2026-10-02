@@ -34,6 +34,7 @@ data class OverlayPromptRequest(
     val chatId: String,
     val prompt: String,
     val id: Long = System.currentTimeMillis(),
+    val autoSend: Boolean = true,
 )
 
 class MainActivity : ComponentActivity() {
@@ -118,7 +119,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         syncBubbleService()
-        OrbitBubbleService.setAppForeground(this, true)
+        if (BubbleSettingsStore(this).isFloatingBubbleEnabled) {
+            OrbitBubbleService.setAppForeground(this, true)
+        }
         appUpdateViewModel.refreshAfterResume()
     }
 
@@ -129,19 +132,22 @@ class MainActivity : ComponentActivity() {
         val audioGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         if (bubbleSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
             OrbitBubbleService.setAppForeground(this, false)
-            OrbitBubbleService.start(this)
         }
     }
 
     private fun handleOverlayIntent(intent: Intent?) {
+        val sharedText = intent?.getStringExtra(EXTRA_SHARED_TEXT)?.trim().orEmpty()
         val transcript = intent?.getStringExtra(EXTRA_OVERLAY_TRANSCRIPT)?.trim().orEmpty()
-        if (transcript.isBlank()) return
+        val prompt = sharedText.ifBlank { transcript }
+        if (prompt.isBlank()) return
 
         pendingOverlayPrompt = OverlayPromptRequest(
             chatId = chatViewModel.createNewChat(),
-            prompt = transcript,
+            prompt = prompt,
+            autoSend = sharedText.isBlank(),
         )
         intent?.removeExtra(EXTRA_OVERLAY_TRANSCRIPT)
+        intent?.removeExtra(EXTRA_SHARED_TEXT)
     }
 
     private fun syncBubbleService() {
@@ -160,6 +166,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        const val EXTRA_SHARED_TEXT = "shared_text_draft"
         const val EXTRA_OVERLAY_TRANSCRIPT = "overlay_transcript"
     }
 }

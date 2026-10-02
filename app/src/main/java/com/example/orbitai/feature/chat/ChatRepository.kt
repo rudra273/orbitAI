@@ -15,7 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
@@ -33,8 +35,16 @@ class ChatRepository(context: Context) {
      * Live list of all chats with messages.
      * Room's @Transaction + @Relation emits a new list whenever chats OR messages change.
      */
-    val chats: StateFlow<List<Chat>> = chatDao.observeAllChatsWithMessages()
-        .map { list -> list.map { it.toDomain() } }
+    private val streamingMessageIds = MutableStateFlow<Set<String>>(emptySet())
+
+    val chats: StateFlow<List<Chat>> = combine(
+        chatDao.observeAllChatsWithMessages(), streamingMessageIds,
+    ) { list, streamingIds ->
+        list.map { entity ->
+            val chat = entity.toDomain()
+            chat.copy(messages = chat.messages.map { it.copy(isStreaming = it.id in streamingIds) })
+        }
+    }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     suspend fun createChat(modelId: String? = null): Chat =
@@ -64,6 +74,7 @@ class ChatRepository(context: Context) {
 
     suspend fun addMessage(chatId: String, message: Message) = withContext(Dispatchers.IO) {
         messageDao.insertMessage(message.toEntity(chatId))
+        if (message.isStreaming) streamingMessageIds.update { it + message.id }
         // Auto-title from first user message
         if (message.role == Role.USER) {
             val chat = chatDao.getChatById(chatId)
@@ -84,6 +95,7 @@ class ChatRepository(context: Context) {
     suspend fun updateMessage(messageId: String, newContent: String, isStreaming: Boolean) =
         withContext(Dispatchers.IO) {
             messageDao.updateMessageContentById(messageId, newContent)
+            streamingMessageIds.update { if (isStreaming) it + messageId else it - messageId }
         }
 
     suspend fun deleteChat(chatId: String) = withContext(Dispatchers.IO) {

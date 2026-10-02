@@ -5,6 +5,17 @@ plugins {
 }
 
 import java.util.Properties
+import java.net.URI
+
+val playSupportEmail = providers.gradleProperty("orbitSupportEmail")
+    .orElse(providers.environmentVariable("ORBIT_SUPPORT_EMAIL")).getOrElse("")
+val playPrivacyPolicyUrl = providers.gradleProperty("orbitPrivacyPolicyUrl")
+    .orElse(providers.environmentVariable("ORBIT_PRIVACY_POLICY_URL")).getOrElse("")
+val playReportEndpoint = providers.gradleProperty("orbitReportEndpoint")
+    .orElse(providers.environmentVariable("ORBIT_REPORT_ENDPOINT")).getOrElse("")
+
+fun String.javaStringLiteral() = "\"" + replace("\\", "\\\\")
+    .replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
 
 fun parseReleaseVersionName(): String {
     val rawVersion = System.getenv("ORBIT_RELEASE_VERSION")
@@ -60,6 +71,9 @@ android {
         versionCode = parseReleaseVersionCode(releaseVersionName)
         versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SUPPORT_EMAIL", playSupportEmail.javaStringLiteral())
+        buildConfigField("String", "PRIVACY_POLICY_URL", playPrivacyPolicyUrl.javaStringLiteral())
+        buildConfigField("String", "REPORT_ENDPOINT", playReportEndpoint.javaStringLiteral())
     }
 
     signingConfigs {
@@ -100,6 +114,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -112,6 +127,23 @@ android {
         }
         jniLibs { pickFirsts += "**/*.so" }
     }
+}
+
+val validatePlayReleaseConfiguration = tasks.register("validatePlayReleaseConfiguration") {
+    doLast {
+        check(playSupportEmail.matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) {
+            "Set orbitSupportEmail or ORBIT_SUPPORT_EMAIL to the real developer contact email."
+        }
+        for ((name, value) in listOf("orbitPrivacyPolicyUrl" to playPrivacyPolicyUrl, "orbitReportEndpoint" to playReportEndpoint)) {
+            val uri = runCatching { URI(value) }.getOrNull()
+            check(uri?.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null) {
+                "Set $name to a real, publicly reachable HTTPS URL before building a Play release."
+            }
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validatePlayReleaseConfiguration)
 }
 
 dependencies {

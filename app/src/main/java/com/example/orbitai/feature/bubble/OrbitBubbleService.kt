@@ -62,6 +62,7 @@ import com.example.orbitai.core.engine.ToolCallResult
 import com.example.orbitai.core.model.ModelFormat
 import com.example.orbitai.core.model.ModelDownloader
 import com.example.orbitai.core.model.ModelProvider
+import com.example.orbitai.core.prompt.AiSafetyPolicy
 import com.example.orbitai.core.prompt.ModelPromptBuilder
 import com.example.orbitai.feature.automation.AutomationRoute
 import com.example.orbitai.feature.automation.AutomationRouter
@@ -160,7 +161,9 @@ class OrbitBubbleService : Service() {
             else -> return START_NOT_STICKY
         }
 
-        if (!canDrawOverlays(this)) { stopSelf(); return START_NOT_STICKY }
+        if (!canDrawOverlays(this) ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        ) { stopSelf(); return START_NOT_STICKY }
 
         val newSizePx = dpToPx(BubbleSettingsStore(this).bubbleSizeDp.toFloat())
         val settings = BubbleSettingsStore(this)
@@ -391,7 +394,11 @@ class OrbitBubbleService : Service() {
             return
         }
 
-        val recognizer = speechRecognizer ?: SpeechRecognizer.createSpeechRecognizer(this).also { created ->
+        val recognizer = speechRecognizer ?: (if (SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        }).also { created ->
             created.setRecognitionListener(BubbleRecognitionListener())
             speechRecognizer = created
         }
@@ -467,7 +474,7 @@ class OrbitBubbleService : Service() {
     
     private fun runAgenticInference(initialTranscript: String) {
         hideResultOverlay()
-        Log.d(logTag, "runAgenticInference transcript=${initialTranscript.take(120)}")
+        Log.d(logTag, "Starting bubble inference")
         val isScreenIntent = isLikelyScreenUnderstandingRequest(initialTranscript)
         if (isScreenIntent) {
             Log.d(logTag, "Screen-understanding route selected; requesting user-approved capture when needed")
@@ -555,7 +562,7 @@ class OrbitBubbleService : Service() {
                 """.trimIndent()
 
                 convEngine.createConversation(
-                    systemInstruction = systemInstruction,
+                    systemInstruction = AiSafetyPolicy.withInstructions(systemInstruction),
                     settings = settings,
                     toolSchemas = listOf(OrbitBubbleToolSchema()),
                 ).use { session ->
@@ -740,7 +747,7 @@ class OrbitBubbleService : Service() {
 
         try {
             convEngine.createConversation(
-                systemInstruction = systemInstruction,
+                systemInstruction = AiSafetyPolicy.withInstructions(systemInstruction),
                 settings = settings,
             ).use { session ->
                 val analysisTurn = session.streamTurn(
@@ -1357,6 +1364,25 @@ class OrbitBubbleService : Service() {
             text = "Thinking..."
         }
         root.addView(statusText)
+        root.addView(TextView(this).apply {
+            text = "Report response"
+            contentDescription = "Report this AI response to the developer"
+            setTextColor(theme.secondaryText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            minHeight = dp(48)
+            setOnClickListener {
+                val response = resultTextView?.text?.toString().orEmpty()
+                if (response.isNotBlank()) {
+                    startActivity(Intent(this@OrbitBubbleService,
+                        com.example.orbitai.feature.reporting.ContentReportActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra(com.example.orbitai.feature.reporting.ContentReportActivity.EXTRA_RESPONSE, response)
+                    })
+                    hideResultOverlay()
+                }
+            }
+        })
 
         // Drag response card anywhere (bounded to visible area)
         var initialX = 0

@@ -163,7 +163,7 @@ fun SettingsScreen(
                 icon = Icons.Default.Gavel,
                 title = "Privacy policy",
                 description = "Read our data and privacy terms",
-                onClick = { },
+                onClick = { onNavigate("settings/privacy") },
             ),
         )
 

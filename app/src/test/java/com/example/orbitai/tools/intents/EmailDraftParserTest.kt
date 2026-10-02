@@ -1,5 +1,6 @@
 package com.example.orbitai.tools.intents
 
+import com.example.orbitai.feature.automation.parser.EmailDraftParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

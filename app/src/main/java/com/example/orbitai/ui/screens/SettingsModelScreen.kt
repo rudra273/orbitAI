@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.orbitai.core.model.AVAILABLE_MODELS
+import com.example.orbitai.core.model.formatModelSize
 import com.example.orbitai.core.model.DownloadProgress
 import com.example.orbitai.core.model.DownloadStatus
 import com.example.orbitai.core.model.LlmModel
@@ -561,6 +562,14 @@ private fun EmbeddingModelRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            model.sizeBytes?.let { size ->
+                Text(
+                    text = "Download size: ${formatModelSize(size)}",
+                    color = SettingsInk.copy(alpha = 0.60f),
+                    fontFamily = SettingsMono,
+                    fontSize = 11.sp,
+                )
+            }
         }
 
         when {
@@ -744,6 +753,14 @@ private fun ModelRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            MODEL_DOWNLOAD_SPECS[model.id]?.totalSizeBytes?.let { size ->
+                Text(
+                    text = "Download size: ${formatModelSize(size)}",
+                    color = SettingsInk.copy(alpha = 0.60f),
+                    fontFamily = SettingsMono,
+                    fontSize = 11.sp,
+                )
+            }
         }
 
         when {

@@ -8,8 +8,14 @@ import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.GenerateContentResponse
 import com.google.genai.types.Content
 import com.google.genai.types.Part
+import com.google.genai.types.SafetySetting
+import com.google.genai.types.HarmCategory
+import com.google.genai.types.HarmBlockThreshold
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 class GeminiApiEngine(
     context: android.content.Context,
@@ -41,6 +47,15 @@ class GeminiApiEngine(
             .temperature(settings.temperature)
             .topK(settings.topK.toFloat())
             .topP(settings.topP)
+            .safetySettings(listOf(
+                "HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT",
+            ).map { category ->
+                SafetySetting.builder()
+                    .category(HarmCategory(category))
+                    .threshold(HarmBlockThreshold("BLOCK_MEDIUM_AND_ABOVE"))
+                    .build()
+            })
             .maxOutputTokens(resolvedMaxTokens)
             .build()
 
@@ -74,6 +89,7 @@ class GeminiApiEngine(
 
             stream.use {
                 for (chunk in it) {
+                    currentCoroutineContext().ensureActive()
                     val chunkText = chunk.text().orEmpty()
                     if (chunkText.isEmpty()) continue
 
@@ -90,6 +106,8 @@ class GeminiApiEngine(
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             if (e.isQuotaError()) {
                 quotaFastFailUntilMs = System.currentTimeMillis() + QUOTA_COOLDOWN_MS
