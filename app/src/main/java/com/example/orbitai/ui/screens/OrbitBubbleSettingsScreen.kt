@@ -189,7 +189,9 @@ fun OrbitBubbleSettingsScreen(
         }
     }
 
-    fun updateBubble(enabled: Boolean) {
+    var showBubbleDisclosure by remember { mutableStateOf(false) }
+
+    fun updateBubbleAfterDisclosure(enabled: Boolean) {
         if (!enabled) {
             pendingBubbleEnable = false
             bubbleEnabled = false
@@ -212,6 +214,16 @@ fun OrbitBubbleSettingsScreen(
         toolSettingsStore.isFloatingBubbleEnabled = true
         OrbitBubbleService.start(context)
         pendingBubbleEnable = false
+    }
+
+    fun updateBubble(enabled: Boolean) {
+        if (enabled) showBubbleDisclosure = true else updateBubbleAfterDisclosure(false)
+    }
+    if (showBubbleDisclosure) {
+        BubbleDisclosureDialog(
+            onContinue = { showBubbleDisclosure = false; updateBubbleAfterDisclosure(true) },
+            onCancel = { showBubbleDisclosure = false },
+        )
     }
 
     LaunchedEffect(Unit) {

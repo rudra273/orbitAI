@@ -89,6 +89,7 @@ sealed class Screen(val route: String) {
     }
 
     // ── Settings sub-screens ─────────────────────────────────────────────────
+    data object SettingsPrivacy : Screen("settings/privacy")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
@@ -129,6 +130,8 @@ fun OrbitNavGraph(
     isDarkTheme:       Boolean,
     onThemeChanged:    (Boolean) -> Unit,
 ) {
+    var sharedDraftText by rememberSaveable { mutableStateOf("") }
+    var sharedDraftChatId by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val onboardingStore = remember { OnboardingSettingsStore(context) }
     val bubbleSettingsStore = remember { BubbleSettingsStore(context) }
@@ -169,7 +172,12 @@ fun OrbitNavGraph(
         navController.navigate(Screen.ChatDetail.go(request.chatId)) {
             launchSingleTop = true
         }
-        chatViewModel.sendMessage(request.chatId, request.prompt)
+        if (request.autoSend) {
+            chatViewModel.sendMessage(request.chatId, request.prompt)
+        } else {
+            sharedDraftChatId = request.chatId
+            sharedDraftText = request.prompt
+        }
         onOverlayPromptConsumed()
     }
 
@@ -263,6 +271,9 @@ fun OrbitNavGraph(
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
+                    initialText = sharedDraftText.takeIf { sharedDraftChatId == chatId }.orEmpty(),
+                    onInitialTextConsumed = { sharedDraftText = ""; sharedDraftChatId = "" },
+                    onNavigateToSettings = { navController.navigate(Screen.SettingsModel.route) },
                     onBack    = {
                         navController.navigate(Screen.Chat.route) {
                             popUpTo(Screen.ChatDetail.go(chatId)) { inclusive = true }
@@ -284,6 +295,9 @@ fun OrbitNavGraph(
                 )
             }
 
+            composable(Screen.SettingsPrivacy.route) {
+                com.example.orbitai.ui.screens.PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            }
             composable(Screen.SettingsModel.route) {
                 val context = LocalContext.current
                 val tokenStore = remember { TokenStore(context) }

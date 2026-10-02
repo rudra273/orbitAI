@@ -1,7 +1,8 @@
 package com.example.orbitai.tools.prompts
 
-import com.example.orbitai.data.Message
-import com.example.orbitai.data.Role
+import com.example.orbitai.feature.automation.prompt.ReminderPromptBuilder
+import com.example.orbitai.feature.chat.Message
+import com.example.orbitai.feature.chat.Role
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime

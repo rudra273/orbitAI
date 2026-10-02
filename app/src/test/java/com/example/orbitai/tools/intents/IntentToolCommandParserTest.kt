@@ -1,54 +1,56 @@
 package com.example.orbitai.tools.intents
 
+import com.example.orbitai.feature.automation.parser.AutomationCommandParser
+import com.example.orbitai.feature.automation.parser.AutomationRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class IntentToolCommandParserTest {
+class AutomationCommandParserTest {
 
     @Test
     fun parsesSlashMailCommand() {
-        val result = IntentToolCommandParser.parse("/mail leave request tomorrow")
+        val result = AutomationCommandParser.parse("/mail leave request tomorrow")
 
         assertEquals(
-            IntentToolRequest.DraftEmail(topicHint = "leave request tomorrow"),
+            AutomationRequest.DraftEmail(topicHint = "leave request tomorrow"),
             result,
         )
     }
 
     @Test
     fun parsesNaturalLanguageDraftEmailCommand() {
-        val result = IntentToolCommandParser.parse("draft an email project update for client")
+        val result = AutomationCommandParser.parse("draft an email project update for client")
 
         assertEquals(
-            IntentToolRequest.DraftEmail(topicHint = "project update for client"),
+            AutomationRequest.DraftEmail(topicHint = "project update for client"),
             result,
         )
     }
 
     @Test
     fun ignoresNormalChatMessage() {
-        val result = IntentToolCommandParser.parse("tell me about android intents")
+        val result = AutomationCommandParser.parse("tell me about android intents")
 
         assertNull(result)
     }
 
     @Test
     fun parsesWhatsAppCommand() {
-        val result = IntentToolCommandParser.parse("/whatsapp tell him I will be late")
+        val result = AutomationCommandParser.parse("/whatsapp tell him I will be late")
 
         assertEquals(
-            IntentToolRequest.DraftWhatsApp(topicHint = "tell him I will be late"),
+            AutomationRequest.DraftWhatsApp(topicHint = "tell him I will be late"),
             result,
         )
     }
 
     @Test
     fun parsesReminderCommand() {
-        val result = IntentToolCommandParser.parse("set reminder tomorrow at 6 pm to call mom")
+        val result = AutomationCommandParser.parse("set reminder tomorrow at 6 pm to call mom")
 
         assertEquals(
-            IntentToolRequest.CreateReminder(topicHint = "tomorrow at 6 pm to call mom"),
+            AutomationRequest.CreateReminder(topicHint = "tomorrow at 6 pm to call mom"),
             result,
         )
     }

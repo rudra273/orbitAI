@@ -36,6 +36,14 @@ enum class PromptStyle {
 /** Models bundled / sideloaded via ADB or downloaded by the user. */
 val AVAILABLE_MODELS = listOf(
     LlmModel(
+        id = "gemma3-1b-litertlm",
+        displayName = "Gemma 3 1B · LiteRT",
+        fileName = "gemma3-1b-it-int4.litertlm",
+        description = "Compact text model for chat and Orbit",
+        paramCount = "1B",
+        format = ModelFormat.LITERTLM,
+    ),
+    LlmModel(
         id = "gemma3-1b",
         displayName = "Gemma 3 1B",
         fileName = "gemma3-1b-it-int4.task",
@@ -147,14 +155,16 @@ data class EmbeddingModelConfig(
     val fileName: String,
     val description: String,
     val tokenizerFileName: String? = null,
+    val sizeBytes: Long? = null,
 )
 
 val GECKO_EMBEDDING = EmbeddingModelConfig(
     id               = "gecko-embedding",
+    sizeBytes        = 6_120_274L,
     displayName      = "Universal Sentence Encoder",
     fileName         = "universal_sentence_encoder.tflite",
     tokenizerFileName = null,
-    description      = "On-device semantic search for RAG · Google USE (~100 MB)",
+    description      = "On-device semantic search for RAG · Google USE",
 )
 
 val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING)

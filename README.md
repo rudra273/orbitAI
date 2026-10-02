@@ -1,6 +1,6 @@
 # OrbitAI
 
-OrbitAI is an advanced on-device AI chat and productivity assistant for Android, built with Jetpack Compose and modern Kotlin. It leverages local LLM (Large Language Model) inference, RAG (Retrieval-Augmented Generation), and a suite of productivity tools—all running privately on your device.
+OrbitAI is an advanced on-device AI chat and productivity assistant for Android, built with Jetpack Compose and modern Kotlin. It leverages local LLM (Large Language Model) inference, RAG (Retrieval-Augmented Generation), and a suite of productivity tools—local models running on your device, with an optional Gemini cloud provider.
 
 ## Features
 
@@ -9,7 +9,7 @@ OrbitAI is an advanced on-device AI chat and productivity assistant for Android,
 - **Productivity Tools**: Floating bubble assistant, reminders, and more.
 - **Multiple Modes**: Switch between chat, spaces (knowledge bases), and custom modes.
 - **Modern UI**: Built with Jetpack Compose for a smooth, responsive experience.
-- **No Cloud Required**: All AI runs locally—your data stays on your device.
+- **Optional Cloud AI**: Local inference stays on your device. Gemini sends prompts, relevant context and attachments to Google only after confirmation. Voice recognition may use your device's speech provider when on-device recognition is unavailable.
 
 ## Screenshots
 
@@ -18,7 +18,7 @@ OrbitAI is an advanced on-device AI chat and productivity assistant for Android,
 ## Getting Started
 
 ### Prerequisites
-- Android Studio Hedgehog or newer
+- Android Studio compatible with the project's Android Gradle Plugin version (currently 9.1.0)
 - Android device or emulator (minSdk 35, targetSdk 36)
 - [Download or build compatible LLM and embedding models](#models)
 
@@ -70,6 +70,18 @@ keytool -list -v -keystore ~/android-signing/upload-key.p12 -alias upload-key
 
 Use the SHA-1/SHA-256 fingerprints in Play Console to confirm this key is registered as the **upload key**, while Google Play manages the **app signing key**.
 
+Before building a release, configure real contact details and production HTTPS URLs in your local Gradle properties or environment:
+
+```properties
+orbitSupportEmail=YOUR_REAL_SUPPORT_EMAIL
+orbitPrivacyPolicyUrl=YOUR_PUBLISHED_HTTPS_PRIVACY_POLICY_URL
+orbitReportEndpoint=YOUR_PRODUCTION_HTTPS_REPORT_ENDPOINT
+```
+
+These are configuration placeholders in this documentation, not working destinations. Release builds refuse missing or invalid configuration. The equivalent environment variables are `ORBIT_SUPPORT_EMAIL`, `ORBIT_PRIVACY_POLICY_URL` and `ORBIT_REPORT_ENDPOINT`. Debug builds work without them, but reports cannot be sent until the endpoint is configured.
+
+See [Play release checklist](docs/play-release-checklist.md) for the report endpoint contract, required policy publication and Play Console steps.
+
 Build the signed Play artifact locally:
 
 ```sh
@@ -78,7 +90,7 @@ Build the signed Play artifact locally:
 
 Upload the generated `.aab` from `app/build/outputs/bundle/release/` to Play Console.
 
-For signed GitHub releases, add these repository secrets:
+For GitHub release builds, also set repository variables `ORBIT_SUPPORT_EMAIL`, `ORBIT_PRIVACY_POLICY_URL` and `ORBIT_REPORT_ENDPOINT`. Add these repository secrets for signing:
 
 ```text
 ANDROID_UPLOAD_KEYSTORE_BASE64
@@ -105,7 +117,8 @@ Set `ANDROID_UPLOAD_KEY_ALIAS` to `upload-key`. Pushing a tag such as `v1.0.0` w
 - **Accompanist, Material3, Navigation Compose** for UI/UX.
 
 ## Permissions
-- `INTERNET`, `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `READ/WRITE_EXTERNAL_STORAGE`, `READ_CONTACTS`, `POST_NOTIFICATIONS`
+- `INTERNET`, `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `READ_CONTACTS`, `POST_NOTIFICATIONS`
+- Accessibility, broad storage access and APK installation permissions are absent from the Play branch. Screen capture requests Android consent each time; generated text is copied for manual pasting.
 
 ## Contributing
 Pull requests are welcome! Please open an issue first to discuss major changes.

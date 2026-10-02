@@ -97,6 +97,8 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     onBack:    () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    initialText: String = "",
+    onInitialTextConsumed: () -> Unit = {},
 ) {
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -108,6 +110,7 @@ fun ChatScreen(
     ) { granted ->
         viewModel.onNotificationsPermissionResult(granted)
     }
+    val cloudSendRequest by viewModel.cloudSendRequest.collectAsState()
     val chats          by viewModel.chats.collectAsState()
     val uiState        by viewModel.uiState.collectAsState()
     val spaces         by viewModel.spaces.collectAsState()
@@ -122,7 +125,13 @@ fun ChatScreen(
         availableModels.find { it.id == chat?.modelId } ?: availableModels.firstOrNull()
     }
 
-    var inputText by remember { mutableStateOf("") }
+    var inputText by androidx.compose.runtime.saveable.rememberSaveable(chatId) { mutableStateOf("") }
+    LaunchedEffect(initialText) {
+        if (initialText.isNotBlank()) {
+            inputText = initialText
+            onInitialTextConsumed()
+        }
+    }
     var pendingAttachment by remember { mutableStateOf<PendingAttachment?>(null) }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var attachmentError by remember { mutableStateOf<String?>(null) }
@@ -130,6 +139,25 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val scope     = rememberCoroutineScope()
     val context = LocalContext.current
+
+    cloudSendRequest?.takeIf { it.chatId == chatId }?.let { request ->
+        fun cancelCloudSend() {
+            inputText = request.text
+            selectedImageUris = request.imageUris
+            viewModel.onCloudSendConsent(false)
+        }
+        AlertDialog(
+            onDismissRequest = { cancelCloudSend() },
+            title = { Text("Send to ${request.modelName}?") },
+            text = {
+                Text("Orbit will send this message, chat history, attached images or document text, and relevant memories and Space excerpts to Google for a cloud AI response. Google processes this data under its Gemini API terms. Use a local model to keep inference on this device.")
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.onCloudSendConsent(true) }) { Text("Send to Google") }
+            },
+            dismissButton = { TextButton(onClick = { cancelCloudSend() }) { Text("Cancel") } },
+        )
+    }
 
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -153,6 +181,11 @@ fun ChatScreen(
                 if (selectedImageUris.size >= 3) {
                     attachmentError = "You can only attach up to 3 images."
                 } else {
+                    try {
+                        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    } catch (_: SecurityException) {
+                        // Some document providers grant access only for the current session.
+                    }
                     selectedImageUris = selectedImageUris + uri
                     attachmentError = null
                 }
@@ -700,6 +733,10 @@ private fun SpaceToggleChip(
 
 @Composable
 private fun MessageBubble(msg: Message) {
+    var reportedResponse by remember { mutableStateOf<String?>(null) }
+    reportedResponse?.let { response ->
+        ContentReportDialog(response, "chat", onDismiss = { reportedResponse = null })
+    }
     val isUser = msg.role == Role.USER
 
     if (isUser) {
@@ -789,6 +826,9 @@ private fun MessageBubble(msg: Message) {
                 }
             }
 
+            if (!msg.isStreaming && msg.content.isNotBlank()) {
+                TextButton(onClick = { reportedResponse = msg.content }) { Text("Report response") }
+            }
             if (msg.isStreaming && msg.content.isEmpty()) {
                 TypingIndicator()
             } else {
@@ -1141,7 +1181,16 @@ private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState,
     val context  = LocalContext.current
     val callback by rememberUpdatedState(onTextChange)
     var state    by remember { mutableStateOf(VoiceState.Idle) }
-    val recognizer    = remember(context) { SpeechRecognizer.createSpeechRecognizer(context) }
+    val recognizer = remember(context) {
+        if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        }
+    }
+    val voiceScope = rememberCoroutineScope()
+    var showVoiceDisclosure by remember { mutableStateOf(false) }
+    var voiceConsent by remember { mutableStateOf(false) }
     // Flag to distinguish user-requested stop vs natural end-of-speech pause
     val active        = remember { booleanArrayOf(false) }
     // Accumulates confirmed sentences across auto-restarts
@@ -1152,7 +1201,13 @@ private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState,
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
-        recognizer.startListening(intent)
+        try {
+            recognizer.startListening(intent)
+        } catch (_: SecurityException) {
+            active[0] = false
+            state = VoiceState.Idle
+            android.widget.Toast.makeText(context, "Microphone permission is required for voice input.", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -1192,12 +1247,43 @@ private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState,
                 if (active[0]) startListening()
             }
             override fun onError(error: Int) {
-                // On transient errors while still active, restart silently
-                if (active[0]) startListening() else state = VoiceState.Idle
+                if (active[0] && error in listOf(SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
+                    voiceScope.launch {
+                        kotlinx.coroutines.delay(300)
+                        if (active[0]) startListening()
+                    }
+                } else {
+                    active[0] = false
+                    state = VoiceState.Idle
+                    android.widget.Toast.makeText(context, "Voice input stopped. Check speech services and microphone permission, then try again.", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
-        onDispose { recognizer.destroy() }
+        onDispose { active[0] = false; recognizer.destroy() }
+    }
+
+    fun beginVoiceInput() {
+        if (!SpeechRecognizer.isRecognitionAvailable(context) && !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+            android.widget.Toast.makeText(context, "Speech recognition is unavailable on this device.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            confirmedText.clear()
+            active[0] = true
+            startListening()
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+    if (showVoiceDisclosure) {
+        AlertDialog(
+            onDismissRequest = { showVoiceDisclosure = false },
+            title = { Text("Use voice input?") },
+            text = { Text("Orbit uses your microphone to transcribe speech into a message. It prefers on-device recognition; your device's speech provider may process audio online otherwise. Orbit does not save audio recordings. You can review the text before sending it.") },
+            confirmButton = { TextButton(onClick = { voiceConsent = true; showVoiceDisclosure = false; beginVoiceInput() }) { Text("Continue") } },
+            dismissButton = { TextButton(onClick = { showVoiceDisclosure = false }) { Text("Cancel") } },
+        )
     }
 
     val toggle: () -> Unit = {
@@ -1207,15 +1293,10 @@ private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState,
             recognizer.cancel()
             state = VoiceState.Idle
             confirmedText.clear()
+        } else if (!voiceConsent) {
+            showVoiceDisclosure = true
         } else {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                    == PackageManager.PERMISSION_GRANTED) {
-                confirmedText.clear()
-                active[0] = true
-                startListening()
-            } else {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
+            beginVoiceInput()
         }
     }
 

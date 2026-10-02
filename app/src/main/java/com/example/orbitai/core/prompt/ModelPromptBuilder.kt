@@ -14,11 +14,12 @@ object ModelPromptBuilder {
         systemPrompt: String? = null,
         includeImageTokens: Boolean = false,
     ): String {
+        val safeSystemPrompt = AiSafetyPolicy.withInstructions(systemPrompt)
         return when (promptStyle) {
-            PromptStyle.GEMMA -> buildGemmaPrompt(messages, ragContext, memories, systemPrompt, includeImageTokens)
-            PromptStyle.PHI -> buildPhiPrompt(messages, ragContext, memories, systemPrompt)
-            PromptStyle.LLAMA3 -> buildLlama3Prompt(messages, ragContext, memories, systemPrompt)
-            PromptStyle.QWEN -> buildQwenPrompt(messages, ragContext, memories, systemPrompt)
+            PromptStyle.GEMMA -> buildGemmaPrompt(messages, ragContext, memories, safeSystemPrompt, includeImageTokens)
+            PromptStyle.PHI -> buildPhiPrompt(messages, ragContext, memories, safeSystemPrompt)
+            PromptStyle.LLAMA3 -> buildLlama3Prompt(messages, ragContext, memories, safeSystemPrompt)
+            PromptStyle.QWEN -> buildQwenPrompt(messages, ragContext, memories, safeSystemPrompt)
         }
     }
 
@@ -26,11 +27,12 @@ object ModelPromptBuilder {
         promptStyle: PromptStyle,
         instruction: String,
     ): String {
+        val safeInstruction = AiSafetyPolicy.withInstructions(instruction)
         return when (promptStyle) {
-            PromptStyle.GEMMA -> "<start_of_turn>user\n$instruction<end_of_turn>\n<start_of_turn>model\n"
-            PromptStyle.PHI -> "<|user|>\n$instruction<|end|>\n<|assistant|>\n"
-            PromptStyle.LLAMA3 -> "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n$instruction<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-            PromptStyle.QWEN -> "<|im_start|>user\n$instruction<|im_end|>\n<|im_start|>assistant\n"
+            PromptStyle.GEMMA -> "<start_of_turn>user\n$safeInstruction<end_of_turn>\n<start_of_turn>model\n"
+            PromptStyle.PHI -> "<|user|>\n$safeInstruction<|end|>\n<|assistant|>\n"
+            PromptStyle.LLAMA3 -> "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n$safeInstruction<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+            PromptStyle.QWEN -> "<|im_start|>user\n$safeInstruction<|im_end|>\n<|im_start|>assistant\n"
         }
     }
 

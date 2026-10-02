@@ -140,7 +140,9 @@ fun WelcomeScreen(
         }
     }
 
-    fun submit() {
+    var showBubbleDisclosure by remember { mutableStateOf(false) }
+
+    fun submitAfterDisclosure() {
         val trimmedName = userName.trim()
         if (trimmedName.isBlank()) return
 
@@ -170,6 +172,17 @@ fun WelcomeScreen(
         OrbitBubbleService.start(context)
         pendingFinish = false
         completeWelcome()
+    }
+
+    fun submit() {
+        if (userName.trim().isBlank()) return
+        if (useBubble) showBubbleDisclosure = true else submitAfterDisclosure()
+    }
+    if (showBubbleDisclosure) {
+        BubbleDisclosureDialog(
+            onContinue = { showBubbleDisclosure = false; submitAfterDisclosure() },
+            onCancel = { showBubbleDisclosure = false },
+        )
     }
 
     Column(
@@ -294,7 +307,7 @@ fun WelcomeScreen(
                                 RecommendedTag()
                             }
                             Text(
-                                text = "Use your assistant anywhere. Ask for help, capture context, or automate from any screen without leaving what you are doing.",
+                                text = "Use a floating assistant over other apps. Tap to speak, approve screen capture when needed, and copy responses to paste yourself.",
                                 color = WelcomeInk.copy(alpha = 0.56f),
                                 fontFamily = WelcomeSans,
                                 fontSize = 12.sp,

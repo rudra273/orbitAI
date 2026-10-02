@@ -13,17 +13,17 @@ import com.google.ai.edge.litertlm.ToolSet
 class OrbitBubbleToolSchema : ToolSet {
 
     @Tool(
-        description = "Capture the current Android screen when visual context is required to answer a request about what is visible on-screen.",
+        description = "Request user-approved Android screen capture when visual context is required to answer a request about what is visible on-screen.",
     )
     fun take_screenshot(): Map<String, String> {
         return mapOf("status" to "handled_manually")
     }
 
     @Tool(
-        description = "Insert generated text into the user's currently focused editable text field.",
+        description = "Copy generated text to the clipboard so the user can paste it into another app.",
     )
-    fun inject_into_textfield(
-        @ToolParam(description = "The exact text to insert into the active text field.")
+    fun copy_to_clipboard(
+        @ToolParam(description = "The exact text to copy to the clipboard.")
         text: String,
     ): Map<String, String> {
         return mapOf(

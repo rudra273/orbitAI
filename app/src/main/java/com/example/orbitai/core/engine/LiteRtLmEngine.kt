@@ -67,14 +67,15 @@ class LiteRtLmEngine(
             temperature = settings.temperature.toDouble(),
             seed = 0,
         )
-        val conversationConfig = ConversationConfig(samplerConfig = samplerConfig)
+        val conversationConfig = ConversationConfig(
+            samplerConfig = samplerConfig,
+            maxOutputToken = maxDecodedTokens,
+        )
         var conversation: Conversation? = null
 
         try {
             conversation = eng.createConversation(conversationConfig)
             var previousText = ""
-            var chunkCount = 0
-            var reachedLimit = false
 
             val contentList = mutableListOf<Content>()
 
@@ -88,7 +89,6 @@ class LiteRtLmEngine(
             val contentsPayload = Contents.of(contentList)
 
             conversation.sendMessageAsync(contentsPayload).collect { message ->
-                if (reachedLimit) return@collect
                 val fullText = extractText(message)
                 val delta = if (fullText.startsWith(previousText)) {
                     fullText.removePrefix(previousText)
@@ -99,11 +99,6 @@ class LiteRtLmEngine(
 
                 if (delta.isNotEmpty()) {
                     emit(delta)
-                    chunkCount++
-                    if (chunkCount >= maxDecodedTokens) {
-                        reachedLimit = true
-                        conversation.cancelProcess()
-                    }
                 }
             }
         } finally {
@@ -158,7 +153,14 @@ class LiteRtLmEngine(
             visionBackend = visionBackend,
             cacheDir = context.cacheDir.absolutePath,
         )
-        return Engine(engineConfig).also { it.initialize() }
+        val candidate = Engine(engineConfig)
+        try {
+            candidate.initialize()
+            return candidate
+        } catch (error: Exception) {
+            runCatching { candidate.close() }
+            throw error
+        }
     }
 
     private fun extractText(message: Message): String {

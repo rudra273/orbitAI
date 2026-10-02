@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - play
   push:
     tags:
       - "v*"
@@ -15,6 +16,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ORBIT_SUPPORT_EMAIL: ${{ vars.ORBIT_SUPPORT_EMAIL }}
+      ORBIT_PRIVACY_POLICY_URL: ${{ vars.ORBIT_PRIVACY_POLICY_URL }}
+      ORBIT_REPORT_ENDPOINT: ${{ vars.ORBIT_REPORT_ENDPOINT }}
 
     steps:
       - name: Checkout repository

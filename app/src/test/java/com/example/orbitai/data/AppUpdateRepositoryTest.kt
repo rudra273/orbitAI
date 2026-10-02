@@ -1,5 +1,6 @@
 package com.example.orbitai.data
 
+import com.example.orbitai.feature.update.AppUpdateRepository
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
