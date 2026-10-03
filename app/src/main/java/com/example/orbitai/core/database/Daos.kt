@@ -10,12 +10,23 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ChatDao {
 
-    @Transaction
-    @Query("SELECT * FROM chats ORDER BY createdAt DESC")
-    fun observeAllChatsWithMessages(): Flow<List<ChatWithMessages>>
-
     @Query("SELECT * FROM chats WHERE id = :chatId LIMIT 1")
     suspend fun getChatById(chatId: String): ChatEntity?
+
+    @Query("SELECT * FROM chats WHERE id = :chatId LIMIT 1")
+    fun observeChat(chatId: String): Flow<ChatEntity?>
+
+    @Query(
+        """
+        SELECT c.id, c.title, c.modelId, c.createdAt,
+            (SELECT substr(m.content, 1, 200) FROM messages m
+                WHERE m.chatId = c.id ORDER BY m.timestampMs DESC LIMIT 1) AS lastMessagePreview,
+            (SELECT MAX(m.timestampMs) FROM messages m WHERE m.chatId = c.id) AS lastMessageAt
+        FROM chats c
+        ORDER BY c.createdAt DESC
+        """
+    )
+    fun observeChatSummaries(): Flow<List<ChatSummaryRow>>
 
     @Query(
         """
@@ -48,6 +59,9 @@ interface MessageDao {
 
     @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestampMs ASC")
     suspend fun getMessages(chatId: String): List<MessageEntity>
+
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestampMs ASC")
+    fun observeMessages(chatId: String): Flow<List<MessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(msg: MessageEntity)

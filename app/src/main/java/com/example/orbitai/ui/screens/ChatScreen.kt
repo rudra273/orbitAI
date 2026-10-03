@@ -127,7 +127,7 @@ fun ChatScreen(
     }
     val reminderReview by viewModel.reminderReview.collectAsState()
     val cloudSendRequest by viewModel.cloudSendRequest.collectAsState()
-    val chats          by viewModel.chats.collectAsState()
+    val chat by remember(chatId) { viewModel.observeChat(chatId) }.collectAsState(initial = null)
     val uiState        by viewModel.uiState.collectAsState()
     callReview?.takeIf { it.chatId == chatId && !it.voice }?.let { request ->
         CallReviewDialog(request, uiState.loadError, viewModel::dismissCallReview, viewModel::confirmCall)
@@ -141,7 +141,6 @@ fun ChatScreen(
     val activeModeId   by viewModel.activeModeId.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
 
-    val chat     = chats.find { it.id == chatId }
     val messages = chat?.messages ?: emptyList()
     val selectedModel = remember(chat?.modelId, availableModels) {
         availableModels.find { it.id == chat?.modelId } ?: availableModels.firstOrNull()

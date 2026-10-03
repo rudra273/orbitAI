@@ -46,7 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.ChatSummary
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.SpaceNebula
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
@@ -75,10 +75,10 @@ private val tagBackground @Composable get() = Violet.copy(alpha = if (IsOrbitDar
 private val Sans = FontFamily.SansSerif
 private val Mono = FontFamily.Monospace
 
-private data class ChatGroup(val title: String, val chats: List<Chat>)
+private data class ChatGroup(val title: String, val chats: List<ChatSummary>)
 private sealed interface ChatListItem {
     data class Header(val label: String) : ChatListItem
-    data class Row(val chat: Chat) : ChatListItem
+    data class Row(val chat: ChatSummary) : ChatListItem
 }
 
 @Composable
@@ -87,7 +87,7 @@ fun HomeScreen(
     onOpenChat: (String) -> Unit,
     onDownloadModel: () -> Unit,
 ) {
-    val chats by viewModel.chats.collectAsState()
+    val chats by viewModel.chatSummaries.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var searchActive by remember { mutableStateOf(false) }
@@ -400,7 +400,7 @@ private fun GroupHeader(label: String, isFirst: Boolean = false) {
 
 @Composable
 private fun ChatRow(
-    chat: Chat,
+    chat: ChatSummary,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -604,7 +604,7 @@ private fun EmptyChats(
     }
 }
 
-private fun buildListItems(chats: List<Chat>): List<ChatListItem> {
+private fun buildListItems(chats: List<ChatSummary>): List<ChatListItem> {
     if (chats.isEmpty()) return emptyList()
 
     val groups = listOf(
@@ -622,8 +622,8 @@ private fun buildListItems(chats: List<Chat>): List<ChatListItem> {
     }
 }
 
-private fun chatTimestamp(chat: Chat): Long =
-    chat.messages.lastOrNull()?.timestampMs ?: chat.createdAt
+private fun chatTimestamp(chat: ChatSummary): Long =
+    chat.lastMessageAt ?: chat.createdAt
 
 private fun ageInDays(timestamp: Long): Long {
     val zone = ZoneId.systemDefault()
@@ -648,14 +648,14 @@ private fun formatChatTimestamp(timestamp: Long): String {
     }
 }
 
-private fun displayTitle(chat: Chat): String {
+private fun displayTitle(chat: ChatSummary): String {
     val title = chat.title.trim()
     if (title.isBlank() || title.equals("New Chat", ignoreCase = true)) return "Untitled chat"
     return title
 }
 
-private fun previewText(chat: Chat): String {
-    val preview = chat.messages.lastOrNull()?.content?.trim().orEmpty()
+private fun previewText(chat: ChatSummary): String {
+    val preview = chat.lastMessagePreview?.trim().orEmpty()
     return if (preview.isBlank()) "No messages yet" else preview
 }
 
@@ -667,7 +667,7 @@ private fun displayModelName(modelId: String): String {
 private fun isOnDeviceModel(modelId: String): Boolean =
     modelId.isNotBlank() && !modelId.contains("gemini", ignoreCase = true)
 
-private fun extractSpaceTag(chat: Chat): String? {
+private fun extractSpaceTag(chat: ChatSummary): String? {
     val title = chat.title
     val start = title.lastIndexOf('[')
     val end = title.lastIndexOf(']')

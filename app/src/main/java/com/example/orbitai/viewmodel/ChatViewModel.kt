@@ -12,6 +12,8 @@ import com.example.orbitai.feature.automation.executor.CallContact
 import com.example.orbitai.feature.automation.parser.ReminderDraft
 import com.example.orbitai.feature.automation.replies.ReplyNotification
 import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.ChatSummary
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +47,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // ── Shared UI state ───────────────────────────────────────────────────────
     val uiState: StateFlow<ChatUiState> = ctx.uiState.asStateFlow()
     val events: SharedFlow<ChatUiEvent> = ctx.events.asSharedFlow()
-    val chats: StateFlow<List<Chat>> = chatRepo.chats
+    val chatSummaries: StateFlow<List<ChatSummary>> = chatRepo.chatSummaries
+
+    fun observeChat(chatId: String): Flow<Chat?> = chatRepo.observeChat(chatId)
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = ctx.container.spaceRepository.spaces

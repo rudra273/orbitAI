@@ -26,7 +26,7 @@ data class ChatEntity(
         childColumns  = ["chatId"],
         onDelete      = ForeignKey.CASCADE,
     )],
-    indices = [Index("chatId")],
+    indices = [Index("chatId"), Index(value = ["chatId", "timestampMs"])],
 )
 data class MessageEntity(
     @PrimaryKey val id: String,
@@ -36,6 +36,25 @@ data class MessageEntity(
     val modeName: String? = null,
     val imageUrisCsv: String? = null,
     val timestampMs: Long,
+)
+
+/** Chat list row: chat fields plus its newest message, without loading other messages. */
+data class ChatSummaryRow(
+    val id: String,
+    val title: String,
+    val modelId: String,
+    val createdAt: Long,
+    val lastMessagePreview: String?,
+    val lastMessageAt: Long?,
+)
+
+fun ChatSummaryRow.toDomain() = com.example.orbitai.feature.chat.ChatSummary(
+    id = id,
+    title = title,
+    modelId = modelId,
+    createdAt = createdAt,
+    lastMessagePreview = lastMessagePreview,
+    lastMessageAt = lastMessageAt,
 )
 
 /** Room relation: one chat with all its messages. */

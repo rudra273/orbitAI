@@ -54,7 +54,7 @@ class ReminderPersistenceTest {
                 it.version = 11
             }
             val upgraded = Room.databaseBuilder(context, AppDatabase::class.java, name)
-                .addMigrations(AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13).build()
+                .addMigrations(*AppDatabase.ALL_MIGRATIONS).build()
             try {
                 upgraded.reminderDao().insert(ReminderEntity("new", "Reminder", "", 100L))
                 assertEquals("Reminder", upgraded.reminderDao().find("new")?.title)
@@ -79,7 +79,7 @@ class ReminderPersistenceTest {
             fixture.close()
             SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use { it.version = 12 }
             val upgraded = Room.databaseBuilder(context, AppDatabase::class.java, name)
-                .addMigrations(AppDatabase.MIGRATION_12_13).build()
+                .addMigrations(*AppDatabase.ALL_MIGRATIONS).build()
             try {
                 val reminder = upgraded.reminderDao().find("kept")!!
                 assertEquals(12345L, reminder.triggerAt)

@@ -16,7 +16,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
@@ -32,27 +34,30 @@ class ChatRepository(context: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /**
-     * Live list of all chats with messages.
-     * Room's @Transaction + @Relation emits a new list whenever chats OR messages change.
-     */
     private val streamingMessageIds = MutableStateFlow<Set<String>>(emptySet())
 
     /** Latest text of replies still streaming; persisted to Room at most every [STREAM_PERSIST_INTERVAL_MS]. */
     private val streamingContent = MutableStateFlow<Map<String, String>>(emptyMap())
     private val lastPersistedAt = ConcurrentHashMap<String, Long>()
 
-    val chats: StateFlow<List<Chat>> = combine(
-        chatDao.observeAllChatsWithMessages(), streamingMessageIds, streamingContent,
-    ) { list, streamingIds, liveContent ->
-        list.map { entity ->
-            val chat = entity.toDomain()
+    /** Chat list rows; reads only each chat's newest message. */
+    val chatSummaries: StateFlow<List<ChatSummary>> = chatDao.observeChatSummaries()
+        .map { rows -> rows.map { it.toDomain() } }
+        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    /** One chat with its messages, with the streaming reply overlaid while it is generated. */
+    fun observeChat(chatId: String): Flow<Chat?> = combine(
+        chatDao.observeChat(chatId),
+        messageDao.observeMessages(chatId),
+        streamingMessageIds,
+        streamingContent,
+    ) { entity, messages, streamingIds, liveContent ->
+        entity?.toDomain(messages)?.let { chat ->
             chat.copy(messages = chat.messages.map {
                 it.copy(content = liveContent[it.id] ?: it.content, isStreaming = it.id in streamingIds)
             })
         }
     }
-        .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     suspend fun createChat(modelId: String? = null): Chat =
         withContext(Dispatchers.IO) {
