@@ -14,6 +14,6 @@ Generate the chat UUID up front, insert it in `viewModelScope`, and navigate imm
 - [x] No `runBlocking` remains in `viewmodel/` or `ui/`
 - [x] The "reuse an empty chat" behaviour (`findReusableEmptyChatId`) is preserved
 - [x] Tapping "New chat" repeatedly never creates duplicate empty chats
-- [ ] StrictMode (see f010) reports no disk-read violations when creating a chat
+- [x] StrictMode (see f010) reports no disk-read violations when creating a chat
 
-**Status:** ✅ Done (2026-10-03). `createNewChat()` is now a `suspend` function serialized by a `Mutex` (rapid taps reuse the same empty chat). Call sites made async: HomeScreen via `openNewChat(onOpenChat)`, MainActivity overlay/share intent via `lifecycleScope`, NavGraph initial chat via `produceState` (keyed only on the onboarding flags, so consuming an overlay prompt can't create an extra chat). No `runBlocking` remains in `app/src/main`. StrictMode verification waits for f010.
+**Status:** ✅ Done (2026-10-03). `createNewChat()` is now a `suspend` function serialized by a `Mutex` (rapid taps reuse the same empty chat). Call sites made async: HomeScreen via `openNewChat(onOpenChat)`, MainActivity overlay/share intent via `lifecycleScope`, NavGraph initial chat via `produceState` (keyed only on the onboarding flags, so consuming an overlay prompt can't create an extra chat). No `runBlocking` remains in `app/src/main`. StrictMode (f010) shows no violations from chat creation on device (2026-10-04).
