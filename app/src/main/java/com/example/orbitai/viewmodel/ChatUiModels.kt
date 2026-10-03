@@ -26,6 +26,8 @@ data class CloudSendRequest(
     val imageUris: List<Uri>,
     val modelId: String,
     val modelName: String,
+    /** True when the user message is already in the chat (regenerate / edit & resend). */
+    val resendExisting: Boolean = false,
 )
 
 sealed interface ChatUiEvent {

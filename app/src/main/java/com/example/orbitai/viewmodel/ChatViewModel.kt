@@ -81,6 +81,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun selectModel(chatId: String, model: LlmModel) = generation.selectModel(chatId, model)
     fun onCloudSendConsent(granted: Boolean) = generation.onCloudSendConsent(granted)
     fun stopGeneration() = generation.stopGeneration()
+    fun regenerate(chatId: String) = generation.regenerate(chatId)
+    fun editAndResend(chatId: String, messageId: String, newText: String) = generation.editAndResend(chatId, messageId, newText)
+    fun deleteMessage(messageId: String) = generation.deleteMessage(messageId)
     fun sendMessage(
         chatId: String,
         userText: String,

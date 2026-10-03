@@ -4,6 +4,23 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import android.widget.Toast
+import com.example.orbitai.feature.chat.markdownToPlainText
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -337,8 +354,17 @@ fun ChatScreen(
                         contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        val latestReplyId = messages.lastOrNull { it.role == Role.ASSISTANT }?.id
+                        val actionsEnabled = !uiState.isGenerating && !uiState.isModelLoading
                         items(messages, key = { it.id }) { msg ->
-                            MessageBubble(msg)
+                            MessageBubble(
+                                msg = msg,
+                                isLatestReply = msg.id == latestReplyId,
+                                actionsEnabled = actionsEnabled,
+                                onRegenerate = { viewModel.regenerate(chatId) },
+                                onEditAndResend = { text -> viewModel.editAndResend(chatId, msg.id, text) },
+                                onDelete = { viewModel.deleteMessage(msg.id) },
+                            )
                         }
                     }
 
@@ -745,13 +771,59 @@ private fun SpaceToggleChip(
 // MESSAGE BUBBLE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(msg: Message) {
+private fun MessageBubble(
+    msg: Message,
+    isLatestReply: Boolean,
+    actionsEnabled: Boolean,
+    onRegenerate: () -> Unit,
+    onEditAndResend: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     var reportedResponse by remember { mutableStateOf<String?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     reportedResponse?.let { response ->
         ContentReportDialog(response, "chat", onDismiss = { reportedResponse = null })
     }
     val isUser = msg.role == Role.USER
+    val copy = {
+        clipboard.setText(AnnotatedString(markdownToPlainText(msg.content)))
+        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+    }
+    val share = {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, markdownToPlainText(msg.content))
+        }
+        context.startActivity(Intent.createChooser(send, "Share message"))
+    }
+
+    if (editing) {
+        EditMessageDialog(
+            initialText = msg.content,
+            onDismiss = { editing = false },
+            onSend = { text ->
+                editing = false
+                onEditAndResend(text)
+            },
+        )
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete message?") },
+            text = { Text("This removes the message from the chat. It can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = Destructive) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
+    }
 
     if (isUser) {
         // User: right-aligned ink bubble
@@ -762,6 +834,14 @@ private fun MessageBubble(msg: Message) {
             Box(
                 modifier = Modifier
                     .widthIn(max = 296.dp)
+                    .semantics {
+                        customActions = listOfNotNull(
+                            CustomAccessibilityAction("Copy") { copy(); true },
+                            if (actionsEnabled) CustomAccessibilityAction("Edit and resend") { editing = true; true } else null,
+                            if (actionsEnabled) CustomAccessibilityAction("Delete") { confirmDelete = true; true } else null,
+                        )
+                    }
+                    .combinedClickable(onClick = {}, onLongClick = { menuOpen = true }, onLongClickLabel = "Message options")
                     .clip(
                         RoundedCornerShape(
                             topStart    = 20.dp,
@@ -798,13 +878,30 @@ private fun MessageBubble(msg: Message) {
                         }
                     }
                     if (msg.content.isNotEmpty()) {
-                        SelectionContainer {
-                            MarkdownMessageText(
-                                content   = msg.content,
-                                textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
-                            )
-                        }
+                        MarkdownMessageText(
+                            content   = msg.content,
+                            textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
+                        )
                     }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Copy") },
+                        leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                        onClick = { menuOpen = false; copy() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Edit & resend") },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                        enabled = actionsEnabled,
+                        onClick = { menuOpen = false; editing = true },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                        enabled = actionsEnabled,
+                        onClick = { menuOpen = false; confirmDelete = true },
+                    )
                 }
             }
         }
@@ -840,9 +937,6 @@ private fun MessageBubble(msg: Message) {
                 }
             }
 
-            if (!msg.isStreaming && msg.content.isNotBlank()) {
-                TextButton(onClick = { reportedResponse = msg.content }) { Text("Report response") }
-            }
             if (msg.isStreaming && msg.content.isEmpty()) {
                 TypingIndicator()
             } else {
@@ -854,8 +948,57 @@ private fun MessageBubble(msg: Message) {
                     StreamingCursor()
                 }
             }
+            if (!msg.isStreaming && msg.content.isNotBlank()) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MessageActionIcon(Icons.Outlined.ContentCopy, "Copy reply", onClick = copy)
+                    if (isLatestReply) {
+                        MessageActionIcon(Icons.Outlined.Refresh, "Regenerate reply", enabled = actionsEnabled, onClick = onRegenerate)
+                    }
+                    MessageActionIcon(Icons.Outlined.Share, "Share reply", onClick = share)
+                    MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun MessageActionIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(36.dp)) {
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = if (enabled) TextMuted else TextMuted.copy(alpha = 0.35f),
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun EditMessageDialog(initialText: String, onDismiss: () -> Unit, onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf(initialText) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit message") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(), maxLines = 8)
+                Text("Replies after this message will be replaced.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSend(text) }, enabled = text.isNotBlank()) { Text("Send") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 private fun assistantModeBadgeLabel(msg: Message): String =

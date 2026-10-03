@@ -118,6 +118,24 @@ class ChatRepository(context: Context) {
             }
         }
 
+    suspend fun deleteMessage(messageId: String) = withContext(Dispatchers.IO) {
+        messageDao.deleteMessage(messageId)
+    }
+
+    /** Removes [message] and every later message in the chat (used by regenerate and edit & resend). */
+    suspend fun deleteMessagesFrom(chatId: String, message: Message) = withContext(Dispatchers.IO) {
+        messageDao.deleteMessagesFrom(chatId, message.timestampMs)
+    }
+
+    /** Removes every message after [message] in the chat, keeping [message] itself. */
+    suspend fun deleteMessagesAfter(chatId: String, message: Message) = withContext(Dispatchers.IO) {
+        messageDao.deleteMessagesFrom(chatId, message.timestampMs + 1)
+    }
+
+    suspend fun updateMessageContent(messageId: String, content: String) = withContext(Dispatchers.IO) {
+        messageDao.updateMessageContentById(messageId, content)
+    }
+
     suspend fun deleteChat(chatId: String) = withContext(Dispatchers.IO) {
         chatDao.deleteChat(chatId) // CASCADE deletes messages too
     }

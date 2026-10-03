@@ -64,6 +64,13 @@ interface MessageDao {
 
     @Query("UPDATE messages SET content = :content WHERE id = :messageId")
     suspend fun updateMessageContentById(messageId: String, content: String)
+
+    @Query("DELETE FROM messages WHERE id = :messageId")
+    suspend fun deleteMessage(messageId: String)
+
+    /** Deletes the message at [timestampMs] and everything after it in the chat. */
+    @Query("DELETE FROM messages WHERE chatId = :chatId AND timestampMs >= :timestampMs")
+    suspend fun deleteMessagesFrom(chatId: String, timestampMs: Long)
 }
 
 @Dao

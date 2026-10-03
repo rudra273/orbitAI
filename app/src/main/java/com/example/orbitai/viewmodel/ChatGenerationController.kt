@@ -159,8 +159,50 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         val request = _cloudSendRequest.value ?: return
         _cloudSendRequest.value = null
         if (granted) {
-            sendMessage(request.chatId, request.text, request.imageUris, request.modelId)
+            sendMessage(request.chatId, request.text, request.imageUris, request.modelId, request.resendExisting)
         }
+    }
+
+    private val isBusy: Boolean
+        get() = generationJob?.isActive == true || _uiState.value.isGenerating || _uiState.value.isModelLoading
+
+    /** Generates a new reply to the last user message, replacing the reply after it. */
+    fun regenerate(chatId: String) {
+        if (isBusy) return
+        viewModelScope.launch {
+            val chat = chatRepo.getChat(chatId) ?: return@launch
+            val lastUser = chat.messages.lastOrNull { it.role == Role.USER } ?: return@launch
+            if (lastUser.imageUris.isEmpty() && automation.isDeviceCommand(lastUser.content)) {
+                _uiState.update { it.copy(infoMessage = "That reply came from a device action. Send the command again to repeat it.") }
+                return@launch
+            }
+            chatRepo.deleteMessagesAfter(chatId, lastUser)
+            sendMessage(chatId, lastUser.content, lastUser.imageUris.map(Uri::parse), resendExisting = true)
+        }
+    }
+
+    /** Replaces a user message with [newText] and generates a new reply; later messages are removed. */
+    fun editAndResend(chatId: String, messageId: String, newText: String) {
+        val text = newText.trim()
+        if (isBusy || text.isBlank()) return
+        viewModelScope.launch {
+            val chat = chatRepo.getChat(chatId) ?: return@launch
+            val original = chat.messages.firstOrNull { it.id == messageId && it.role == Role.USER } ?: return@launch
+            if (original.imageUris.isEmpty() && automation.isDeviceCommand(text)) {
+                // Device commands add their own user message.
+                chatRepo.deleteMessagesFrom(chatId, original)
+                sendMessage(chatId, text)
+                return@launch
+            }
+            chatRepo.updateMessageContent(original.id, text)
+            chatRepo.deleteMessagesAfter(chatId, original)
+            sendMessage(chatId, text, original.imageUris.map(Uri::parse), resendExisting = true)
+        }
+    }
+
+    fun deleteMessage(messageId: String) {
+        if (isBusy) return
+        viewModelScope.launch { chatRepo.deleteMessage(messageId) }
     }
 
     fun sendMessage(
@@ -168,10 +210,11 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         userText: String,
         imageUris: List<Uri> = emptyList(),
         approvedCloudModelId: String? = null,
+        resendExisting: Boolean = false,
     ) {
         viewModelScope.launch {
             val chat = chatRepo.getChat(chatId) ?: return@launch
-            sendMessageForChat(chat, userText, imageUris, approvedCloudModelId)
+            sendMessageForChat(chat, userText, imageUris, approvedCloudModelId, resendExisting)
         }
     }
 
@@ -180,12 +223,13 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         userText: String,
         imageUris: List<Uri>,
         approvedCloudModelId: String?,
+        resendExisting: Boolean = false,
     ) {
         val chatId = chat.id
         val trimmedText = userText.trim().ifBlank {
             if (imageUris.isNotEmpty()) "Describe the attached image(s)." else ""
         }
-        if (imageUris.isEmpty() && automation.handleDeviceCommand(chatId, trimmedText)) return
+        if (!resendExisting && imageUris.isEmpty() && automation.handleDeviceCommand(chatId, trimmedText)) return
         val currentAvailableModels = availableChatModels(modelDownloader, tokenStore)
         _availableModels.value = currentAvailableModels
 
@@ -239,7 +283,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
             return
         }
         if (model.provider == ModelProvider.GEMINI && approvedCloudModelId != model.id) {
-            _cloudSendRequest.value = CloudSendRequest(chatId, userText, imageUris.toList(), model.id, model.displayName)
+            _cloudSendRequest.value = CloudSendRequest(chatId, userText, imageUris.toList(), model.id, model.displayName, resendExisting)
             return
         }
         val previousGeneration = generationJob
@@ -273,11 +317,13 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 // Resolve image uris to safe persisted strings
                 val uriStrings = imageUris.map { it.toString() }
 
-                // 1. Add user message
-                chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText, imageUris = uriStrings))
+                // 1. Add user message (already present when regenerating or resending an edit)
+                if (!resendExisting) {
+                    chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText, imageUris = uriStrings))
+                }
 
                 // 1b. Auto-detect and save memorable facts from user message
-                if (memoryEnabled) {
+                if (memoryEnabled && !resendExisting) {
                     MemoryFactExtractor.extract(trimmedText).forEach { fact ->
                         memoryRepo.addMemory(fact, source = "auto")
                     }

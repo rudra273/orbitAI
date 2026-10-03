@@ -68,6 +68,13 @@ internal class AutomationFlowController(
         return true
     }
 
+    /** True when [text] is handled by [handleDeviceCommand] rather than the model. */
+    fun isDeviceCommand(text: String): Boolean {
+        val normalized = com.example.orbitai.feature.automation.parser.DeviceCommandParser.normalize(text)
+        return com.example.orbitai.feature.automation.parser.DeviceCommandParser.parse(text) != null ||
+            com.example.orbitai.feature.automation.parser.AutomationCommandParser.parse(normalized) is AutomationRequest.CreateReminder
+    }
+
     /** Parses a finished tool-draft reply and hands it to the matching Android intent or review dialog. */
     suspend fun handleDraftResult(chatId: String, toolRequest: AutomationRequest?, accumulated: String) {
         when (toolRequest) {
