@@ -115,11 +115,24 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         val previousClose = engineCloseJob
         engineCloseJob = viewModelScope.launch(Dispatchers.IO) {
             previousClose?.join()
-            llmRepo.close()
-            stoppedGeneration?.join()
-            llmRepo.close()
+            awaitStopped(stoppedGeneration)
         }
         _uiState.update { it.copy(isGenerating = false, isModelLoading = false) }
+    }
+
+    /**
+     * Waits for a cancelled run to finish. Engines stop on cancellation (LiteRT via cancelProcess,
+     * ONNX per token, MediaPipe/Gemini by closing their session or stream), so the model stays
+     * loaded for the next message. If a run is stuck in native code, unload the model as a fallback.
+     */
+    private suspend fun awaitStopped(job: Job?) {
+        if (job == null) return
+        val stopped = kotlinx.coroutines.withTimeoutOrNull(STOP_GRACE_MS) { job.join() }
+        if (stopped == null) {
+            android.util.Log.w("ChatGeneration", "Generation didn't stop within ${STOP_GRACE_MS}ms; unloading model")
+            llmRepo.close()
+            job.join()
+        }
     }
 
     /**
@@ -301,11 +314,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
             llmRepo.beginUse()
             try {
                 closingEngine?.join()
-                if (previousGeneration != null) {
-                    llmRepo.close()
-                    previousGeneration.join()
-                    llmRepo.close()
-                }
+                awaitStopped(previousGeneration)
                 _uiState.update { it.copy(loadError = null, infoMessage = null) }
 
                 if (chat.modelId != model.id) {
@@ -507,5 +516,6 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
 
     private companion object {
         const val MAX_GENERATION_MS = 5 * 60_000L
+        const val STOP_GRACE_MS = 10_000L
     }
 }
