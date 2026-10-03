@@ -30,7 +30,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="158"
+            line="170"
             column="20"/>
     </issue>
 
@@ -59,6 +59,17 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.room:room-runtime than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="5"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-testing than 2.7.1 is available: 2.8.5"
         errorLine1="room = &quot;2.7.1&quot;"
         errorLine2="       ~~~~~~~">
         <location
@@ -206,7 +217,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="154"
+            line="166"
             column="20"/>
     </issue>
 
@@ -217,8 +228,19 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="171"
+            line="183"
             column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:mockwebserver than 4.12.0 is available: 5.5.0"
+        errorLine1="    testImplementation(&quot;com.squareup.okhttp3:mockwebserver:4.12.0&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="197"
+            column="24"/>
     </issue>
 
     <issue
@@ -261,7 +283,7 @@
         errorLine2="     ~~~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="26"
+            line="28"
             column="6"/>
     </issue>
 
@@ -303,22 +325,22 @@
     <issue
         id="ObsoleteSdkInt"
         message="Unnecessary; `SDK_INT` is always >= 35"
-        errorLine1="        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1501"
-            column="20"/>
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="29"
+            column="16"/>
     </issue>
 
     <issue
         id="ObsoleteSdkInt"
         message="Unnecessary; `SDK_INT` is always >= 35"
-        errorLine1="        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1613"
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="569"
             column="20"/>
     </issue>
 
@@ -329,7 +351,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1643"
+            line="514"
             column="13"/>
     </issue>
 
@@ -447,6 +469,204 @@
 
     <issue
         id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleInferenceController.kt"
+            line="543"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="                val resized = Bitmap.createScaledBitmap(cropped, maxWidth, (maxWidth / ratio).toInt(), true)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleInferenceController.kt"
+            line="553"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Summarize&quot;, &quot;S&quot;, Color.parseColor(&quot;#8C52FF&quot;)), // Violet"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="163"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Translate&quot;, &quot;T&quot;, Color.parseColor(&quot;#00B4D8&quot;)), // Cyan"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="164"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Explain&quot;,   &quot;E&quot;, Color.parseColor(&quot;#10B981&quot;)), // Emerald"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="165"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Reply&quot;,     &quot;R&quot;, Color.parseColor(&quot;#F59E0B&quot;)), // Orange"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="166"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Close&quot;,     &quot;✕&quot;, Color.parseColor(&quot;#EF4444&quot;))  // Red"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="167"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            &quot;dark_glassy&quot; to Color.parseColor(&quot;#333333&quot;),"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="306"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            &quot;white_glassy&quot; to Color.parseColor(&quot;#F5F5F5&quot;),"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="307"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            &quot;violet&quot; to Color.parseColor(&quot;#6842A6&quot;)"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="308"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;dark_glassy&quot; -> BubbleThemeConfig(Triple(25, 25, 25), Triple(100, 100, 100), Color.WHITE, Color.parseColor(&quot;#CCCCCC&quot;))"
+        errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="587"
+            column="108"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;white_glassy&quot; -> BubbleThemeConfig(Triple(245, 245, 245), Triple(200, 200, 200), Color.BLACK, Color.parseColor(&quot;#555555&quot;))"
+        errorLine2="                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="588"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;emerald&quot; -> BubbleThemeConfig(Triple(16, 89, 65), Triple(105, 204, 171), Color.WHITE, Color.parseColor(&quot;#D1EAE1&quot;))"
+        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="589"
+            column="104"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;ocean&quot; -> BubbleThemeConfig(Triple(25, 75, 120), Triple(122, 186, 245), Color.WHITE, Color.parseColor(&quot;#D6EAFF&quot;))"
+        errorLine2="                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="590"
+            column="103"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;sunset&quot; -> BubbleThemeConfig(Triple(143, 44, 19), Triple(245, 137, 110), Color.WHITE, Color.parseColor(&quot;#FFDBCF&quot;))"
+        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="591"
+            column="104"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;midnight&quot; -> BubbleThemeConfig(Triple(9, 13, 26), Triple(64, 80, 122), Color.WHITE, Color.parseColor(&quot;#B0C1EE&quot;))"
+        errorLine2="                                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="592"
+            column="102"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;violet&quot; -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor(&quot;#E9DBFF&quot;))"
+        errorLine2="                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="593"
+            column="105"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                else -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor(&quot;#E9DBFF&quot;))"
+        errorLine2="                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="594"
+            column="101"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
         errorLine1="            prefs.edit().putBoolean(&quot;floating_bubble_enabled&quot;, value).apply()"
         errorLine2="            ~~~~~~~~~~~~">
@@ -558,6 +778,17 @@
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;large_models_wifi_only&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/DownloadSettingsStore.kt"
+            line="12"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
         errorLine1="        set(v) { prefs.edit().putFloat(&quot;temperature&quot;, v).apply() }"
         errorLine2="                 ~~~~~~~~~~~~">
         <location
@@ -606,7 +837,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/MainActivity.kt"
-            line="55"
+            line="57"
             column="28"/>
     </issue>
 
@@ -617,7 +848,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/MainActivity.kt"
-            line="56"
+            line="58"
             column="29"/>
     </issue>
 
@@ -628,7 +859,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/MainActivity.kt"
-            line="64"
+            line="66"
             column="13"/>
     </issue>
 
@@ -700,122 +931,12 @@
 
     <issue
         id="UseKtx"
-        message="Use the KTX function `createBitmap` instead?"
-        errorLine1="            val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)"
-        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="927"
-            column="32"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `Bitmap.scale` instead?"
-        errorLine1="                val resized = Bitmap.createScaledBitmap(cropped, maxWidth, (maxWidth / ratio).toInt(), true)"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="937"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            Triple(&quot;Summarize&quot;, &quot;S&quot;, Color.parseColor(&quot;#8C52FF&quot;)), // Violet"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1095"
-            column="38"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            Triple(&quot;Translate&quot;, &quot;T&quot;, Color.parseColor(&quot;#00B4D8&quot;)), // Cyan"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1096"
-            column="38"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            Triple(&quot;Explain&quot;,   &quot;E&quot;, Color.parseColor(&quot;#10B981&quot;)), // Emerald"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1097"
-            column="38"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            Triple(&quot;Reply&quot;,     &quot;R&quot;, Color.parseColor(&quot;#F59E0B&quot;)), // Orange"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1098"
-            column="38"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            Triple(&quot;Close&quot;,     &quot;✕&quot;, Color.parseColor(&quot;#EF4444&quot;))  // Red"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1099"
-            column="38"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            &quot;dark_glassy&quot; to Color.parseColor(&quot;#333333&quot;),"
-        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1238"
-            column="30"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            &quot;white_glassy&quot; to Color.parseColor(&quot;#F5F5F5&quot;),"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1239"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="            &quot;violet&quot; to Color.parseColor(&quot;#6842A6&quot;)"
-        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1240"
-            column="25"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
         message="Use the KTX extension function `String.toColorInt` instead?"
         errorLine1="                intArrayOf(Color.parseColor(&quot;#FF5B5B&quot;), Color.parseColor(&quot;#FF8A65&quot;))"
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1546"
+            line="427"
             column="28"/>
     </issue>
 
@@ -826,7 +947,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1546"
+            line="427"
             column="28"/>
     </issue>
 
@@ -837,7 +958,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1546"
+            line="427"
             column="57"/>
     </issue>
 
@@ -848,7 +969,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1546"
+            line="427"
             column="57"/>
     </issue>
 
@@ -859,7 +980,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1548"
+            line="429"
             column="28"/>
     </issue>
 
@@ -870,7 +991,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1548"
+            line="429"
             column="28"/>
     </issue>
 
@@ -881,7 +1002,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1548"
+            line="429"
             column="57"/>
     </issue>
 
@@ -892,96 +1013,8 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1548"
+            line="429"
             column="57"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;dark_glassy&quot; -> BubbleThemeConfig(Triple(25, 25, 25), Triple(100, 100, 100), Color.WHITE, Color.parseColor(&quot;#CCCCCC&quot;))"
-        errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1744"
-            column="108"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;white_glassy&quot; -> BubbleThemeConfig(Triple(245, 245, 245), Triple(200, 200, 200), Color.BLACK, Color.parseColor(&quot;#555555&quot;))"
-        errorLine2="                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1745"
-            column="112"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;emerald&quot; -> BubbleThemeConfig(Triple(16, 89, 65), Triple(105, 204, 171), Color.WHITE, Color.parseColor(&quot;#D1EAE1&quot;))"
-        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1746"
-            column="104"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;ocean&quot; -> BubbleThemeConfig(Triple(25, 75, 120), Triple(122, 186, 245), Color.WHITE, Color.parseColor(&quot;#D6EAFF&quot;))"
-        errorLine2="                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1747"
-            column="103"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;sunset&quot; -> BubbleThemeConfig(Triple(143, 44, 19), Triple(245, 137, 110), Color.WHITE, Color.parseColor(&quot;#FFDBCF&quot;))"
-        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1748"
-            column="104"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;midnight&quot; -> BubbleThemeConfig(Triple(9, 13, 26), Triple(64, 80, 122), Color.WHITE, Color.parseColor(&quot;#B0C1EE&quot;))"
-        errorLine2="                                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1749"
-            column="102"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                &quot;violet&quot; -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor(&quot;#E9DBFF&quot;))"
-        errorLine2="                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1750"
-            column="105"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                else -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor(&quot;#E9DBFF&quot;))"
-        errorLine2="                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1751"
-            column="101"/>
     </issue>
 
     <issue
@@ -991,7 +1024,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1824"
+            line="608"
             column="17"/>
     </issue>
 
@@ -1068,7 +1101,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="154"
+            line="166"
             column="20"/>
     </issue>
 
@@ -1079,7 +1112,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="158"
+            line="170"
             column="20"/>
     </issue>
 
@@ -1090,8 +1123,41 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="171"
+            line="183"
             column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    testImplementation(&quot;com.squareup.okhttp3:mockwebserver:4.12.0&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="197"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        header.setOnTouchListener { _, event ->"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="462"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        header.setOnTouchListener { _, event ->"
+        errorLine2="                                  ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleOverlayUi.kt"
+            line="462"
+            column="35"/>
     </issue>
 
     <issue
@@ -1101,7 +1167,7 @@
         errorLine2="        ^">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="278"
+            line="255"
             column="9"/>
     </issue>
 
@@ -1112,29 +1178,7 @@
         errorLine2="                                  ^">
         <location
             file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="278"
-            column="35"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        header.setOnTouchListener { _, event ->"
-        errorLine2="        ^">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1394"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        header.setOnTouchListener { _, event ->"
-        errorLine2="                                  ^">
-        <location
-            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
-            line="1394"
+            line="255"
             column="35"/>
     </issue>
 
