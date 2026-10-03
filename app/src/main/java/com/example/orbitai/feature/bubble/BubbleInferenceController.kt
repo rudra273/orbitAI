@@ -18,6 +18,7 @@ import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import com.example.orbitai.core.common.InferenceSettingsStore
+import com.example.orbitai.core.engine.ConversationSession
 import com.example.orbitai.core.engine.LlmConversationEngine
 import com.example.orbitai.core.engine.LlmRepository
 import com.example.orbitai.core.engine.ToolCallResult
@@ -78,11 +79,19 @@ class BubbleInferenceController(
         val source: ScreenCaptureSource,
     )
 
+    /** Session of the run in progress, so a stop can halt native decoding immediately. */
+    @Volatile private var activeSession: ConversationSession? = null
+    private var watchdogJob: Job? = null
+
     fun cancel() {
+        activeSession?.cancel()
         llmJob?.cancel()
+        watchdogJob?.cancel()
     }
 
     fun destroy() {
+        activeSession?.cancel()
+        watchdogJob?.cancel()
         llmJob?.cancel()
         serviceScope.cancel()
         bubbleLlmRepo?.close()
@@ -96,8 +105,14 @@ class BubbleInferenceController(
             Log.d(logTag, "Screen-understanding route selected; requesting user-approved capture when needed")
         }
 
-        llmJob?.cancel()
-        llmJob = serviceScope.launch {
+        // Stop the previous run and let it fully release the engine before starting this one.
+        val previousJob = llmJob
+        activeSession?.cancel()
+        previousJob?.cancel()
+        watchdogJob?.cancel()
+
+        val job = serviceScope.launch {
+            previousJob?.join()
             val startedAt = SystemClock.elapsedRealtime()
             val downloader = ModelDownloader(context)
             val selectedModelId = BubbleSettingsStore(context).bubbleModelId
@@ -182,6 +197,7 @@ class BubbleInferenceController(
                     settings = settings,
                     toolSchemas = listOf(OrbitBubbleToolSchema()),
                 ).use { session ->
+                    activeSession = session
                     val firstTurn = session.streamTurn(
                         contents = textContents(initialTranscript),
                         maxDecodedTokens = settings.maxDecodedTokens,
@@ -285,6 +301,25 @@ class BubbleInferenceController(
                     ui.updateResultStatus("Failed")
                     ui.updateResultText("Something went wrong: ${e.message}")
                 }
+            } finally {
+                activeSession = null
+                Log.d(logTag, "Bubble run finished in ${formatElapsed(startedAt)}")
+            }
+        }
+        llmJob = job
+        watchdogJob = serviceScope.launch {
+            delay(MAX_RUN_MS)
+            if (job.isActive) {
+                Log.w(logTag, "Bubble run exceeded ${MAX_RUN_MS / 1000}s; stopping")
+                activeSession?.cancel()
+                job.cancel()
+                withContext(Dispatchers.Main) {
+                    if (!ui.isResultVisible) ui.showResultOverlay(initialTranscript)
+                    ui.updateResultStatus("Stopped after ${MAX_RUN_MS / 1000}s")
+                    if (ui.resultText.isBlank()) {
+                        ui.updateResultText("This took too long, so Orbit stopped it. Try again, or ask a shorter question.")
+                    }
+                }
             }
         }
     }
@@ -366,6 +401,7 @@ class BubbleInferenceController(
                 systemInstruction = AiSafetyPolicy.withInstructions(systemInstruction),
                 settings = settings,
             ).use { session ->
+                activeSession = session
                 val analysisTurn = session.streamTurn(
                     contents = imagePromptContents(
                         bitmap = bitmap,
@@ -621,6 +657,7 @@ class BubbleInferenceController(
     }
 
     companion object {
+        private const val MAX_RUN_MS = 120_000L
         private var mediaProjectionContinuation: CancellableContinuation<Pair<Int, Intent>?>? = null
 
         fun deliverMediaProjectionResult(resultCode: Int, data: Intent?) {

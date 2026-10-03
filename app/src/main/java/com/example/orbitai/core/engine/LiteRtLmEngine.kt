@@ -13,6 +13,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -101,6 +102,10 @@ class LiteRtLmEngine(
                     emit(delta)
                 }
             }
+        } catch (e: CancellationException) {
+            // Coroutine cancellation alone doesn't stop native decoding (or prefill).
+            runCatching { conversation?.cancelProcess() }
+            throw e
         } finally {
             try {
                 conversation?.close()

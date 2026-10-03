@@ -33,6 +33,9 @@ interface ConversationSession : AutoCloseable {
         maxDecodedTokens: Int,
         onDelta: suspend (String) -> Unit,
     ): TurnResult
+
+    /** Stops an in-progress turn in the native engine. Safe to call from any thread. */
+    fun cancel()
 }
 
 /**

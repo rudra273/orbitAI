@@ -757,6 +757,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             ?: modeRepo.modes.value.find { it.isDefault }
         val settings = modeInferenceStore.get(activeModeId)
         val generationToken = beginNewGenerationToken()
+        startGenerationWatchdog(generationToken)
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -991,6 +992,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Stops a reply that runs longer than [MAX_GENERATION_MS] (e.g. stuck native inference). */
+    private fun startGenerationWatchdog(token: Long) {
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(MAX_GENERATION_MS)
+            if (isGenerationTokenActive(token) && generationJob?.isActive == true) {
+                android.util.Log.w("ChatViewModel", "Generation exceeded ${MAX_GENERATION_MS / 60_000} min; stopping")
+                stopGeneration()
+                _uiState.update {
+                    it.copy(loadError = "The reply took longer than ${MAX_GENERATION_MS / 60_000} minutes and was stopped. Try again or use a smaller model.")
+                }
+            }
+        }
+    }
+
     private val chatsWithTrimmedContext: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     private fun reportContextTrimming(chatId: String, budgeted: BudgetedPrompt) {
@@ -1061,5 +1076,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return Instant.ofEpochMilli(timeMillis)
             .atZone(ZoneId.systemDefault())
             .format(reminderTimeFormatter)
+    }
+
+    private companion object {
+        const val MAX_GENERATION_MS = 5 * 60_000L
     }
 }

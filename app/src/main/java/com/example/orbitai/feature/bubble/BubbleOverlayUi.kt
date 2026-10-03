@@ -387,28 +387,6 @@ class BubbleOverlayUi(
         if (!compact) {
             header.addView(openBtn)
         }
-        val copyBtn = TextView(context).apply {
-            text = "Copy"
-            setTextColor(theme.primaryText)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(9).toFloat()
-                setColor(Color.argb(42, 255, 255, 255))
-                setStroke(1, Color.argb(96, 255, 255, 255))
-            }
-        }
-        copyBtn.setOnClickListener {
-            val textToCopy = resultTextView?.text?.toString().orEmpty()
-            if (textToCopy.isNotBlank()) {
-                copyTextToClipboard(textToCopy)
-                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
-            }
-        }
-        if (!compact) {
-            header.addView(copyBtn)
-        }
         val closeBtn = TextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
             text = "✕"
@@ -525,6 +503,26 @@ class BubbleOverlayUi(
         }
         scrollView.addView(responseText)
         root.addView(scrollView)
+
+        // Small copy icon under the answer
+        root.addView(ImageView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
+                gravity = Gravity.END
+                setMargins(0, 0, dp(8), dp(6))
+            }
+            setPadding(dp(9), dp(9), dp(9), dp(9))
+            setImageResource(R.drawable.ic_copy)
+            imageTintList = android.content.res.ColorStateList.valueOf(theme.secondaryText)
+            contentDescription = "Copy response"
+            visibility = if (compact) View.GONE else View.VISIBLE
+            setOnClickListener {
+                val textToCopy = resultTextView?.text?.toString().orEmpty()
+                if (textToCopy.isNotBlank()) {
+                    copyTextToClipboard(textToCopy)
+                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
         resultStatusView = statusText
         resultTextView = responseText
         resultScrollView = scrollView
