@@ -82,6 +82,12 @@ To view logs:
 adb logcat | grep orbitai
 ```
 
+Run the same checks CI runs on every pull request:
+```sh
+./gradlew testDebugUnitTest lintDebug
+```
+Existing lint findings are recorded in `app/lint-baseline.xml`; new lint errors fail the check.
+
 ### Play Store Upload Key
 
 Create or reuse one private upload key before the first Play Console upload:

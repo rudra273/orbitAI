@@ -1,0 +1,1141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.1.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.1.0)" variant="all" version="9.1.0">
+
+    <issue
+        id="VectorRaster"
+        message="Limit vector icons sizes to 200×200 to keep icon drawing fast; see https://developer.android.com/studio/write/vector-asset-studio#when for more"
+        errorLine1="    android:width=&quot;512dp&quot;"
+        errorLine2="                   ~~~~~">
+        <location
+            file="src/main/res/drawable/vector_logo.xml"
+            line="3"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.1.0 is available: 9.4.1. (There is also a newer version of 9.1.𝑥 available, if upgrading to 9.4.1 is difficult: 9.1.1)"
+        errorLine1="agp = &quot;9.1.0&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.appcompat:appcompat than 1.7.0 is available: 1.8.0"
+        errorLine1="    implementation(&quot;androidx.appcompat:appcompat:1.7.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="158"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="5"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="5"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="5"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.19.1"
+        errorLine1="coreKtx = &quot;1.16.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="6"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.appcompat:appcompat than 1.7.0 is available: 1.8.0"
+        errorLine1="appcompat = &quot;1.7.0&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="7"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.material:material than 1.12.0 is available: 1.14.0"
+        errorLine1="material = &quot;1.12.0&quot;"
+        errorLine2="           ~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="8"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
+        errorLine1="junitVersion = &quot;1.2.1&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="10"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espressoCore = &quot;3.6.1&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="11"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.9.0 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="12"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.9.0 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="12"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="13"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2025.05.00 is available: 2026.09.00"
+        errorLine1="composeBom = &quot;2025.05.00&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="14"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.9.0 is available: 2.10.2"
+        errorLine1="navigationCompose = &quot;2.9.0&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="15"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.mediapipe:tasks-genai than 0.10.27 is available: 0.10.35"
+        errorLine1="mediapipeLlm = &quot;0.10.27&quot;"
+        errorLine2="               ~~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="16"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.mediapipe:tasks-text than 0.10.32 is available: 1.0.0"
+        errorLine1="mediapipeText = &quot;0.10.32&quot;"
+        errorLine2="                ~~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="17"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.0"
+        errorLine1="    implementation(&quot;com.squareup.okhttp3:okhttp:4.12.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="154"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.google.accompanist:accompanist-systemuicontroller than 0.34.0 is available: 0.36.0"
+        errorLine1="    implementation(&quot;com.google.accompanist:accompanist-systemuicontroller:0.34.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="171"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.4.0 is available: 2.4.20"
+        errorLine1="kotlin = &quot;2.4.0&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.microsoft.onnxruntime:onnxruntime-android than 1.23.0 is available: 1.30.0"
+        errorLine1="onnxruntimeAndroid = &quot;1.23.0&quot;"
+        errorLine2="                     ~~~~~~~~">
+        <location
+            file="$HOME/projects/orbitAI/gradle/libs.versions.toml"
+            line="20"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="ModifierFactoryExtensionFunction"
+        message="Modifier factory functions should be extensions on Modifier"
+        errorLine1="private fun rememberTabSwipeModifier("
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/ui/navigation/NavGraph.kt"
+            line="365"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot;>` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.CALL_PHONE&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="26"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15to18/1.72/32faf4d74dbc333fb3a7a6c80c30417cf888fc7a/bcpkix-jdk15to18-1.72.jar"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15to18/1.72/32faf4d74dbc333fb3a7a6c80c30417cf888fc7a/bcpkix-jdk15to18-1.72.jar"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15to18/1.72/32faf4d74dbc333fb3a7a6c80c30417cf888fc7a/bcpkix-jdk15to18-1.72.jar"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/com.google.http-client/google-http-client/1.46.2/7e498671525b5d70f0f9fbd7589666cd765ddf8f/google-http-client-1.46.2.jar"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/com.google.http-client/google-http-client/1.46.2/7e498671525b5d70f0f9fbd7589666cd765ddf8f/google-http-client-1.46.2.jar"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 35"
+        errorLine1="        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1501"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 35"
+        errorLine1="        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1613"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 35"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1643"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 35"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O) return"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/reminder/ReminderNotificationHelper.kt"
+            line="13"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 35. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_launcher_background` appears to be unused"
+        errorLine1="&lt;shape xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_launcher_background.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.logo` appears to be unused">
+        <location
+            file="src/main/res/drawable/logo.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.logodark` appears to be unused">
+        <location
+            file="src/main/res/drawable/logodark.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logodark.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logodark.png"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl)).apply {"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/update/AppUpdateRepository.kt"
+            line="64"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            data = Uri.parse(&quot;mailto:&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/executor/AutomationExecutor.kt"
+            line="51"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            data = Uri.parse(&quot;mailto:&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/executor/AutomationExecutor.kt"
+            line="51"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                Uri.parse("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/executor/AutomationExecutor.kt"
+            line="89"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;automation_execution_enabled&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/AutomationSettingsStore.kt"
+            line="12"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;floating_bubble_enabled&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="12"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putInt(&quot;bubble_size_dp&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="18"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;bubble_results_in_overlay&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="24"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putInt(&quot;bubble_response_height_dp&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="30"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putInt(&quot;bubble_idle_alpha_percent&quot;, value.coerceIn(20, 100)).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putString(&quot;bubble_style&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="42"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putString(&quot;bubble_model_id&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="48"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putString(&quot;bubble_mode_id&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="54"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putInt(&quot;bubble_response_alpha_percent&quot;, value.coerceIn(10, 100)).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="60"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putString(&quot;bubble_response_theme&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/BubbleSettingsStore.kt"
+            line="66"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putFloat(&quot;temperature&quot;, v).apply() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/InferenceSettings.kt"
+            line="17"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putInt(&quot;topK&quot;, v).apply() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/InferenceSettings.kt"
+            line="21"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putFloat(&quot;topP&quot;, v).apply() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/InferenceSettings.kt"
+            line="25"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putInt(&quot;maxDecodedTokens&quot;, v).apply() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/InferenceSettings.kt"
+            line="29"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val darkWindowBg = android.graphics.Color.parseColor(&quot;#141413&quot;)"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/MainActivity.kt"
+            line="55"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val lightWindowBg = android.graphics.Color.parseColor(&quot;#F7F6F3&quot;)"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/MainActivity.kt"
+            line="56"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Int.toDrawable` instead?"
+        errorLine1="            ColorDrawable(if (themeStore.isDarkTheme) darkWindowBg else lightWindowBg)"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/MainActivity.kt"
+            line="64"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;memory_feature_enabled&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/memory/MemoryFeatureStore.kt"
+            line="11"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/ModeInferenceSettingsStore.kt"
+            line="18"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) { prefs.edit().putBoolean(&quot;enabled&quot;, value).apply() }"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/replies/NotificationReplySettings.kt"
+            line="9"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) { prefs.edit().putStringSet(&quot;packages&quot;, value.toSet()).apply() }"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/automation/replies/NotificationReplySettings.kt"
+            line="13"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;has_completed_welcome&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/OnboardingSettingsStore.kt"
+            line="11"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putString(&quot;user_name&quot;, value.trim()).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/OnboardingSettingsStore.kt"
+            line="17"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="927"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="                val resized = Bitmap.createScaledBitmap(cropped, maxWidth, (maxWidth / ratio).toInt(), true)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="937"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Summarize&quot;, &quot;S&quot;, Color.parseColor(&quot;#8C52FF&quot;)), // Violet"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1095"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Translate&quot;, &quot;T&quot;, Color.parseColor(&quot;#00B4D8&quot;)), // Cyan"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1096"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Explain&quot;,   &quot;E&quot;, Color.parseColor(&quot;#10B981&quot;)), // Emerald"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1097"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Reply&quot;,     &quot;R&quot;, Color.parseColor(&quot;#F59E0B&quot;)), // Orange"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1098"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            Triple(&quot;Close&quot;,     &quot;✕&quot;, Color.parseColor(&quot;#EF4444&quot;))  // Red"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1099"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            &quot;dark_glassy&quot; to Color.parseColor(&quot;#333333&quot;),"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1238"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            &quot;white_glassy&quot; to Color.parseColor(&quot;#F5F5F5&quot;),"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1239"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            &quot;violet&quot; to Color.parseColor(&quot;#6842A6&quot;)"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1240"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#FF5B5B&quot;), Color.parseColor(&quot;#FF8A65&quot;))"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1546"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#FF5B5B&quot;), Color.parseColor(&quot;#FF8A65&quot;))"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1546"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#FF5B5B&quot;), Color.parseColor(&quot;#FF8A65&quot;))"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1546"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#FF5B5B&quot;), Color.parseColor(&quot;#FF8A65&quot;))"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1546"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#7A6BFF&quot;), Color.parseColor(&quot;#5A9CFF&quot;))"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1548"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#7A6BFF&quot;), Color.parseColor(&quot;#5A9CFF&quot;))"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1548"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#7A6BFF&quot;), Color.parseColor(&quot;#5A9CFF&quot;))"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1548"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                intArrayOf(Color.parseColor(&quot;#7A6BFF&quot;), Color.parseColor(&quot;#5A9CFF&quot;))"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1548"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;dark_glassy&quot; -> BubbleThemeConfig(Triple(25, 25, 25), Triple(100, 100, 100), Color.WHITE, Color.parseColor(&quot;#CCCCCC&quot;))"
+        errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1744"
+            column="108"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;white_glassy&quot; -> BubbleThemeConfig(Triple(245, 245, 245), Triple(200, 200, 200), Color.BLACK, Color.parseColor(&quot;#555555&quot;))"
+        errorLine2="                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1745"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;emerald&quot; -> BubbleThemeConfig(Triple(16, 89, 65), Triple(105, 204, 171), Color.WHITE, Color.parseColor(&quot;#D1EAE1&quot;))"
+        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1746"
+            column="104"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;ocean&quot; -> BubbleThemeConfig(Triple(25, 75, 120), Triple(122, 186, 245), Color.WHITE, Color.parseColor(&quot;#D6EAFF&quot;))"
+        errorLine2="                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1747"
+            column="103"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;sunset&quot; -> BubbleThemeConfig(Triple(143, 44, 19), Triple(245, 137, 110), Color.WHITE, Color.parseColor(&quot;#FFDBCF&quot;))"
+        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1748"
+            column="104"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;midnight&quot; -> BubbleThemeConfig(Triple(9, 13, 26), Triple(64, 80, 122), Color.WHITE, Color.parseColor(&quot;#B0C1EE&quot;))"
+        errorLine2="                                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1749"
+            column="102"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                &quot;violet&quot; -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor(&quot;#E9DBFF&quot;))"
+        errorLine2="                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1750"
+            column="105"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                else -> BubbleThemeConfig(Triple(104, 66, 166), Triple(193, 168, 255), Color.WHITE, Color.parseColor(&quot;#E9DBFF&quot;))"
+        errorLine2="                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1751"
+            column="101"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                Uri.parse(&quot;package:${context.packageName}&quot;),"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1824"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                try { context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse(&quot;package:${context.packageName}&quot;))) }"
+        errorLine2="                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/ui/screens/RemindersScreen.kt"
+            line="61"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putBoolean(&quot;is_dark_theme&quot;, value).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/ThemeSettingsStore.kt"
+            line="11"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(&quot;hf_token&quot;, value.trim()).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/TokenStore.kt"
+            line="10"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(&quot;gemini_api_key&quot;, value.trim()).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/TokenStore.kt"
+            line="14"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(&quot;gemini_model_name&quot;, value.trim().lowercase()).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/TokenStore.kt"
+            line="18"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(&quot;last_selected_model_id&quot;, value.trim()).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/orbitai/core/common/TokenStore.kt"
+            line="22"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.squareup.okhttp3:okhttp:4.12.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="154"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use the existing version catalog reference (`libs.androidx.appcompat`) instead"
+        errorLine1="    implementation(&quot;androidx.appcompat:appcompat:1.7.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="158"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.google.accompanist:accompanist-systemuicontroller:0.34.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="171"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``FrameLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        bubble.setOnTouchListener { _, event ->"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="278"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        bubble.setOnTouchListener { _, event ->"
+        errorLine2="                                  ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="278"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        header.setOnTouchListener { _, event ->"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1394"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        header.setOnTouchListener { _, event ->"
+        errorLine2="                                  ^">
+        <location
+            file="src/main/java/com/example/orbitai/feature/bubble/OrbitBubbleService.kt"
+            line="1394"
+            column="35"/>
+    </issue>
+
+</issues>

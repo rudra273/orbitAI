@@ -39,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -231,6 +232,30 @@ fun ModelSettingsScreen(
         item { SectionHeader("ON-DEVICE LLMs") }
 
         item {
+            var wifiOnly by remember { mutableStateOf(downloadViewModel.downloadSettings.largeModelsOnWifiOnly) }
+            FlatCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Download large models on Wi-Fi only", color = SettingsInk, fontFamily = SettingsSans, fontSize = 14.sp)
+                        Text(
+                            "Models over 1 GB wait for Wi-Fi. Downloads continue in the background and resume after interruptions.",
+                            color = SettingsInk.copy(alpha = 0.45f),
+                            fontFamily = SettingsSans,
+                            fontSize = 11.sp,
+                        )
+                    }
+                    Switch(
+                        checked = wifiOnly,
+                        onCheckedChange = {
+                            wifiOnly = it
+                            downloadViewModel.setLargeModelsOnWifiOnly(it)
+                        },
+                    )
+                }
+            }
+        }
+
+        item {
             FlatCard(padding = 0.dp) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     topPickModels.forEachIndexed { index, model ->
@@ -246,6 +271,7 @@ fun ModelSettingsScreen(
                             },
                             onDelete = { downloadViewModel.deleteModel(model) },
                             onCancel = { downloadViewModel.cancelDownload(model) },
+                            onPause = { downloadViewModel.pauseDownload(model) },
                             isOrbitRecommended = model.id == "gemma4-e2b",
                         )
                         if (index != topPickModels.lastIndex) HairlineDivider()
@@ -303,6 +329,7 @@ fun ModelSettingsScreen(
                                 },
                                 onDelete = { downloadViewModel.deleteModel(model) },
                                 onCancel = { downloadViewModel.cancelDownload(model) },
+                                onPause = { downloadViewModel.pauseDownload(model) },
                             )
                             if (index != allModels.lastIndex) HairlineDivider()
                         }
@@ -655,11 +682,14 @@ private fun ModelRow(
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
+    onPause: () -> Unit = {},
     isOrbitRecommended: Boolean = false,
 ) {
     val status = progress?.status ?: DownloadStatus.IDLE
     val isInstalled = status == DownloadStatus.COMPLETED
-    val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
+    val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.VERIFYING
+    val isWaiting = status == DownloadStatus.PAUSED && progress?.canResume != true
+    val isResumable = status == DownloadStatus.PAUSED && progress?.canResume == true
     val isFailed = status == DownloadStatus.FAILED
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -746,7 +776,11 @@ private fun ModelRow(
                 )
             }
             Text(
-                text = if (isFailed) (progress?.error ?: "Download failed") else model.description,
+                text = when {
+                    isFailed -> progress?.error ?: "Download failed"
+                    status == DownloadStatus.PAUSED -> progress?.error ?: "Paused"
+                    else -> model.description
+                },
                 color = if (isFailed) SettingsRed else SettingsInk.copy(alpha = 0.38f),
                 fontFamily = SettingsSans,
                 fontSize = 11.sp,
@@ -789,17 +823,32 @@ private fun ModelRow(
                 }
             }
 
-            isDownloading -> {
+            isDownloading || isWaiting || isResumable -> {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "${progress?.progressPercent ?: 0}%",
-                        color = SettingsInk.copy(alpha = 0.55f),
-                        fontFamily = SettingsMono,
-                        fontSize = 9.sp,
-                    )
+                    if (isDownloading) {
+                        Text(
+                            text = if (status == DownloadStatus.VERIFYING) "Verifying" else "${progress?.progressPercent ?: 0}%",
+                            color = SettingsInk.copy(alpha = 0.55f),
+                            fontFamily = SettingsMono,
+                            fontSize = 9.sp,
+                        )
+                    }
+                    if (isDownloading || isResumable) {
+                        Text(
+                            text = if (isDownloading) "Pause" else "Resume",
+                            color = SettingsInk.copy(alpha = 0.75f),
+                            fontFamily = SettingsMono,
+                            fontSize = 9.sp,
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = if (isDownloading) onPause else onDownload,
+                            ),
+                        )
+                    }
                     Text(
                         text = "Cancel",
                         color = SettingsRed,

@@ -13,6 +13,8 @@ data class LlmModel(
     val promptStyle: PromptStyle = PromptStyle.GEMMA,
     val supportsVision: Boolean = false,
     val isChatSelectable: Boolean = true,
+    /** Conservative prompt + output token budget used to trim history (see PromptBudget). */
+    val contextTokens: Int = 2048,
 )
 
 enum class ModelProvider {
@@ -57,6 +59,7 @@ val AVAILABLE_MODELS = listOf(
         description = "Balanced quality & speed",
         paramCount = "4B",
         format = ModelFormat.LITERTLM,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma3-2b",
@@ -66,6 +69,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "2B",
         format = ModelFormat.LITERTLM,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma4-e2b",
@@ -75,6 +79,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "2B",
         format = ModelFormat.LITERTLM,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma4-e4b",
@@ -84,6 +89,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "4B",
         format = ModelFormat.LITERTLM,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma2-2b",
@@ -91,6 +97,7 @@ val AVAILABLE_MODELS = listOf(
         fileName = "gemma2-2b-it-cpu-int8.task",
         description = "Stable CPU model • wide device support",
         paramCount = "2B",
+        contextTokens = 1280,  // KV cache size from the file name (ekv1280)
     ),
     LlmModel(
         id = "onnx-gemma3-4b-it",
@@ -100,6 +107,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "4B",
         format = ModelFormat.ONNX_GENAI,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-gemma3-270m-it",
@@ -117,6 +125,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "3.8B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.PHI,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-phi4-mini",
@@ -126,6 +135,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "3.8B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.PHI,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-phi4",
@@ -135,6 +145,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "14B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.PHI,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-llama3.2-3b",
@@ -144,6 +155,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "3B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.LLAMA3,
+        contextTokens = 4096,
     ),
 )
 

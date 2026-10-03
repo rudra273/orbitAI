@@ -13,6 +13,7 @@ fun TokenStore.geminiChatModelOrNull(): LlmModel? {
         description = "Cloud model via API key",
         paramCount = "API",
         provider = ModelProvider.GEMINI,
+        contextTokens = 32_768,
     )
 }
 

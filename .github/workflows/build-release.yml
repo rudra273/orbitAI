@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - dev
       - play
   push:
     tags:
@@ -14,7 +15,39 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Run Android lint
+        run: ./gradlew lintDebug
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     env:
       ORBIT_SUPPORT_EMAIL: ${{ vars.ORBIT_SUPPORT_EMAIL }}

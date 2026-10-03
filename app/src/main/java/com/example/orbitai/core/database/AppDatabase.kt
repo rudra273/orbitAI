@@ -9,8 +9,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class, ReminderEntity::class],
-    version   = 13,
-    exportSchema = false,
+    version   = AppDatabase.VERSION,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
@@ -22,6 +22,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
 
     companion object {
+        const val VERSION = 13
+
         @Volatile private var INSTANCE: AppDatabase? = null
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -191,26 +193,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val ALL_MIGRATIONS = arrayOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+            MIGRATION_9_10,
+            MIGRATION_10_11,
+            MIGRATION_11_12,
+            MIGRATION_12_13,
+        )
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "orbitai.db",
-                ).addMigrations(
-                    MIGRATION_1_2,
-                    MIGRATION_2_3,
-                    MIGRATION_3_4,
-                    MIGRATION_4_5,
-                    MIGRATION_5_6,
-                    MIGRATION_6_7,
-                    MIGRATION_7_8,
-                    MIGRATION_8_9,
-                    MIGRATION_9_10,
-                    MIGRATION_10_11,
-                    MIGRATION_11_12,
-                    MIGRATION_12_13,
-                ).build().also { INSTANCE = it }
+                ).addMigrations(*ALL_MIGRATIONS).build().also { INSTANCE = it }
             }
     }
 }

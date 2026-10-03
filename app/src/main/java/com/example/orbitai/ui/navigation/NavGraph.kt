@@ -142,8 +142,8 @@ fun OrbitNavGraph(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
-    val initialChatId = remember(hasCompletedWelcome, shouldAutoOpenInitialChat, overlayPromptRequest?.chatId) {
-        if (hasCompletedWelcome && shouldAutoOpenInitialChat) {
+    val initialChatId by produceState<String?>(null, hasCompletedWelcome, shouldAutoOpenInitialChat) {
+        value = if (hasCompletedWelcome && shouldAutoOpenInitialChat) {
             overlayPromptRequest?.chatId ?: chatViewModel.createNewChat()
         } else {
             null

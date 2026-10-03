@@ -34,7 +34,9 @@ import com.example.orbitai.feature.automation.executor.AutomationExecutor
 import com.example.orbitai.feature.automation.parser.AutomationExecutionResult
 import com.example.orbitai.feature.automation.parser.AutomationRequest
 import com.example.orbitai.feature.memory.MemoryRepository
+import com.example.orbitai.core.prompt.BudgetedPrompt
 import com.example.orbitai.core.prompt.ModelPromptBuilder
+import com.example.orbitai.core.prompt.PromptBudget
 import com.example.orbitai.feature.automation.parser.EmailDraftParser
 import com.example.orbitai.feature.automation.parser.ReminderDraft
 import com.example.orbitai.feature.automation.parser.ReminderDraftParser
@@ -65,6 +67,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
@@ -630,11 +634,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Chat management ───────────────────────────────────────────────────────
 
-    fun createNewChat(): String {
-        // Navigation needs the ID synchronously; Room insert on IO is fast (< 1 ms).
-        return kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            chatRepo.findReusableEmptyChatId() ?: chatRepo.createChat().id
-        }
+    private val newChatMutex = Mutex()
+
+    /** Returns the latest chat without user messages, or creates one. Serialized so rapid taps can't create duplicates. */
+    suspend fun createNewChat(): String = newChatMutex.withLock {
+        chatRepo.findReusableEmptyChatId() ?: chatRepo.createChat().id
+    }
+
+    fun openNewChat(onReady: (String) -> Unit) {
+        viewModelScope.launch { onReady(createNewChat()) }
     }
 
     fun deleteChat(chatId: String) {
@@ -803,48 +811,58 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     emptyList()
                 }
                 val systemPrompt = activeMode?.systemPrompt
-                val prompt = when (toolRequest) {
-                    is AutomationRequest.DraftEmail -> ModelPromptBuilder.wrapInstructionPrompt(
-                        promptStyle = model.promptStyle,
-                        instruction = EmailDraftPromptBuilder.build(
-                            messages = history,
-                            topicHint = toolRequest.topicHint,
-                            memories = memories,
-                        ),
+                val toolInstruction = when (toolRequest) {
+                    is AutomationRequest.DraftEmail -> EmailDraftPromptBuilder.build(
+                        messages = history,
+                        topicHint = toolRequest.topicHint,
+                        memories = memories,
                     )
-                    is AutomationRequest.DraftWhatsApp -> ModelPromptBuilder.wrapInstructionPrompt(
-                        promptStyle = model.promptStyle,
-                        instruction = WhatsAppDraftPromptBuilder.build(
-                            messages = history,
-                            topicHint = toolRequest.topicHint,
-                            memories = memories,
-                        ),
+                    is AutomationRequest.DraftWhatsApp -> WhatsAppDraftPromptBuilder.build(
+                        messages = history,
+                        topicHint = toolRequest.topicHint,
+                        memories = memories,
                     )
-                    is AutomationRequest.CreateReminder -> ModelPromptBuilder.wrapInstructionPrompt(
-                        promptStyle = model.promptStyle,
-                        instruction = ReminderPromptBuilder.build(
-                            messages = history,
-                            topicHint = toolRequest.topicHint,
-                            memories = memories,
-                        ),
+                    is AutomationRequest.CreateReminder -> ReminderPromptBuilder.build(
+                        messages = history,
+                        topicHint = toolRequest.topicHint,
+                        memories = memories,
                     )
-                    null -> {
-                        val ragContext = spaceRepo.searchChunksInSpaces(
-                            trimmedText,
-                            activeSpaceIds,
-                            limit = 5,
-                        ).map { it.content }
-                        ModelPromptBuilder.buildChatPrompt(
-                            promptStyle = model.promptStyle,
-                            messages = history,
-                            ragContext = ragContext,
-                            memories = memories,
-                            systemPrompt = systemPrompt,
-                            includeImageTokens = model.format == com.example.orbitai.core.model.ModelFormat.ONNX_GENAI && model.supportsVision,
-                        )
-                    }
+                    null -> null
                 }
-            
+                val (prompt, structuredPrompt) = if (toolInstruction != null) {
+                    ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle, toolInstruction) to
+                        ModelPromptBuilder.structuredInstruction(toolInstruction)
+                } else {
+                    val ragContext = spaceRepo.searchChunksInSpaces(
+                        trimmedText,
+                        activeSpaceIds,
+                        limit = 5,
+                    ).map { it.content }
+                    val budgeted = PromptBudget.fit(
+                        messages = history,
+                        ragContext = ragContext,
+                        memories = memories,
+                        systemPrompt = systemPrompt,
+                        contextTokens = model.contextTokens,
+                        reservedOutputTokens = settings.maxDecodedTokens,
+                        imageCount = imageUris.size,
+                    )
+                    reportContextTrimming(chatId, budgeted)
+                    ModelPromptBuilder.buildChatPrompt(
+                        promptStyle = model.promptStyle,
+                        messages = budgeted.messages,
+                        ragContext = budgeted.ragContext,
+                        memories = budgeted.memories,
+                        systemPrompt = systemPrompt,
+                        includeImageTokens = model.format == com.example.orbitai.core.model.ModelFormat.ONNX_GENAI && model.supportsVision,
+                    ) to ModelPromptBuilder.buildStructuredChat(
+                        messages = budgeted.messages,
+                        ragContext = budgeted.ragContext,
+                        memories = budgeted.memories,
+                        systemPrompt = systemPrompt,
+                    )
+                }
+
                 // Build InferenceInput
                 val bitmaps = mutableListOf<Bitmap>()
                 for (uri in imageUris) {
@@ -858,7 +876,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         android.util.Log.e("ChatViewModel", "Failed to decode image from uri: $uri", e)
                     }
                 }
-                val inferenceInput = InferenceInput(prompt = prompt, images = bitmaps)
+                val inferenceInput = InferenceInput(prompt = prompt, images = bitmaps, structured = structuredPrompt)
 
                 // 4. Add empty assistant message (streaming placeholder)
                 val assistantMsg = Message(
@@ -971,6 +989,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    private val chatsWithTrimmedContext: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    private fun reportContextTrimming(chatId: String, budgeted: BudgetedPrompt) {
+        val message = when {
+            budgeted.latestMessageTruncated ->
+                "Your message was too long for this model and was shortened. Try a model with a larger context, or split the message."
+            budgeted.droppedMessageCount > 0 && chatsWithTrimmedContext.add(chatId) ->
+                "Earlier messages in this chat no longer fit in the model's memory and aren't used for new replies."
+            else -> return
+        }
+        _uiState.update { it.copy(infoMessage = message) }
     }
 
     /**

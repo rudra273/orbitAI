@@ -23,3 +23,9 @@ Universal Sentence Encoder: 6.1 MB (6,120,274 bytes), verified from the existing
 Gemma 2 previously referenced a missing file. Its URL now points to the provider's `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task`, retaining the existing local filename. Added Gemma 3 1B LiteRT as a compact alternative for chat and Orbit. Gated repositories still require the user to accept the provider license and supply a Hugging Face token.
 
 The reported Gemma 4 E2B failure (`Vision Encoder model must have exactly one signature but got 3`) occurred with LiteRT-LM 0.10.0. LiteRT-LM 0.17.1 supports selecting among multiple vision signatures. Its Kotlin 2.4.0 dependency requires a compiler update before this runtime fix can be built and tested.
+
+## Download integrity (2026-10-03)
+
+SHA-256 digests for 8 of 13 models (Gemma 4, all ONNX models) are stored in `core/model/ModelChecksums.kt`. They come from the Hugging Face `paths-info` LFS metadata of the same pinned revisions, and every API size matched the pinned sizes above. Downloads are verified against them before the file is moved into place.
+
+The gated repositories (`litert-community/Gemma3-1B-IT`, `google/gemma-3n-E4B-it-litert-lm`, `google/gemma-3n-E2B-it-litert-lm`, `litert-community/Gemma2-2B-IT`) need an authenticated request even for metadata, so they are verified by exact size only. Add their digests by running the same `paths-info` query with a Hugging Face token that has accepted the licenses.

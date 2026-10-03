@@ -28,6 +28,8 @@ import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
 import com.example.orbitai.viewmodel.SpacesViewModel
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 data class OverlayPromptRequest(
@@ -141,11 +143,14 @@ class MainActivity : ComponentActivity() {
         val prompt = sharedText.ifBlank { transcript }
         if (prompt.isBlank()) return
 
-        pendingOverlayPrompt = OverlayPromptRequest(
-            chatId = chatViewModel.createNewChat(),
-            prompt = prompt,
-            autoSend = sharedText.isBlank(),
-        )
+        val autoSend = sharedText.isBlank()
+        lifecycleScope.launch {
+            pendingOverlayPrompt = OverlayPromptRequest(
+                chatId = chatViewModel.createNewChat(),
+                prompt = prompt,
+                autoSend = autoSend,
+            )
+        }
         intent?.removeExtra(EXTRA_OVERLAY_TRANSCRIPT)
         intent?.removeExtra(EXTRA_SHARED_TEXT)
     }

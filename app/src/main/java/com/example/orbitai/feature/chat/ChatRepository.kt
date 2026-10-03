@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 class ChatRepository(context: Context) {
 
@@ -37,12 +38,18 @@ class ChatRepository(context: Context) {
      */
     private val streamingMessageIds = MutableStateFlow<Set<String>>(emptySet())
 
+    /** Latest text of replies still streaming; persisted to Room at most every [STREAM_PERSIST_INTERVAL_MS]. */
+    private val streamingContent = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val lastPersistedAt = ConcurrentHashMap<String, Long>()
+
     val chats: StateFlow<List<Chat>> = combine(
-        chatDao.observeAllChatsWithMessages(), streamingMessageIds,
-    ) { list, streamingIds ->
+        chatDao.observeAllChatsWithMessages(), streamingMessageIds, streamingContent,
+    ) { list, streamingIds, liveContent ->
         list.map { entity ->
             val chat = entity.toDomain()
-            chat.copy(messages = chat.messages.map { it.copy(isStreaming = it.id in streamingIds) })
+            chat.copy(messages = chat.messages.map {
+                it.copy(content = liveContent[it.id] ?: it.content, isStreaming = it.id in streamingIds)
+            })
         }
     }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -94,8 +101,21 @@ class ChatRepository(context: Context) {
 
     suspend fun updateMessage(messageId: String, newContent: String, isStreaming: Boolean) =
         withContext(Dispatchers.IO) {
-            messageDao.updateMessageContentById(messageId, newContent)
-            streamingMessageIds.update { if (isStreaming) it + messageId else it - messageId }
+            if (isStreaming) {
+                streamingMessageIds.update { it + messageId }
+                streamingContent.update { it + (messageId to newContent) }
+                val now = System.currentTimeMillis()
+                if (now - (lastPersistedAt[messageId] ?: 0L) >= STREAM_PERSIST_INTERVAL_MS) {
+                    lastPersistedAt[messageId] = now
+                    messageDao.updateMessageContentById(messageId, newContent)
+                }
+            } else {
+                // Persist first so the list never shows stale text between the write and the overlay removal.
+                messageDao.updateMessageContentById(messageId, newContent)
+                lastPersistedAt.remove(messageId)
+                streamingContent.update { it - messageId }
+                streamingMessageIds.update { it - messageId }
+            }
         }
 
     suspend fun deleteChat(chatId: String) = withContext(Dispatchers.IO) {
@@ -104,5 +124,9 @@ class ChatRepository(context: Context) {
 
     suspend fun updateChatModel(chatId: String, modelId: String) = withContext(Dispatchers.IO) {
         chatDao.updateModelId(chatId, modelId)
+    }
+
+    companion object {
+        private const val STREAM_PERSIST_INTERVAL_MS = 500L
     }
 }

@@ -130,10 +130,7 @@ fun HomeScreen(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = {
-                                val id = viewModel.createNewChat()
-                                onOpenChat(id)
-                            },
+                            onClick = { viewModel.openNewChat(onOpenChat) },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
