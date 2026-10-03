@@ -30,9 +30,13 @@ OrbitAI is an advanced on-device AI chat and productivity assistant for Android,
   to saving in Orbit, regardless of the old calendar-handoff preference.
 - **Sharing:** share text to Orbit and choose Create reminder, then send the prefilled command
   and review the result. No overlay or microphone access is needed.
-- **Calls:** ask “Call Mom” or “Call +91 98765 43210”. Contact lookup needs contacts permission.
-  Choose the number and tap Call; direct calls require phone permission. Open dialer is available
-  without phone permission, and short phone numbers use the dialer. No model is needed.
+- **Calls:** ask “Call Mom” or “Call +91 98765 43210”. Contact lookup ranks saved names by
+  spelling and common pronunciation variants. In chat voice input, finish saying the request:
+  Orbit speaks the closest match, then listens for “yes” to call or “no” to cancel. With several
+  close matches, say the name or option number, then confirm the selected contact. Typed requests
+  show a contact review. Contacts and direct calls need Android permission; the first permission
+  grant still requires Android's system dialog. Say “open dialer” after a denied phone permission
+  to continue manually. Short phone numbers use the dialer. No model or cloud AI is needed.
 - **Memory:** “Remember that my bike is parked on level 2” saves to the existing Orbit Memory
   section, without a model or cloud request. If Memory is disabled, Orbit reports that nothing
   was saved there. Manage entries in Settings > Memory.

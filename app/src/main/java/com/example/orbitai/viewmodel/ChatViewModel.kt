@@ -22,6 +22,14 @@ import com.example.orbitai.core.database.Space
 import com.example.orbitai.feature.automation.AutomationRoute
 import com.example.orbitai.feature.automation.AutomationRouter
 import com.example.orbitai.feature.automation.AutomationSettingsStore
+import com.example.orbitai.feature.automation.executor.CallContact
+import com.example.orbitai.feature.automation.executor.CallExecutor
+import com.example.orbitai.feature.automation.executor.ContactResolver
+import com.example.orbitai.feature.automation.executor.callableNumber
+import com.example.orbitai.feature.automation.parser.CallConversation
+import com.example.orbitai.feature.automation.parser.CallReply
+import com.example.orbitai.feature.automation.parser.DeviceCommand
+import com.example.orbitai.feature.automation.parser.DeviceCommandParser
 import com.example.orbitai.feature.automation.executor.AutomationExecutor
 import com.example.orbitai.feature.automation.parser.AutomationExecutionResult
 import com.example.orbitai.feature.automation.parser.AutomationRequest
@@ -97,8 +105,19 @@ private data class PendingWhatsAppExecution(
 
 data class CallReviewRequest(
     val chatId: String,
-    val contacts: List<com.example.orbitai.feature.automation.executor.CallContact>,
+    val contacts: List<CallContact>,
+    val voice: Boolean = false,
+    val selected: CallContact? = contacts.singleOrNull(),
 )
+
+data class VoiceCallPrompt(
+    val id: Long,
+    val chatId: String,
+    val text: String,
+    val listenAfter: Boolean = true,
+)
+
+private data class CallLookup(val chatId: String, val recipient: String, val voice: Boolean)
 
 data class ReminderReviewRequest(
     val chatId: String,
@@ -247,33 +266,95 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _callReview = MutableStateFlow<CallReviewRequest?>(null)
     val callReview = _callReview.asStateFlow()
-    private var pendingCallLookup: Pair<String, String>? = null
-    private var pendingCall: com.example.orbitai.feature.automation.executor.CallContact? = null
+    private val _voiceCallPrompt = MutableStateFlow<VoiceCallPrompt?>(null)
+    val voiceCallPrompt = _voiceCallPrompt.asStateFlow()
+    private var voicePromptId = 0L
+    private var spokenVoicePromptId: Long? = null
+    private var pendingCallLookup: CallLookup? = null
+    private var callLookupJob: Job? = null
+    private var pendingCall: CallContact? = null
 
-    fun dismissCallReview() { _callReview.value = null; pendingCall = null }
+    fun dismissCallReview() {
+        callLookupJob?.cancel()
+        pendingCallLookup = null
+        _callReview.value = null
+        _voiceCallPrompt.value = null
+        spokenVoicePromptId = null
+        pendingCall = null
+    }
 
-    private fun resolveCall(chatId: String, recipient: String) {
+    fun cancelVoiceCall(chatId: String) {
+        if (_callReview.value?.let { it.chatId == chatId && it.voice } == true ||
+            pendingCallLookup?.let { it.chatId == chatId && it.voice } == true ||
+            _voiceCallPrompt.value?.chatId == chatId) dismissCallReview()
+    }
+
+    fun onVoiceCallPromptSpoken(id: Long) {
+        if (_voiceCallPrompt.value?.id == id) spokenVoicePromptId = id
+    }
+
+    fun showCallReviewForVoiceFailure(chatId: String) {
+        _voiceCallPrompt.value = null
+        spokenVoicePromptId = null
+        _callReview.value?.takeIf { it.chatId == chatId }?.let {
+            _callReview.value = it.copy(voice = false)
+        }
+    }
+
+    private fun sayCall(chatId: String, text: String, voice: Boolean, listenAfter: Boolean = true) {
+        if (voice) {
+            spokenVoicePromptId = null
+            _voiceCallPrompt.value = VoiceCallPrompt(++voicePromptId, chatId, text, listenAfter)
+        }
+        recordCallMessage(chatId, Role.ASSISTANT, text)
+    }
+
+    private fun recordCallMessage(chatId: String, role: Role, text: String) {
+        viewModelScope.launch {
+            try {
+                chatRepo.addMessage(chatId, Message(role = role, content = text))
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(loadError = "Couldn't save this call exchange to chat history.") }
+            }
+        }
+    }
+
+    private fun reviewCall(lookup: CallLookup, contacts: List<CallContact>) {
+        val review = CallReviewRequest(lookup.chatId, contacts, lookup.voice)
+        _callReview.value = review
+        sayCall(lookup.chatId, CallConversation.question(contacts, review.selected), lookup.voice)
+    }
+
+    private fun resolveCall(chatId: String, recipient: String, voice: Boolean = false) {
+        dismissCallReview()
+        val lookup = CallLookup(chatId, recipient, voice)
         val app = getApplication<Application>()
-        val number = com.example.orbitai.feature.automation.executor.callableNumber(recipient)
+        val number = callableNumber(recipient)
         if (number != null) {
-            _callReview.value = CallReviewRequest(chatId, listOf(com.example.orbitai.feature.automation.executor.CallContact(recipient, number)))
+            reviewCall(lookup, listOf(CallContact(recipient, number)))
             return
         }
+        pendingCallLookup = lookup
         if (androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            pendingCallLookup = chatId to recipient
             viewModelScope.launch { _events.emit(ChatUiEvent.RequestCallContactsPermission) }
             return
         }
-        viewModelScope.launch {
+        callLookupJob = viewModelScope.launch {
             try {
-                val contacts = withContext(Dispatchers.IO) {
-                    com.example.orbitai.feature.automation.executor.ContactResolver(app).findCallContacts(recipient)
-                }
-                if (contacts.isEmpty()) _uiState.update { it.copy(loadError = "No phone number found for $recipient. Try the saved contact name or a phone number.") }
-                else _callReview.value = CallReviewRequest(chatId, contacts)
+                val contacts = withContext(Dispatchers.IO) { ContactResolver(app).findCallContacts(recipient) }
+                pendingCallLookup = null
+                if (contacts.isEmpty()) {
+                    val message = "I couldn't find a close contact match for $recipient. Say call followed by the full name or a phone number."
+                    _uiState.update { it.copy(loadError = message) }
+                    sayCall(chatId, message, voice)
+                } else reviewCall(lookup, contacts)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _uiState.update { it.copy(loadError = "Couldn't read contacts. Check contacts permission in Android Settings.") }
+                pendingCallLookup = null
+                val message = "Couldn't read contacts. Check contacts permission in Android Settings."
+                _uiState.update { it.copy(loadError = message) }
+                sayCall(chatId, message, voice, listenAfter = false)
             }
         }
     }
@@ -281,12 +362,52 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun onCallContactsPermissionResult(granted: Boolean) {
         val lookup = pendingCallLookup ?: return
         pendingCallLookup = null
-        if (granted) resolveCall(lookup.first, lookup.second)
-        else _uiState.update { it.copy(loadError = "Contacts permission was denied. You can call using a phone number instead.") }
+        if (granted) resolveCall(lookup.chatId, lookup.recipient, lookup.voice)
+        else {
+            val message = "Contacts permission was denied. Say call followed by a phone number instead."
+            _uiState.update { it.copy(loadError = message) }
+            sayCall(lookup.chatId, message, lookup.voice)
+        }
     }
 
-    fun confirmCall(contact: com.example.orbitai.feature.automation.executor.CallContact, dialOnly: Boolean = false) {
-        if (_callReview.value?.contacts?.contains(contact) != true) return
+    /** Returns true when a finalized utterance belongs to the call conversation. */
+    fun handleVoiceCall(chatId: String, text: String): Boolean {
+        val command = DeviceCommandParser.parse(text) as? DeviceCommand.Call
+        val review = _callReview.value?.takeIf { it.chatId == chatId && it.voice }
+        if (command == null && review == null) return false
+        _uiState.update { it.copy(loadError = null, infoMessage = null) }
+        if (command != null) {
+            stopGeneration()
+            recordCallMessage(chatId, Role.USER, text)
+            resolveCall(chatId, command.recipient, voice = true)
+            return true
+        }
+        review ?: return false
+        if (pendingCall != null) return true
+        // A confirmation is valid only after the current question has finished speaking.
+        if (spokenVoicePromptId != _voiceCallPrompt.value?.id) return true
+        spokenVoicePromptId = null
+        recordCallMessage(chatId, Role.USER, text)
+        when (val reply = CallConversation.reply(text, review.contacts, review.selected)) {
+            CallReply.Cancel -> {
+                dismissCallReview()
+                sayCall(chatId, "Call cancelled.", voice = true, listenAfter = false)
+            }
+            CallReply.Confirm -> review.selected?.let { confirmCall(it) }
+            CallReply.OpenDialer -> review.selected?.let { confirmCall(it, dialOnly = true) }
+            is CallReply.Select -> {
+                _callReview.value = review.copy(selected = reply.contact)
+                sayCall(chatId, CallConversation.question(review.contacts, reply.contact), voice = true)
+            }
+            CallReply.Repeat -> sayCall(chatId, CallConversation.question(review.contacts, review.selected), voice = true)
+        }
+        return true
+    }
+
+    fun confirmCall(contact: CallContact, dialOnly: Boolean = false) {
+        val review = _callReview.value ?: return
+        if (contact !in review.contacts || (review.voice && review.selected != contact)) return
+        if (pendingCall != null) return
         val app = getApplication<Application>()
         if (!dialOnly && contact.number.count(Char::isDigit) >= 7 &&
             androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.CALL_PHONE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -294,16 +415,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch { _events.emit(ChatUiEvent.RequestCallPermission) }
             return
         }
-        val error = com.example.orbitai.feature.automation.executor.CallExecutor(app).launch(contact, dialOnly)
-        _uiState.update { it.copy(loadError = error, infoMessage = if (error == null) "Phone app opened for ${contact.name}." else null) }
+        val error = CallExecutor(app).launch(contact, dialOnly)
+        val message = if (error == null) "Phone app opened for ${contact.name}." else error
+        _uiState.update { it.copy(loadError = error, infoMessage = if (error == null) message else null) }
         if (error == null) dismissCallReview()
+        sayCall(review.chatId, message, review.voice, listenAfter = error != null)
     }
 
     fun onCallPermissionResult(granted: Boolean) {
         val contact = pendingCall ?: return
         pendingCall = null
         if (granted) confirmCall(contact)
-        else _uiState.update { it.copy(loadError = "Phone permission was denied. Choose Open dialer to continue manually.") }
+        else {
+            val review = _callReview.value ?: return
+            val message = "Phone permission was denied. Say open dialer to continue manually, or cancel."
+            _uiState.update { it.copy(loadError = message) }
+            sayCall(review.chatId, message, review.voice)
+        }
     }
 
     private fun handleDeviceCommand(chatId: String, text: String): Boolean {
@@ -319,7 +447,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val response = when (command) {
                     is com.example.orbitai.feature.automation.parser.DeviceCommand.Call -> {
                         resolveCall(chatId, command.recipient)
-                        "Choose and confirm the phone number to call."
+                        return@launch
                     }
                     is com.example.orbitai.feature.automation.parser.DeviceCommand.Remember -> {
                         if (memoryRepo.addMemory(command.content, source = "manual"))

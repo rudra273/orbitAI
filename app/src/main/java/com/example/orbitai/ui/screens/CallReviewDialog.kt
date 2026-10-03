@@ -15,13 +15,13 @@ import com.example.orbitai.feature.automation.executor.CallContact
 
 @Composable
 fun CallReviewDialog(request: CallReviewRequest, error: String?, onDismiss: () -> Unit, onCall: (CallContact, Boolean) -> Unit) {
-    var selected by remember(request) { mutableStateOf(request.contacts.singleOrNull()) }
+    var selected by remember(request) { mutableStateOf(request.selected) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Call contact") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Choose the number to call.")
+                Text(if (request.selected != null) "Confirm the matching contact and number." else "Several contacts match. Choose the number to call.")
                 request.contacts.forEach { contact ->
                     Row {
                         RadioButton(selected = selected == contact, onClick = { selected = contact })

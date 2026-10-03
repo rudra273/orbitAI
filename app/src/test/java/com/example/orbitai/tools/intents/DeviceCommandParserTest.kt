@@ -11,6 +11,9 @@ import org.junit.Test
 class DeviceCommandParserTest {
     @Test fun recognizesVoiceCallingAndExplicitMemory() {
         assertEquals(DeviceCommand.Call("Mom"), DeviceCommandParser.parse("Hey Orbit, please call Mom"))
+        assertEquals(DeviceCommand.Call("Rahool"), DeviceCommandParser.parse("Can you call Rahool, please?"))
+        assertEquals(DeviceCommand.Call("Mom"), DeviceCommandParser.parse("I want to call Mom."))
+        assertEquals(DeviceCommand.Call("Mom"), DeviceCommandParser.parse("Make a call to Mom"))
         assertEquals(DeviceCommand.Remember("my bike is parked on level 2"), DeviceCommandParser.parse("Remember that my bike is parked on level 2"))
         assertEquals(DeviceCommand.Remember("Buy milk\nGet bread"), DeviceCommandParser.parse("save this to memory: Buy milk\nGet bread"))
         assertNull(DeviceCommandParser.parse("What do you remember about me?"))

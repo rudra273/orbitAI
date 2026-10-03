@@ -13,8 +13,9 @@ object DeviceCommandParser {
 
     fun parse(input: String): DeviceCommand? {
         val text = normalize(input)
-        Regex("(?is)^(?:/call|call|phone|dial)\\s+(.+)$").matchEntire(text)?.let {
-            return DeviceCommand.Call(it.groupValues[1].trim().removeSuffix(" please").trim())
+        Regex("(?is)^(?:(?:i (?:want|need|would like) to )?(?:/call|call|phone|dial)|(?:make|place) a call to)\\s+(.+)$").matchEntire(text)?.let {
+            val recipient = it.groupValues[1].trim().replace(Regex("(?i)[, ]+please[.!?]*$"), "").trimEnd('.', '!', '?').trim()
+            if (recipient.isNotBlank()) return DeviceCommand.Call(recipient)
         }
         Regex("(?is)^(?:/remember|remember(?:\\s+(?:that|this))?|save (?:this )?(?:to|in) memory)\\s*[:,-]?\\s+(.+)$")
             .matchEntire(text)?.let {

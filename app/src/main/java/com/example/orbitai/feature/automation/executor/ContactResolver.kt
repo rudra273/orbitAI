@@ -52,17 +52,14 @@ class ContactResolver(context: Context) {
     fun findCallContacts(name: String): List<CallContact> {
         val query = name.trim()
         if (query.isBlank()) return emptyList()
-        val uri = android.net.Uri.withAppendedPath(ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI, android.net.Uri.encode(query))
         val found = mutableListOf<CallContact>()
-        contentResolver.query(uri, arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC")?.use { cursor ->
+        contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, null)?.use { cursor ->
             while (cursor.moveToNext()) {
                 val number = callableNumber(cursor.getString(1).orEmpty()) ?: continue
                 found += CallContact(cursor.getString(0).orEmpty(), number)
             }
         }
-        val unique = found.distinctBy { it.name to it.number }
-        val exact = unique.filter { it.name.equals(query, ignoreCase = true) }
-        return exact.ifEmpty { unique }.take(30)
+        return ContactNameMatcher.closest(query, found)
     }
 
     private fun normalizePhoneNumber(value: String): String {

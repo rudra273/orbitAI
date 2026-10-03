@@ -16,17 +16,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -103,6 +97,7 @@ fun ChatScreen(
     val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
     val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
     val callReview by viewModel.callReview.collectAsState()
+    val voiceCallPrompt by viewModel.voiceCallPrompt.collectAsState()
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -117,7 +112,7 @@ fun ChatScreen(
     val cloudSendRequest by viewModel.cloudSendRequest.collectAsState()
     val chats          by viewModel.chats.collectAsState()
     val uiState        by viewModel.uiState.collectAsState()
-    callReview?.takeIf { it.chatId == chatId }?.let { request ->
+    callReview?.takeIf { it.chatId == chatId && !it.voice }?.let { request ->
         CallReviewDialog(request, uiState.loadError, viewModel::dismissCallReview, viewModel::confirmCall)
     }
     reminderReview?.takeIf { it.chatId == chatId }?.let { request ->
@@ -259,51 +254,58 @@ fun ChatScreen(
                 )
             },
             bottomBar = {
-                ChatInputBar(
-                    text         = inputText,
-                    onTextChange = { inputText = it },
-                    onSend       = {
-                        val text = inputText.trim()
-                        val finalPrompt = buildString {
-                            if (text.isNotEmpty()) append(text)
-                            pendingAttachment?.let { attachment ->
-                                if (isNotEmpty()) append("\n\n")
-                                append(attachment.promptText)
-                            }
-                        }.trim()
+                key(chatId) {
+                    ChatInputBar(
+                        voiceCallPrompt = voiceCallPrompt?.takeIf { it.chatId == chatId },
+                        onVoiceCall = { viewModel.handleVoiceCall(chatId, it) },
+                        onCancelVoiceCall = { viewModel.cancelVoiceCall(chatId) },
+                        onVoicePromptSpoken = viewModel::onVoiceCallPromptSpoken,
+                        onVoiceUnavailable = { viewModel.showCallReviewForVoiceFailure(chatId) },
+                        text         = inputText,
+                        onTextChange = { inputText = it },
+                        onSend       = {
+                            val text = inputText.trim()
+                            val finalPrompt = buildString {
+                                if (text.isNotEmpty()) append(text)
+                                pendingAttachment?.let { attachment ->
+                                    if (isNotEmpty()) append("\n\n")
+                                    append(attachment.promptText)
+                                }
+                            }.trim()
 
-                        if ((finalPrompt.isNotEmpty() || selectedImageUris.isNotEmpty()) && !uiState.isGenerating && !uiState.isModelLoading) {
-                            inputText = ""
-                            val imagesToPass = selectedImageUris.toList()
-                            pendingAttachment = null
-                            selectedImageUris = emptyList()
-                            attachmentInfo = null
-                            attachmentError = null
-                            viewModel.sendMessage(chatId, finalPrompt, imagesToPass)
-                            scope.launch {
-                                if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+                            if ((finalPrompt.isNotEmpty() || selectedImageUris.isNotEmpty()) && !uiState.isGenerating && !uiState.isModelLoading) {
+                                inputText = ""
+                                val imagesToPass = selectedImageUris.toList()
+                                pendingAttachment = null
+                                selectedImageUris = emptyList()
+                                attachmentInfo = null
+                                attachmentError = null
+                                viewModel.sendMessage(chatId, finalPrompt, imagesToPass)
+                                scope.launch {
+                                    if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+                                }
                             }
-                        }
-                    },
-                    onStop       = { viewModel.stopGeneration() },
-                    isGenerating = uiState.isGenerating,
-                    isLoading    = uiState.isModelLoading,
-                    selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
-                    pendingAttachment = pendingAttachment,
-                    selectedImageUris = selectedImageUris,
-                    onPickAttachment = {
-                        attachmentError = null
-                        attachmentInfo = null
-                        documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
-                    },
-                    onClearAttachment = {
-                        pendingAttachment = null
-                        attachmentInfo = null
-                    },
-                    onClearImage = { uriToRemove ->
-                        selectedImageUris = selectedImageUris.filter { it != uriToRemove }
-                    },
-                )
+                        },
+                        onStop       = { viewModel.stopGeneration() },
+                        isGenerating = uiState.isGenerating,
+                        isLoading    = uiState.isModelLoading,
+                        selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
+                        pendingAttachment = pendingAttachment,
+                        selectedImageUris = selectedImageUris,
+                        onPickAttachment = {
+                            attachmentError = null
+                            attachmentInfo = null
+                            documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
+                        },
+                        onClearAttachment = {
+                            pendingAttachment = null
+                            attachmentInfo = null
+                        },
+                        onClearImage = { uriToRemove ->
+                            selectedImageUris = selectedImageUris.filter { it != uriToRemove }
+                        },
+                    )
+                }
             },
         ) { padding ->
             Column(
@@ -1186,137 +1188,13 @@ private fun StreamingCursor() {
 // INPUT BAR — floating bar
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-private enum class VoiceState { Idle, Listening }
-
-@Composable
-private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState, () -> Unit> {
-    val context  = LocalContext.current
-    val callback by rememberUpdatedState(onTextChange)
-    var state    by remember { mutableStateOf(VoiceState.Idle) }
-    val recognizer = remember(context) {
-        if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(context)
-        }
-    }
-    val voiceScope = rememberCoroutineScope()
-    var showVoiceDisclosure by remember { mutableStateOf(false) }
-    var voiceConsent by remember { mutableStateOf(false) }
-    // Flag to distinguish user-requested stop vs natural end-of-speech pause
-    val active        = remember { booleanArrayOf(false) }
-    // Accumulates confirmed sentences across auto-restarts
-    val confirmedText = remember { StringBuilder() }
-
-    fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-        try {
-            recognizer.startListening(intent)
-        } catch (_: SecurityException) {
-            active[0] = false
-            state = VoiceState.Idle
-            android.widget.Toast.makeText(context, "Microphone permission is required for voice input.", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            confirmedText.clear()
-            active[0] = true
-            startListening()
-        }
-    }
-
-    DisposableEffect(recognizer) {
-        recognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { state = VoiceState.Listening }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {
-                val partial = partialResults
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()?.takeIf { it.isNotBlank() } ?: return
-                // Show confirmed sentences + current partial
-                callback(confirmedText.toString() + partial)
-            }
-            override fun onResults(results: Bundle?) {
-                val result = results
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()?.takeIf { it.isNotBlank() }
-                if (result != null) {
-                    confirmedText.append(result).append(" ")
-                    callback(confirmedText.toString().trimEnd())
-                }
-                // Auto-restart so pauses don't end the session —
-                // only stop when the user taps the button (active[0] = false)
-                if (active[0]) startListening()
-            }
-            override fun onError(error: Int) {
-                if (active[0] && error in listOf(SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
-                    voiceScope.launch {
-                        kotlinx.coroutines.delay(300)
-                        if (active[0]) startListening()
-                    }
-                } else {
-                    active[0] = false
-                    state = VoiceState.Idle
-                    android.widget.Toast.makeText(context, "Voice input stopped. Check speech services and microphone permission, then try again.", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-        onDispose { active[0] = false; recognizer.destroy() }
-    }
-
-    fun beginVoiceInput() {
-        if (!SpeechRecognizer.isRecognitionAvailable(context) && !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            android.widget.Toast.makeText(context, "Speech recognition is unavailable on this device.", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            confirmedText.clear()
-            active[0] = true
-            startListening()
-        } else {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-    if (showVoiceDisclosure) {
-        AlertDialog(
-            onDismissRequest = { showVoiceDisclosure = false },
-            title = { Text("Use voice input?") },
-            text = { Text("Orbit uses your microphone to transcribe speech into a message. It prefers on-device recognition; your device's speech provider may process audio online otherwise. Orbit does not save audio recordings. You can review the text before sending it.") },
-            confirmButton = { TextButton(onClick = { voiceConsent = true; showVoiceDisclosure = false; beginVoiceInput() }) { Text("Continue") } },
-            dismissButton = { TextButton(onClick = { showVoiceDisclosure = false }) { Text("Cancel") } },
-        )
-    }
-
-    val toggle: () -> Unit = {
-        if (active[0]) {
-            active[0] = false
-            recognizer.stopListening()
-            recognizer.cancel()
-            state = VoiceState.Idle
-            confirmedText.clear()
-        } else if (!voiceConsent) {
-            showVoiceDisclosure = true
-        } else {
-            beginVoiceInput()
-        }
-    }
-
-    return state to toggle
-}
-
 @Composable
 private fun ChatInputBar(
+    voiceCallPrompt: com.example.orbitai.viewmodel.VoiceCallPrompt?,
+    onVoiceCall: (String) -> Boolean,
+    onCancelVoiceCall: () -> Unit,
+    onVoicePromptSpoken: (Long) -> Unit,
+    onVoiceUnavailable: () -> Unit,
     text:         String,
     onTextChange: (String) -> Unit,
     onSend:       () -> Unit,
@@ -1330,7 +1208,9 @@ private fun ChatInputBar(
     onClearAttachment: () -> Unit,
     onClearImage: (Uri) -> Unit,
 ) {
-    val (voiceState, toggleVoice) = rememberVoiceInput(onTextChange = onTextChange)
+    val (voiceState, toggleVoice) = rememberVoiceInput(
+        onTextChange, voiceCallPrompt, onVoiceCall, onCancelVoiceCall, onVoicePromptSpoken, onVoiceUnavailable,
+    )
 
     Column(
         modifier = Modifier
@@ -1484,7 +1364,11 @@ private fun ChatInputBar(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (voiceState == VoiceState.Listening) "Listening…" else "Ask anything…",
+                                    when (voiceState) {
+                                        VoiceState.Listening -> "Listening…"
+                                        VoiceState.Responding -> "One moment…"
+                                        VoiceState.Idle -> "Ask anything…"
+                                    },
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = TextMuted,
                                 )
@@ -1495,7 +1379,7 @@ private fun ChatInputBar(
                 )
 
                 // Mic button (inside bar, right side)
-                if (voiceState != VoiceState.Listening && text.isEmpty() && pendingAttachment == null) {
+                if (voiceState == VoiceState.Idle && text.isEmpty() && pendingAttachment == null) {
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -1520,7 +1404,7 @@ private fun ChatInputBar(
             // Send / Stop / Mic-active button
             when {
                 isGenerating -> StopButton(onClick = onStop)
-                voiceState == VoiceState.Listening -> MicButton(isListening = true, onClick = toggleVoice)
+                voiceState != VoiceState.Idle -> MicButton(isListening = true, onClick = toggleVoice)
                 text.trim().isNotEmpty() || pendingAttachment != null || selectedImageUris.isNotEmpty() ->
                     SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
                 else -> {
