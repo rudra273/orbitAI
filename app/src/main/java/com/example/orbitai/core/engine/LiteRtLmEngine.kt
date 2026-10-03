@@ -66,7 +66,7 @@ class LiteRtLmEngine(
             topK = settings.topK,
             topP = settings.topP.toDouble(),
             temperature = settings.temperature.toDouble(),
-            seed = 0,
+            seed = kotlin.random.Random.nextInt(),
         )
         val conversationConfig = ConversationConfig(
             samplerConfig = samplerConfig,
@@ -126,7 +126,7 @@ class LiteRtLmEngine(
             topK = settings.topK,
             topP = settings.topP.toDouble(),
             temperature = settings.temperature.toDouble(),
-            seed = 0,
+            seed = kotlin.random.Random.nextInt(),
         )
 
         val tools = toolSchemas.map { schema -> tool(schema as com.google.ai.edge.litertlm.ToolSet) }

@@ -33,6 +33,7 @@ class MediaPipeTaskEngine(
             .setTopK(settings.topK)
             .setTopP(settings.topP)
             .setTemperature(settings.temperature)
+            .setRandomSeed(kotlin.random.Random.nextInt())
             .build()
         val session = LlmInferenceSession.createFromOptions(eng, sessionOptions)
 
