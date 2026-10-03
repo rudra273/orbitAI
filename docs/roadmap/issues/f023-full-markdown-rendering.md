@@ -16,7 +16,9 @@ Labels: enhancement
 **Decision:** library (e.g. a CommonMark parser) vs extending the in-house parser. Pick one in the PR, weighing APK size.
 
 **Acceptance Criteria:**
-- [ ] Snapshot/unit tests for each block type, plus a mid-stream incomplete-table case
-- [ ] Links never auto-open; tapping shows the full URL first
+- [x] Snapshot/unit tests for each block type, plus a mid-stream incomplete-table case
+- [x] Links never auto-open; tapping shows the full URL first
 - [ ] No jank while streaming long answers (renderer memoized per finished block)
-- [ ] Bubble uses the same parser
+- [x] Bubble uses the same parser
+
+**Status:** 🟡 Done, pending visual check (2026-10-04). Decision: extend the in-house parser (no new dependency or APK cost). New pure `feature/chat/markdown/MarkdownParser` handles headings, paragraphs, ordered lists that keep their numbers, nested and task lists, block quotes, horizontal rules, GFM tables with alignment and ragged rows, and open/closed code fences. Inline: bold (can contain italic), italic, strikethrough, inline code, [links](url) and bare URLs; arithmetic and snake_case are not treated as emphasis. New `MarkdownView.kt` renders this in Compose: tables scroll horizontally, and links show the full URL in a confirmation dialog before opening. `CodeHighlighter` colours keywords, strings, comments and numbers for ~15 languages. Streaming: a table header without its separator stays text and an unclosed fence renders as an open code block. The bubble uses the same parser via `MarkdownHtml.toHtml`; it also now keeps the raw markdown while streaming (it previously re-parsed already-rendered text, losing markers mid-answer). 14 unit tests. Installed on SM-S928B; ⚠️ visual check of a table, list and code reply still needed.

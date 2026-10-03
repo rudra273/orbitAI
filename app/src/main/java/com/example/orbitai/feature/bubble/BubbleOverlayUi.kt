@@ -62,6 +62,8 @@ class BubbleOverlayUi(
     private var resultCardParams: WindowManager.LayoutParams? = null
     private var resultStatusView: TextView? = null
     private var resultTextView: TextView? = null
+    /** Unrendered markdown of the current answer; streaming appends to this, not to the rendered text. */
+    private var rawResultText: String = ""
     private var resultScrollView: ScrollView? = null
     var isResultVisible = false
         private set
@@ -91,6 +93,7 @@ class BubbleOverlayUi(
         compact: Boolean = false,
     ) {
         hideResultOverlay(cancelJob = cancelExistingJob)
+        rawResultText = ""
         isResultCompactMode = compact
         val (screenW, screenH) = getScreenSize()
         val cardW = screenW - dpToPx(32f)
@@ -223,7 +226,7 @@ class BubbleOverlayUi(
         if (!isResultVisible || !isResultCompactMode) return
 
         val currentStatus = resultStatusView?.text?.toString() ?: "Thinking..."
-        val currentText = resultTextView?.text?.toString() ?: ""
+        val currentText = rawResultText
         val oldParams = resultCardParams
         hideResultOverlay(cancelJob = false)
         val responseHeightPx = dpToPx(BubbleSettingsStore(context).bubbleResponseHeightDp.toFloat())
@@ -236,7 +239,7 @@ class BubbleOverlayUi(
         isResultVisible = true
         isResultCompactMode = false
         resultStatusView?.text = currentStatus
-        resultTextView?.text = parseSimpleMarkdown(currentText)
+        updateResultText(currentText)
     }
 
     @Suppress("SetTextI18n")
@@ -318,7 +321,7 @@ class BubbleOverlayUi(
                 setOnClickListener {
                     store.bubbleResponseTheme = id
                     val currentStatus = resultStatusView?.text?.toString() ?: "Thinking..."
-                    val currentText = resultTextView?.text?.toString() ?: ""
+                    val currentText = rawResultText
                     val oldParams = resultCardParams
                     hideResultOverlay(cancelJob = false)
                     val card = buildResultCardView(
@@ -332,7 +335,7 @@ class BubbleOverlayUi(
                     isResultVisible = true
                     isResultCompactMode = compact
                     resultStatusView?.text = currentStatus
-                    resultTextView?.text = parseSimpleMarkdown(currentText)
+                    updateResultText(currentText)
                 }
             })
         }
@@ -534,43 +537,20 @@ class BubbleOverlayUi(
     }
 
     fun appendResultText(delta: String) {
-        val currentText = resultTextView?.text?.toString().orEmpty()
-        updateResultText(currentText + delta)
+        updateResultText(rawResultText + delta)
     }
 
     fun updateResultText(text: String) {
+        rawResultText = text
         resultTextView?.text = parseSimpleMarkdown(text)
         resultScrollView?.post { resultScrollView?.fullScroll(View.FOCUS_DOWN) }
     }
 
-    private fun parseSimpleMarkdown(text: String): android.text.Spanned {
-        // Convert markdown to Android Spanned for basic formatting
-        // Support: **bold**, *italic*, `code`, # heading
-        val pattern = Regex("""(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|^#+\s.+$)""", RegexOption.MULTILINE)
-        
-        val html = text
-            .replace(Regex("""^(#+)\s+(.+)$""", RegexOption.MULTILINE)) { match ->
-                val level = match.groupValues[1].length
-                val text = match.groupValues[2]
-                val size = when (level) {
-                    1 -> "1.5em"
-                    2 -> "1.3em"
-                    else -> "1.1em"
-                }
-                "<b style=\"font-size:$size\">$text</b><br>"
-            }
-            .replace(Regex("""\*\*([^*]+)\*\*"""), "<b>$1</b>")
-            .replace(Regex("""\*([^*]+)\*"""), "<i>$1</i>")
-            .replace(Regex("""`([^`]+)`"""), "<tt>$1</tt>")
-            .replace("\n", "<br>")
-        
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY)
-        } else {
-            @Suppress("DEPRECATION")
-            android.text.Html.fromHtml(html)
-        }
-    }
+    private fun parseSimpleMarkdown(text: String): android.text.Spanned =
+        android.text.Html.fromHtml(
+            com.example.orbitai.feature.chat.markdown.MarkdownHtml.toHtml(text),
+            android.text.Html.FROM_HTML_MODE_COMPACT,
+        )
 
     companion object {
         data class BubbleThemeConfig(
