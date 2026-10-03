@@ -5,6 +5,7 @@ import com.example.orbitai.core.engine.LlmRepository
 import com.example.orbitai.core.model.ModelDownloader
 import com.example.orbitai.feature.automation.reminder.ReminderScheduler
 import com.example.orbitai.feature.chat.ChatRepository
+import com.example.orbitai.feature.diagnostics.DiagnosticsStore
 import com.example.orbitai.feature.memory.MemoryRepository
 import com.example.orbitai.feature.modes.ModeRepository
 import com.example.orbitai.feature.spaces.SpaceRepository
@@ -22,7 +23,8 @@ class AppContainer(context: Context) {
     /** Process-lifetime scope for work that must outlive a screen (e.g. releasing the model). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val llmRepository by lazy { LlmRepository(appContext) }
+    val diagnostics by lazy { DiagnosticsStore(appContext) }
+    val llmRepository by lazy { LlmRepository(appContext) { state -> diagnostics.modelState = state } }
     val modelDownloader by lazy { ModelDownloader(appContext) }
     val chatRepository by lazy { ChatRepository(appContext) }
     val spaceRepository by lazy { SpaceRepository(appContext) }

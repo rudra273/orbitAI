@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Gavel
@@ -164,6 +165,12 @@ fun SettingsScreen(
                 title = "Privacy policy",
                 description = "Read our data and privacy terms",
                 onClick = { onNavigate("settings/privacy") },
+            ),
+            SettingsRow(
+                icon = Icons.Default.BugReport,
+                title = "Diagnostics",
+                description = "Review and send crash reports",
+                onClick = { onNavigate("settings/diagnostics") },
             ),
         )
 

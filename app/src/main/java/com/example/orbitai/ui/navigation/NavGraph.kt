@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.navigation
 
+import com.example.orbitai.appContainer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -90,6 +91,7 @@ sealed class Screen(val route: String) {
 
     // ── Settings sub-screens ─────────────────────────────────────────────────
     data object SettingsPrivacy : Screen("settings/privacy")
+    data object SettingsDiagnostics : Screen("settings/diagnostics")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
@@ -166,6 +168,25 @@ fun OrbitNavGraph(
         navController.navigate(Screen.ChatDetail.go(chatId)) {
             launchSingleTop = true
         }
+    }
+
+    val diagnostics = remember { context.appContainer.diagnostics }
+    val showCrashPrompt by diagnostics.pendingPrompt.collectAsState()
+    if (showCrashPrompt && hasCompletedWelcome) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { diagnostics.dismissPrompt() },
+            title = { Text("Orbit closed unexpectedly") },
+            text = { Text("A diagnostics report was saved on this device. Review it and share it with the developer to help fix the problem? It doesn't include your chats.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    diagnostics.dismissPrompt()
+                    navController.navigate(Screen.SettingsDiagnostics.route) { launchSingleTop = true }
+                }) { Text("Review") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { diagnostics.dismissPrompt() }) { Text("Not now") }
+            },
+        )
     }
 
     LaunchedEffect(overlayPromptRequest?.id, hasCompletedWelcome) {
@@ -299,6 +320,9 @@ fun OrbitNavGraph(
 
             composable(Screen.SettingsPrivacy.route) {
                 com.example.orbitai.ui.screens.PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsDiagnostics.route) {
+                com.example.orbitai.ui.screens.DiagnosticsScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.SettingsModel.route) {
                 val context = LocalContext.current

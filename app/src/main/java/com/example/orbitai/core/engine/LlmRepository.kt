@@ -3,6 +3,8 @@ package com.example.orbitai.core.engine
 import android.content.Context
 import com.example.orbitai.core.common.InferenceSettings
 import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.model.MODEL_DOWNLOAD_SPECS
+import com.example.orbitai.core.model.formatModelSize
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -13,7 +15,11 @@ import kotlinx.coroutines.flow.Flow
  * Load/close are serialized. Callers that run inference wrap it in [beginUse]/[endUse] so
  * [releaseIfIdle] never frees a model another feature is using.
  */
-class LlmRepository(private val context: Context) {
+class LlmRepository(
+    private val context: Context,
+    /** Receives "loading <id>", "<id> on <backend>" or null, for diagnostics reports. */
+    private val onModelStateChanged: (String?) -> Unit = {},
+) {
 
     private var engine: LlmInferenceEngine? = null
     private var conversationEngine: LlmConversationEngine? = null
@@ -35,8 +41,11 @@ class LlmRepository(private val context: Context) {
         currentModelId = null
         currentSettings = null
 
+        val size = MODEL_DOWNLOAD_SPECS[model.id]?.totalSizeBytes?.let { " (${formatModelSize(it)})" }.orEmpty()
+        onModelStateChanged("loading ${model.id}$size")
         val created = LlmInferenceEngineFactory.create(context, model, settings)
         engine = created
+        onModelStateChanged("${model.id}$size on ${activeBackendLabel()}")
 
         // If the engine also supports conversations (LiteRT-LM), expose it.
         conversationEngine = created as? LlmConversationEngine
@@ -83,8 +92,17 @@ class LlmRepository(private val context: Context) {
         return true
     }
 
+    /** Hardware backend of the loaded engine (e.g. "GPU", "CPU"), or the engine type for non-LiteRT models. */
+    @Synchronized
+    fun activeBackendLabel(): String? = when (val current = engine) {
+        null -> null
+        is LiteRtLmEngine -> current.activeBackend
+        else -> current.javaClass.simpleName
+    }
+
     @Synchronized
     fun close() {
+        if (engine != null) onModelStateChanged(null)
         engine?.close()
         // conversationEngine is the same object as engine for LiteRT, no double-close needed.
         engine = null

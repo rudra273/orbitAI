@@ -13,8 +13,10 @@ This needs an owner decision. Options:
 3. Lower to 29/30: widest reach, more compatibility branches.
 
 **Acceptance Criteria:**
-- [ ] Owner records the chosen `minSdk` in this issue
-- [ ] If lowered: Android lint `NewApi` passes with zero errors at the new `minSdk`
-- [ ] If lowered: every API-gated call (`ImageDecoder`, `ServiceInfo.FOREGROUND_SERVICE_TYPE_*`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `MediaProjection` callbacks) is guarded with `Build.VERSION.SDK_INT` checks
-- [ ] If lowered: an emulator smoke test on the new minimum API covers chat, model download, reminders and the bubble
-- [ ] README "Prerequisites" updated
+- [x] Owner records the chosen `minSdk` in this issue
+- [ ] ~~If lowered: Android lint `NewApi` passes with zero errors at the new `minSdk`~~ (not applicable)
+- [ ] ~~If lowered: every API-gated call (`ImageDecoder`, `ServiceInfo.FOREGROUND_SERVICE_TYPE_*`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `MediaProjection` callbacks) is guarded with `Build.VERSION.SDK_INT` checks~~ (not applicable)
+- [ ] ~~If lowered: an emulator smoke test on the new minimum API covers chat, model download, reminders and the bubble~~ (not applicable)
+- [ ] ~~README "Prerequisites" updated~~ (not applicable)
+
+**Status:** ✅ Done (2026-10-04). Owner decision (2026-10-04): keep `minSdk = 35` (Android 15+). No code change needed; the lowering-related items (NewApi audit, SDK_INT guards, old-API emulator test, README) don't apply.
