@@ -16,5 +16,7 @@ Every message is persisted to Room, and the regex memory extractor runs on every
 
 **Acceptance Criteria:**
 - [ ] Instrumented test: after a temporary chat, `chats`, `messages` and `memories` have no new rows
-- [ ] RAG over Spaces still works in temporary chats
-- [ ] Process death discards the chat (no persistence through `SavedStateHandle`)
+- [x] RAG over Spaces still works in temporary chats
+- [x] Process death discards the chat (no persistence through `SavedStateHandle`)
+
+**Status:** 🟡 Done, pending device test run (2026-10-04). `ChatRepository` keeps temporary chats (IDs prefixed `temp-`) in an in-memory map; every chat operation (get, add/update/delete message, edit, model change, observe) has an in-memory branch, so generation, regenerate/edit and the chat screen work unchanged and nothing is written to Room. They never appear in the chat list. Memory auto-extraction is skipped for temporary chats; RAG over Spaces works as usual. UI: a ghost-icon 'New temporary chat' button above the + on the home screen, a 'Temporary chat · not saved' banner, and leaving a non-empty one (system or top-bar Back) asks 'Discard temporary chat?'. Discarding happens only on leave, not on rotation or when briefly opening Settings; process death clears it because it lives only in memory. Instrumented `TemporaryChatTest` checks no rows are added to chats/messages/memories. ⚠️ Run on device: `./gradlew installDebugAndroidTest` then `adb shell am instrument -w com.example.orbitai.test/androidx.test.runner.AndroidJUnitRunner`. Export (f026) not built yet.

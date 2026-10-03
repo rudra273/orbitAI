@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -118,6 +119,25 @@ fun HomeScreen(
             ) 
         },
         floatingActionButton = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(inkColor.copy(alpha = 0.12f))
+                    .clickable(onClick = { viewModel.openTemporaryChat(onOpenChat) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.VisibilityOff,
+                    contentDescription = "New temporary chat",
+                    tint = inkColor,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
             Box(
                 modifier = Modifier.size(56.dp),
                 contentAlignment = Alignment.Center,
@@ -141,6 +161,7 @@ fun HomeScreen(
                         modifier = Modifier.size(22.dp),
                     )
                 }
+            }
             }
         },
     ) { padding ->

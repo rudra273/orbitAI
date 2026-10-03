@@ -335,7 +335,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 }
 
                 // 1b. Auto-detect and save memorable facts from user message
-                if (memoryEnabled && !resendExisting) {
+                if (memoryEnabled && !resendExisting && !com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId)) {
                     MemoryFactExtractor.extract(trimmedText).forEach { fact ->
                         memoryRepo.addMemory(fact, source = "auto")
                     }

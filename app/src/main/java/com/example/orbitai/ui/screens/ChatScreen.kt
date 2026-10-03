@@ -225,7 +225,24 @@ fun ChatScreen(
         }
     }
 
-    BackHandler(onBack = onBack)
+    val isTemporary = remember(chatId) { viewModel.isTemporaryChat(chatId) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val leave = {
+        if (isTemporary) viewModel.discardTemporaryChat(chatId)
+        onBack()
+    }
+    val handleBack = { if (isTemporary && messages.isNotEmpty()) confirmDiscard = true else leave() }
+    BackHandler(onBack = handleBack)
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text("Discard temporary chat?") },
+            text = { Text("Temporary chats aren't saved. This conversation will be gone.") },
+            confirmButton = { TextButton(onClick = { confirmDiscard = false; leave() }) { Text("Discard", color = Destructive) } },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep chatting") } },
+        )
+    }
+
 
     LaunchedEffect(viewModel) {
         viewModel.refreshAvailableModels()
@@ -262,7 +279,7 @@ fun ChatScreen(
                     spaces        = spaces,
                     activeSpaceIds = activeSpaceIds,
                     availableModels = availableModels,
-                    onBack         = onBack,
+                    onBack         = handleBack,
                     onModelSelected = { model -> viewModel.selectModel(chatId, model) },
                     onSelectMode    = { viewModel.selectMode(it) },
                     onToggleSpace   = { viewModel.toggleSpace(it) },
@@ -330,6 +347,9 @@ fun ChatScreen(
                     .padding(padding),
             ) {
                 // Status banners
+                if (isTemporary) {
+                    StatusBanner("Temporary chat · not saved", TextMuted)
+                }
                 if (uiState.isModelLoading) {
                     StatusBanner("Loading model…", VioletCore)
                 }

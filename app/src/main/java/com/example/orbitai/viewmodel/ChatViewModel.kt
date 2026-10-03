@@ -69,6 +69,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { onReady(createNewChat()) }
     }
 
+    /** Starts a chat that is kept only in memory and never saved or used for Memory. */
+    fun openTemporaryChat(onReady: (String) -> Unit) {
+        onReady(chatRepo.createTemporaryChat().id)
+    }
+
+    fun isTemporaryChat(chatId: String): Boolean = com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId)
+
+    fun discardTemporaryChat(chatId: String) {
+        if (!isTemporaryChat(chatId)) return
+        generation.stopGeneration()
+        chatRepo.discardTemporaryChat(chatId)
+    }
+
     fun deleteChat(chatId: String) {
         viewModelScope.launch(Dispatchers.IO) { chatRepo.deleteChat(chatId) }
     }
