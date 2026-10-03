@@ -7,7 +7,9 @@ import com.example.orbitai.core.common.ModeInferenceSettingsStore
 import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.core.database.ORBIT_MODE_ID
 import com.example.orbitai.core.engine.InferenceInput
+import com.example.orbitai.core.model.DeviceFit
 import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.core.model.ModelFit
 import com.example.orbitai.core.model.ModelProvider
 import com.example.orbitai.core.model.availableChatModels
 import com.example.orbitai.core.prompt.BudgetedPrompt
@@ -55,6 +57,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     private val tokenStore = TokenStore(ctx.app)
     private val modeInferenceStore = ModeInferenceSettingsStore(ctx.app)
     private val memoryFeatureStore = MemoryFeatureStore(ctx.app)
+    private val deviceSpecs = com.example.orbitai.core.model.DeviceSpecs(ctx.app)
 
     /** Set by [ChatViewModel] after construction (automation needs this controller's stop). */
     lateinit var automation: AutomationFlowController
@@ -340,6 +343,11 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
 
                 // 2. Load model if settings or model changed
                 if (!llmRepo.isModelLoaded(model.id, settings)) {
+                    if (DeviceFit.fitOf(model, deviceSpecs.totalRamBytes) == ModelFit.TOO_LARGE) {
+                        _uiState.update {
+                            it.copy(infoMessage = "${model.displayName} may be too large for this phone's memory. If Orbit closes, pick a smaller model in Settings > Models.")
+                        }
+                    }
                     _uiState.update { it.copy(isModelLoading = true, loadError = null) }
                     try {
                         llmRepo.loadModel(model, settings)

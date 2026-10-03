@@ -15,7 +15,9 @@ The catalog ranges from Gemma 3 270M (~0.9 GB) to Phi-4 14B (~10.9 GB). Nothing 
 - Show a "Best for: quick replies / reasoning / images" tag
 
 **Acceptance Criteria:**
-- [ ] 6 GB, 8 GB and 12 GB device profiles each get a sensible recommended model (unit test on the recommendation function)
-- [ ] Storage check prevents starting a download that can't finish
-- [ ] Warning shown before loading a model whose `minRamGb` exceeds device RAM
+- [x] 6 GB, 8 GB and 12 GB device profiles each get a sensible recommended model (unit test on the recommendation function)
+- [x] Storage check prevents starting a download that can't finish
+- [x] Warning shown before loading a model whose `minRamGb` exceeds device RAM
 - [ ] Onboarding (f054) uses the same recommendation
+
+**Status:** ✅ Done (2026-10-03). New `core/model/DeviceFit` (pure): RAM need = download size × 1.3 + 1 GB; Fits (≤60% of total RAM), May be slow (≤85%) or Too large. Recommendation = first model that fits from [Gemma 4 E4B, Gemma 4 E2B, Gemma 3 1B LiteRT, Gemma 3 270M]: 12 GB → E4B, 8 GB → E2B, 6 GB → Gemma 3 1B. Storage check keeps a 10% margin. 7 unit tests. `DeviceSpecs` reads RAM (`ActivityManager.MemoryInfo`) and free space (`StatFs`). Models screen shows this phone's RAM/free space, puts the recommended model first with a 'RECOMMENDED FOR THIS PHONE' badge (replacing the hard-coded Gemma 4 E2B one), and every row shows size · best-for · coloured fit. Downloading a too-large model asks for confirmation; a download is refused with a clear message when storage is short (counting any partial file). Loading a too-large model in chat shows a warning. Sizes are computed from the pinned download sizes, so no per-model `minRamGb` field was needed. Open: onboarding use is part of f054.

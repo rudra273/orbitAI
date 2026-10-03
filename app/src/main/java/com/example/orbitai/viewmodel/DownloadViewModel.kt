@@ -16,6 +16,9 @@ import com.example.orbitai.core.model.ModelDownloader
 import com.example.orbitai.core.model.ModelDownloadWorker
 import com.example.orbitai.core.model.MODEL_DOWNLOAD_SPECS
 import com.example.orbitai.core.model.formatModelSize
+import com.example.orbitai.core.model.DeviceFit
+import com.example.orbitai.core.model.DeviceSpecs
+import com.example.orbitai.core.model.ModelFit
 import com.example.orbitai.core.common.DownloadSettingsStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +31,11 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     val downloader = application.appContainer.modelDownloader
     val downloadSettings = DownloadSettingsStore(application)
+    val deviceSpecs = DeviceSpecs(application)
+
+    fun fitOf(model: LlmModel): ModelFit = DeviceFit.fitOf(model, deviceSpecs.totalRamBytes)
+
+    val recommendedModelId: String? by lazy { DeviceFit.recommendedModelId(deviceSpecs.totalRamBytes) }
 
     /** Latest WorkManager state per catalog model (null = no scheduled work). */
     private val workState = java.util.concurrent.ConcurrentHashMap<String, DownloadProgress>()
@@ -100,6 +108,20 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                     ))
                 }
                 return
+        }
+
+        val size = MODEL_DOWNLOAD_SPECS[model.id]?.totalSizeBytes ?: 0L
+        val remaining = size - downloader.partialBytes(model)
+        val free = deviceSpecs.freeModelStorageBytes()
+        if (remaining > 0 && !DeviceFit.hasStorageFor(remaining, free)) {
+            _progress.update {
+                it + (model.id to DownloadProgress(
+                    modelId = model.id,
+                    status = DownloadStatus.FAILED,
+                    error = "Not enough storage: needs ${formatModelSize(remaining)}, ${formatModelSize(free)} free.",
+                ))
+            }
+            return
         }
 
         ModelDownloadWorker.enqueue(getApplication(), model)

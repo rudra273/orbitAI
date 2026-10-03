@@ -40,6 +40,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
+import com.example.orbitai.core.model.DeviceFit
+import com.example.orbitai.core.model.ModelFit
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -114,7 +119,9 @@ fun ModelSettingsScreen(
     var showAllModels by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val topPickIds = setOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b")
+    val recommendedId = downloadViewModel.recommendedModelId
+    val topPickIds = (listOfNotNull(recommendedId) + listOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b"))
+        .distinct()
     // Sort top picks based on the order in the set
     val topPickModels = topPickIds.mapNotNull { id -> AVAILABLE_MODELS.find { it.id == id } }
         .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
@@ -238,6 +245,12 @@ fun ModelSettingsScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Download large models on Wi-Fi only", color = SettingsInk, fontFamily = SettingsSans, fontSize = 14.sp)
                         Text(
+                            "This phone: ${formatModelSize(downloadViewModel.deviceSpecs.totalRamBytes)} RAM · ${formatModelSize(downloadViewModel.deviceSpecs.freeModelStorageBytes())} free",
+                            color = SettingsInk.copy(alpha = 0.6f),
+                            fontFamily = SettingsMono,
+                            fontSize = 11.sp,
+                        )
+                        Text(
                             "Models over 1 GB wait for Wi-Fi. Downloads continue in the background and resume after interruptions.",
                             color = SettingsInk.copy(alpha = 0.45f),
                             fontFamily = SettingsSans,
@@ -272,7 +285,8 @@ fun ModelSettingsScreen(
                             onDelete = { downloadViewModel.deleteModel(model) },
                             onCancel = { downloadViewModel.cancelDownload(model) },
                             onPause = { downloadViewModel.pauseDownload(model) },
-                            isOrbitRecommended = model.id == "gemma4-e2b",
+                            fit = downloadViewModel.fitOf(model),
+                            isRecommendedForPhone = model.id == recommendedId,
                         )
                         if (index != topPickModels.lastIndex) HairlineDivider()
                     }
@@ -330,6 +344,7 @@ fun ModelSettingsScreen(
                                 onDelete = { downloadViewModel.deleteModel(model) },
                                 onCancel = { downloadViewModel.cancelDownload(model) },
                                 onPause = { downloadViewModel.pauseDownload(model) },
+                                fit = downloadViewModel.fitOf(model),
                             )
                             if (index != allModels.lastIndex) HairlineDivider()
                         }
@@ -683,8 +698,33 @@ private fun ModelRow(
     onDelete: () -> Unit,
     onCancel: () -> Unit,
     onPause: () -> Unit = {},
-    isOrbitRecommended: Boolean = false,
+    fit: ModelFit = ModelFit.GOOD,
+    isRecommendedForPhone: Boolean = false,
 ) {
+    var confirmLargeDownload by remember { mutableStateOf(false) }
+    if (confirmLargeDownload) {
+        AlertDialog(
+            onDismissRequest = { confirmLargeDownload = false },
+            title = { Text("Model may not run", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            text = {
+                Text(
+                    "${model.displayName} probably needs more memory than this phone has. It may fail to load or close Orbit. Download anyway?",
+                    fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmLargeDownload = false; onDownload() }) {
+                    Text("Download", color = SettingsRed, fontFamily = SettingsSans)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLargeDownload = false }) { Text("Cancel", color = SettingsInk, fontFamily = SettingsSans) }
+            },
+            containerColor = SettingsCard,
+            shape = RoundedCornerShape(14.dp),
+        )
+    }
+    val startDownload = { if (fit == ModelFit.TOO_LARGE) confirmLargeDownload = true else onDownload() }
     val status = progress?.status ?: DownloadStatus.IDLE
     val isInstalled = status == DownloadStatus.COMPLETED
     val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.VERIFYING
@@ -736,7 +776,7 @@ private fun ModelRow(
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
                 )
-                if (isOrbitRecommended) {
+                if (isRecommendedForPhone) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
@@ -744,7 +784,7 @@ private fun ModelRow(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "RECOMMENDED FOR ORBIT",
+                            text = "RECOMMENDED FOR THIS PHONE",
                             color = Color(0xFF5B4FE8),
                             fontFamily = SettingsMono,
                             fontSize = 7.sp,
@@ -789,7 +829,20 @@ private fun ModelRow(
             )
             MODEL_DOWNLOAD_SPECS[model.id]?.totalSizeBytes?.let { size ->
                 Text(
-                    text = "Download size: ${formatModelSize(size)}",
+                    text = buildAnnotatedString {
+                        append("${formatModelSize(size)} · ${DeviceFit.bestFor(model)} · ")
+                        withStyle(SpanStyle(color = when (fit) {
+                            ModelFit.GOOD -> SettingsGreen
+                            ModelFit.SLOW -> Color(0xFFD48806)
+                            ModelFit.TOO_LARGE -> SettingsRed
+                        })) {
+                            append(when (fit) {
+                                ModelFit.GOOD -> "Fits this phone"
+                                ModelFit.SLOW -> "May be slow"
+                                ModelFit.TOO_LARGE -> "Too large for this phone"
+                            })
+                        }
+                    },
                     color = SettingsInk.copy(alpha = 0.60f),
                     fontFamily = SettingsMono,
                     fontSize = 11.sp,
@@ -845,7 +898,7 @@ private fun ModelRow(
                             modifier = Modifier.clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                onClick = if (isDownloading) onPause else onDownload,
+                                onClick = if (isDownloading) onPause else startDownload,
                             ),
                         )
                     }
@@ -872,7 +925,7 @@ private fun ModelRow(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onDownload,
+                            onClick = startDownload,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
