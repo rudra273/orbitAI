@@ -1,5 +1,6 @@
 package com.example.orbitai.viewmodel
 
+import com.example.orbitai.appContainer
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
 
 class DownloadViewModel(application: Application) : AndroidViewModel(application) {
 
-    val downloader = ModelDownloader(application)
+    val downloader = application.appContainer.modelDownloader
     val downloadSettings = DownloadSettingsStore(application)
 
     /** Latest WorkManager state per catalog model (null = no scheduled work). */

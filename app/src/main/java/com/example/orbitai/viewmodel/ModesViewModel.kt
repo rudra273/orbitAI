@@ -1,5 +1,6 @@
 package com.example.orbitai.viewmodel
 
+import com.example.orbitai.appContainer
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,7 +14,7 @@ import kotlinx.coroutines.launch
 
 class ModesViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = ModeRepository(application)
+    private val repository = application.appContainer.modeRepository
     private val inferenceStore = ModeInferenceSettingsStore(application)
 
     val modes: StateFlow<List<Mode>> = repository.modes

@@ -1,5 +1,6 @@
 package com.example.orbitai.core.model
 
+import com.example.orbitai.appContainer
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -45,7 +46,7 @@ class ModelDownloadWorker(
 
         var last: DownloadProgress? = null
         var lastReportAt = 0L
-        ModelDownloader(applicationContext).download(model).collect { progress ->
+        applicationContext.appContainer.modelDownloader.download(model).collect { progress ->
             last = progress
             val now = System.currentTimeMillis()
             if (progress.status != DownloadStatus.DOWNLOADING || now - lastReportAt >= REPORT_INTERVAL_MS) {

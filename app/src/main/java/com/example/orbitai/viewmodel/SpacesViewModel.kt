@@ -1,5 +1,6 @@
 package com.example.orbitai.viewmodel
 
+import com.example.orbitai.appContainer
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -16,8 +17,8 @@ import kotlinx.coroutines.launch
 
 class SpacesViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = SpaceRepository(application)
-    private val modelDownloader = ModelDownloader(application)
+    private val repository = application.appContainer.spaceRepository
+    private val modelDownloader = application.appContainer.modelDownloader
 
     val spaces: StateFlow<List<Space>> = repository.spaces
 

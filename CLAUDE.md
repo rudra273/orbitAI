@@ -36,11 +36,11 @@ Release signing reads `keystore.properties` at the repo root (gitignored). Witho
 
 ## Architecture
 
-On-device AI chat assistant. All inference runs locally except the optional Gemini cloud provider. UI is Jetpack Compose; persistence is Room; there is no DI framework — dependencies are instantiated directly (e.g. `ChatViewModel` news up all its repositories/stores).
+On-device AI chat assistant. All inference runs locally except the optional Gemini cloud provider. UI is Jetpack Compose; persistence is Room; there is no DI framework. Shared dependencies (the single `LlmRepository`, chat/space/mode/memory repositories, `ModelDownloader`, `ReminderScheduler`) live in `core/AppContainer`, created by `OrbitApplication` and reached via `context.appContainer`; never construct these directly. Lightweight `SharedPreferences` stores are still created where used.
 
 ### Inference engine abstraction (`core/engine`)
 
-The central abstraction. `LlmRepository` is the single entry point for loading a model and streaming inference, used by **both** the main app and the floating bubble. It caches one active engine and reloads only when the model id or `InferenceSettings` change.
+The central abstraction. `LlmRepository` is the single entry point for loading a model and streaming inference, used by **both** the main app and the floating bubble. It caches one active engine and reloads only when the model id or `InferenceSettings` change. Because it is shared, wrap inference in `beginUse()`/`endUse()` and free memory with `releaseIfIdle()`, not `close()`, unless you are deliberately stopping the current run.
 
 - `LlmInferenceEngineFactory.create()` picks an engine by `ModelProvider` + `ModelFormat`:
   - `GEMINI` → `GeminiApiEngine` (cloud, needs API key)

@@ -1,5 +1,6 @@
 package com.example.orbitai.feature.bubble
 
+import com.example.orbitai.appContainer
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -65,7 +66,7 @@ class BubbleInferenceController(
 
     private val logTag = "OrbitBubble"
 
-    private var bubbleLlmRepo: LlmRepository? = null
+    private val llmRepository: LlmRepository = context.appContainer.llmRepository
     private var llmJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -94,8 +95,8 @@ class BubbleInferenceController(
         watchdogJob?.cancel()
         llmJob?.cancel()
         serviceScope.cancel()
-        bubbleLlmRepo?.close()
-        bubbleLlmRepo = null
+        // Shared model: free it only if the app isn't using it.
+        context.appContainer.appScope.launch { llmRepository.releaseIfIdle() }
     }
 
     fun run(initialTranscript: String) {
@@ -114,7 +115,7 @@ class BubbleInferenceController(
         val job = serviceScope.launch {
             previousJob?.join()
             val startedAt = SystemClock.elapsedRealtime()
-            val downloader = ModelDownloader(context)
+            val downloader = context.appContainer.modelDownloader
             val selectedModelId = BubbleSettingsStore(context).bubbleModelId
             val model = AVAILABLE_MODELS.firstOrNull {
                 it.isChatSelectable && it.id == selectedModelId && downloader.isDownloaded(it)
@@ -133,10 +134,10 @@ class BubbleInferenceController(
 
             val settings = InferenceSettingsStore(context).get()
 
+            llmRepository.beginUse()
             try {
                 // Ensure the shared LlmRepository has the model loaded.
-                val repo = bubbleLlmRepo
-                    ?: LlmRepository(context).also { bubbleLlmRepo = it }
+                val repo = llmRepository
                 if (!repo.isModelLoaded(model.id, settings)) {
                     withContext(Dispatchers.Main) {
                         ui.showResultOverlay(initialTranscript)
@@ -303,6 +304,7 @@ class BubbleInferenceController(
                 }
             } finally {
                 activeSession = null
+                llmRepository.endUse()
                 Log.d(logTag, "Bubble run finished in ${formatElapsed(startedAt)}")
             }
         }

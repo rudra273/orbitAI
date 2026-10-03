@@ -1,9 +1,9 @@
 package com.example.orbitai.viewmodel
 
+import com.example.orbitai.appContainer
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.feature.chat.ChatRepository
 import com.example.orbitai.core.common.ModeInferenceSettingsStore
 import com.example.orbitai.core.model.LlmModel
 import com.example.orbitai.feature.chat.Chat
@@ -131,18 +131,18 @@ data class ReminderReviewRequest(
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
-    val chatRepo = ChatRepository(application)
-    private val llmRepo = LlmRepository(application)
-    private val modelDownloader = ModelDownloader(application)
+    val chatRepo = application.appContainer.chatRepository
+    private val llmRepo = application.appContainer.llmRepository
+    private val modelDownloader = application.appContainer.modelDownloader
     private val tokenStore = TokenStore(application)
     private val modeInferenceStore = ModeInferenceSettingsStore(application)
-    private val spaceRepo = SpaceRepository(application)
-    private val modeRepo = ModeRepository(application)
+    private val spaceRepo = application.appContainer.spaceRepository
+    private val modeRepo = application.appContainer.modeRepository
     private val memoryFeatureStore = MemoryFeatureStore(application)
     private val automationSettingsStore = AutomationSettingsStore(application)
-    val memoryRepo = MemoryRepository(application)
+    val memoryRepo = application.appContainer.memoryRepository
     private val automationExecutor = AutomationExecutor(application)
-    private val reminderScheduler = ReminderScheduler(application)
+    private val reminderScheduler = application.appContainer.reminderScheduler
 
     /** All available spaces — observed by the chat screen for the space selector. */
     val spaces: StateFlow<List<Space>> = spaceRepo.spaces
@@ -499,6 +499,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         notificationGenerationToken = token
         _notificationReplyDraft.value = NotificationReplyDraftState(preview.key, preview.revision, loading = true)
         generationJob = viewModelScope.launch(Dispatchers.IO) {
+            llmRepo.beginUse()
             try {
                 closingEngine?.join()
                 val settings = com.example.orbitai.core.common.InferenceSettings(maxDecodedTokens = 256)
@@ -522,6 +523,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         error = "Couldn't generate a local draft. Try again or write your reply.")
                 }
             } finally {
+                llmRepo.endUse()
                 if (isGenerationTokenActive(token)) generationJob = null
             }
         }
@@ -760,6 +762,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startGenerationWatchdog(generationToken)
 
         generationJob = viewModelScope.launch(Dispatchers.IO) {
+            llmRepo.beginUse()
             try {
                 closingEngine?.join()
                 if (previousGeneration != null) {
@@ -984,6 +987,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.update { it.copy(loadError = "Unable to process message: ${e.message}") }
                 }
             } finally {
+                llmRepo.endUse()
                 if (isGenerationTokenActive(generationToken)) {
                     _uiState.update { it.copy(isGenerating = false, isModelLoading = false) }
                     generationJob = null
@@ -1055,7 +1059,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        llmRepo.close()
+        // The model is shared with the bubble; free it only if nothing else is using it.
+        getApplication<Application>().appContainer.appScope.launch { llmRepo.releaseIfIdle() }
     }
 
     private fun handleIntentResult(

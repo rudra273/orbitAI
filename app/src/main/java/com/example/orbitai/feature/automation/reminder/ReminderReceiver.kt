@@ -1,5 +1,6 @@
 package com.example.orbitai.feature.automation.reminder
 
+import com.example.orbitai.appContainer
 import android.Manifest
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -28,7 +29,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val scheduler = ReminderScheduler(context)
+                val scheduler = context.appContainer.reminderScheduler
                 val anchor = intent.getLongExtra(EXTRA_ANCHOR, Long.MIN_VALUE)
                 when (intent.action) {
                     ACTION_SNOOZE -> { scheduler.snooze(id, anchor); return@launch }

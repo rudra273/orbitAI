@@ -1,5 +1,6 @@
 package com.example.orbitai.feature.automation.reminder
 
+import com.example.orbitai.appContainer
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,7 +16,7 @@ class ReminderRestoreReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                ReminderScheduler(context).restore()
+                context.appContainer.reminderScheduler.restore()
             } catch (e: Exception) {
                 Log.e("ReminderRestore", "Unable to restore reminder alarms", e)
             } finally {
