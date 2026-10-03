@@ -57,6 +57,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /** Active modes only — observed by the chat screen for the mode selector. */
     val modes: StateFlow<List<Mode>> = ctx.container.modeRepository.activeModes
 
+    /** User prompts for the "/" menu. */
+    val savedPrompts: StateFlow<List<com.example.orbitai.feature.prompts.SavedPrompt>> = ctx.container.savedPrompts.prompts
+
     // ── Chat management ───────────────────────────────────────────────────────
     private val newChatMutex = Mutex()
 

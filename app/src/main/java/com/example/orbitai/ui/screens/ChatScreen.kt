@@ -4,6 +4,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.foundation.verticalScroll
+import com.example.orbitai.feature.prompts.CommandPalette
+import com.example.orbitai.feature.prompts.PaletteItem
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -147,6 +152,8 @@ fun ChatScreen(
     }
 
     var inputText by androidx.compose.runtime.saveable.rememberSaveable(chatId) { mutableStateOf("") }
+    var cursorRequest by remember { mutableStateOf<Int?>(null) }
+    val savedPrompts by viewModel.savedPrompts.collectAsState()
     LaunchedEffect(initialText) {
         if (initialText.isNotBlank()) {
             inputText = initialText
@@ -288,6 +295,14 @@ fun ChatScreen(
             },
             bottomBar = {
                 key(chatId) {
+                    Column {
+                    CommandPalette.query(inputText)?.let { query ->
+                        CommandPaletteMenu(CommandPalette.items(query, savedPrompts)) { item ->
+                            val insertion = CommandPalette.insertion(item)
+                            cursorRequest = insertion.cursor
+                            inputText = insertion.text
+                        }
+                    }
                     ChatInputBar(
                         voiceCallPrompt = voiceCallPrompt?.takeIf { it.chatId == chatId },
                         onVoiceCall = { viewModel.handleVoiceCall(chatId, it) },
@@ -295,7 +310,8 @@ fun ChatScreen(
                         onVoicePromptSpoken = viewModel::onVoiceCallPromptSpoken,
                         onVoiceUnavailable = { viewModel.showCallReviewForVoiceFailure(chatId) },
                         text         = inputText,
-                        onTextChange = { inputText = it },
+                        onTextChange = { inputText = it; cursorRequest = null },
+                        cursorRequest = cursorRequest,
                         onSend       = {
                             val text = inputText.trim()
                             val finalPrompt = buildString {
@@ -338,6 +354,7 @@ fun ChatScreen(
                             selectedImageUris = selectedImageUris.filter { it != uriToRemove }
                         },
                     )
+                    }
                 }
             },
         ) { padding ->
@@ -413,6 +430,11 @@ fun ChatScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextMuted,
                             )
+                            Spacer(Modifier.height(20.dp))
+                            StarterSuggestions(hasActiveSpaces = activeSpaceIds.isNotEmpty()) { suggestion ->
+                                cursorRequest = null
+                                inputText = suggestion
+                            }
                         }
                     }
                 }
@@ -1096,6 +1118,7 @@ private fun ChatInputBar(
     onVoiceUnavailable: () -> Unit,
     text:         String,
     onTextChange: (String) -> Unit,
+    cursorRequest: Int? = null,
     onSend:       () -> Unit,
     onStop:       () -> Unit,
     isGenerating: Boolean,
@@ -1244,10 +1267,17 @@ private fun ChatInputBar(
                     )
                 }
 
-                // Text field
+                // Text field (keeps its own cursor; external text changes place it at cursorRequest or the end)
+                var fieldValue by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
+                if (fieldValue.text != text) {
+                    fieldValue = TextFieldValue(text, TextRange((cursorRequest ?: text.length).coerceIn(0, text.length)))
+                }
                 BasicTextField(
-                    value         = text,
-                    onValueChange = onTextChange,
+                    value         = fieldValue,
+                    onValueChange = { value ->
+                        fieldValue = value
+                        if (value.text != text) onTextChange(value.text)
+                    },
                     modifier      = Modifier
                         .weight(1f)
                         .padding(horizontal = 4.dp),
@@ -1486,4 +1516,63 @@ private suspend fun readAttachmentForPrompt(
             append(content)
         }
     )
+}
+
+@Composable
+private fun CommandPaletteMenu(items: List<PaletteItem>, onSelect: (PaletteItem) -> Unit) {
+    if (items.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(SpaceDust)
+            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+            .heightIn(max = 280.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        items.forEach { item ->
+            val (title, subtitle) = when (item) {
+                is PaletteItem.Command -> "/${item.command.name} · ${item.command.title}" to item.command.example
+                is PaletteItem.Prompt -> item.prompt.title to item.prompt.text
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(item) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun StarterSuggestions(hasActiveSpaces: Boolean, onPick: (String) -> Unit) {
+    val suggestions = buildList {
+        if (hasActiveSpaces) add("Summarize the key points of my documents")
+        add("Explain how vaccines work in simple words")
+        add("Write a polite reply declining a meeting")
+        add("/remind in 10 minutes to stretch")
+        add("Type / for commands and saved prompts")
+    }.take(4)
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        suggestions.forEach { suggestion ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
+                    .clickable { onPick(if (suggestion.startsWith("Type /")) "/" else suggestion) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(suggestion, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+        }
+    }
 }

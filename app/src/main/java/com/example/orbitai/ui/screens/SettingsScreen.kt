@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DeveloperBoard
@@ -144,6 +145,11 @@ fun SettingsScreen(
                 title = "Tools",
                 description = "Tool availability and support",
             ),
+            SettingsRow(
+                icon = Icons.Default.Bookmarks,
+                title = "Saved prompts",
+                description = "Reusable prompts for the / menu",
+            ),
         )
     }
 
@@ -226,6 +232,11 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = aiRows[2],
                     onClick = { onNavigate("settings/tools") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = aiRows[3],
+                    onClick = { onNavigate("settings/saved_prompts") },
                 )
             }
         }

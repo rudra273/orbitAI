@@ -31,4 +31,5 @@ class AppContainer(context: Context) {
     val modeRepository by lazy { ModeRepository(appContext) }
     val memoryRepository by lazy { MemoryRepository(appContext) }
     val reminderScheduler by lazy { ReminderScheduler(appContext) }
+    val savedPrompts by lazy { com.example.orbitai.feature.prompts.SavedPromptStore(appContext) }
 }

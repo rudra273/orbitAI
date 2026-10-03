@@ -14,7 +14,9 @@ Orbit already understands `/mail`, `/email`, `/whatsapp`, `/wa`, `/remind`, `/ca
 - The empty-chat state shows 3–4 starter suggestions based on what's set up (Spaces active, Gemini configured, tools enabled)
 
 **Acceptance Criteria:**
-- [ ] The command list is generated from one registry shared with the parsers (no duplicated strings), ready for f040
-- [ ] Saved prompts persisted (Room table + migration, or a JSON store)
+- [x] The command list is generated from one registry shared with the parsers (no duplicated strings), ready for f040
+- [x] Saved prompts persisted (Room table + migration, or a JSON store)
 - [ ] Keyboard and TalkBack navigable popup
-- [ ] Disabled tools (Settings → Tools) don't appear
+- [ ] Disabled tools (Settings → Tools) don't appear (no per-tool toggles exist yet; f041)
+
+**Status:** ✅ Done (2026-10-03). New `feature/automation/OrbitCommands` registry (/mail, /whatsapp, /remind, /call, /remember with aliases, titles, examples). The slash regexes in `AutomationCommandParser` and `DeviceCommandParser` are now built from it, so names can't drift. Typing / at the start of the input (no space yet) opens a menu above the input with matching commands and saved prompts. Saved prompts (`SavedPromptStore`, JSON in SharedPreferences) are managed in Settings > Saved prompts: new, edit, move up/down, delete. Selecting a prompt inserts it with the cursor at `{{input}}` (the input field now keeps a TextFieldValue so the cursor can be placed). The empty chat shows 4 starter chips (one about documents when Spaces are active). Pure logic in `CommandPalette` with 4 tests, including one that every registry name/alias parses to the right command; all existing parser tests still pass. Note: there are no per-tool on/off switches yet (`AutomationSettingsStore.isAutomationExecutionEnabled` is unused), so 'disabled tools don't appear' has nothing to filter; it comes with f041. Not checked: keyboard/TalkBack navigation of the menu.

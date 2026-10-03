@@ -92,6 +92,7 @@ sealed class Screen(val route: String) {
     // ── Settings sub-screens ─────────────────────────────────────────────────
     data object SettingsPrivacy : Screen("settings/privacy")
     data object SettingsDiagnostics : Screen("settings/diagnostics")
+    data object SettingsSavedPrompts : Screen("settings/saved_prompts")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
@@ -320,6 +321,9 @@ fun OrbitNavGraph(
 
             composable(Screen.SettingsPrivacy.route) {
                 com.example.orbitai.ui.screens.PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsSavedPrompts.route) {
+                com.example.orbitai.ui.screens.SavedPromptsScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.SettingsDiagnostics.route) {
                 com.example.orbitai.ui.screens.DiagnosticsScreen(onBack = { navController.popBackStack() })
