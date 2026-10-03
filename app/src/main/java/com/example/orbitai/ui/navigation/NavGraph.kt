@@ -94,6 +94,8 @@ sealed class Screen(val route: String) {
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
     data object SettingsTools     : Screen("settings/tools")
+    data object Reminders : Screen("reminders")
+    data object NotificationReplies : Screen("notification_replies")
     data object SettingsOrbitBubble : Screen("settings/orbit_bubble")
     data object Welcome : Screen("welcome")
 }
@@ -331,7 +333,15 @@ fun OrbitNavGraph(
                 ToolsSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
                     onBack = { navController.popBackStack() },
+                    onOpenReminders = { navController.navigate(Screen.Reminders.route) },
+                    onOpenReplies = { navController.navigate(Screen.NotificationReplies.route) },
                 )
+            }
+            composable(Screen.NotificationReplies.route) {
+                com.example.orbitai.ui.screens.NotificationRepliesScreen(chatViewModel) { navController.popBackStack() }
+            }
+            composable(Screen.Reminders.route) {
+                com.example.orbitai.ui.screens.RemindersScreen(chatViewModel) { navController.popBackStack() }
             }
             composable(Screen.SettingsOrbitBubble.route) {
                 val context = LocalContext.current

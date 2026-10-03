@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class],
-    version   = 11,
+    entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class, ReminderEntity::class],
+    version   = 13,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -19,6 +19,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun memoryDao(): MemoryDao
     abstract fun spaceDao(): SpaceDao
     abstract fun modeDao(): ModeDao
+    abstract fun reminderDao(): ReminderDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -166,6 +167,30 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `reminders` (
+                        `id` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `description` TEXT NOT NULL,
+                        `triggerAt` INTEGER NOT NULL,
+                        `delivered` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+            }
+        }
+
+        internal val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE reminders ADD COLUMN repeat TEXT NOT NULL DEFAULT 'NONE'")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN completed INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN scheduledAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE reminders SET scheduledAt = triggerAt")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -183,6 +208,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_8_9,
                     MIGRATION_9_10,
                     MIGRATION_10_11,
+                    MIGRATION_11_12,
+                    MIGRATION_12_13,
                 ).build().also { INSTANCE = it }
             }
     }

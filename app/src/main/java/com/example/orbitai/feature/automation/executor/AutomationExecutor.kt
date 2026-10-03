@@ -113,6 +113,10 @@ class AutomationExecutor(context: Context) {
             data = CalendarContract.Events.CONTENT_URI
             putExtra(CalendarContract.Events.TITLE, draft.title)
             putExtra(CalendarContract.Events.DESCRIPTION, draft.description)
+            when (draft.repeat) {
+                "DAILY" -> putExtra(CalendarContract.Events.RRULE, "FREQ=DAILY")
+                "WEEKLY" -> putExtra(CalendarContract.Events.RRULE, "FREQ=WEEKLY")
+            }
             putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, draft.startTimeMillis)
             putExtra(CalendarContract.EXTRA_EVENT_END_TIME, draft.endTimeMillis)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

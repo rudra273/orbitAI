@@ -455,10 +455,10 @@ class OrbitBubbleService : Service() {
         }
 
         lastTranscript = finalTranscript
-        val route = AutomationRouter.route(finalTranscript)
+        val route = AutomationRouter.route(com.example.orbitai.feature.automation.parser.DeviceCommandParser.normalize(finalTranscript))
 
         // Tool requests need app chat flow where execution and permissions are handled.
-        if (route is AutomationRoute.ToolOnly) {
+        if (route is AutomationRoute.ToolOnly || com.example.orbitai.feature.automation.parser.DeviceCommandParser.parse(finalTranscript) != null) {
             launchApp(finalTranscript)
             return
         }

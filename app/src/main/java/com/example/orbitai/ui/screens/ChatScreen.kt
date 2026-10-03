@@ -100,6 +100,9 @@ fun ChatScreen(
     initialText: String = "",
     onInitialTextConsumed: () -> Unit = {},
 ) {
+    val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
+    val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
+    val callReview by viewModel.callReview.collectAsState()
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -110,9 +113,16 @@ fun ChatScreen(
     ) { granted ->
         viewModel.onNotificationsPermissionResult(granted)
     }
+    val reminderReview by viewModel.reminderReview.collectAsState()
     val cloudSendRequest by viewModel.cloudSendRequest.collectAsState()
     val chats          by viewModel.chats.collectAsState()
     val uiState        by viewModel.uiState.collectAsState()
+    callReview?.takeIf { it.chatId == chatId }?.let { request ->
+        CallReviewDialog(request, uiState.loadError, viewModel::dismissCallReview, viewModel::confirmCall)
+    }
+    reminderReview?.takeIf { it.chatId == chatId }?.let { request ->
+        ReminderReviewDialog(request, viewModel::dismissReminderReview, viewModel::confirmReminder, uiState.loadError)
+    }
     val spaces         by viewModel.spaces.collectAsState()
     val activeSpaceIds by viewModel.activeSpaceIds.collectAsState()
     val modes          by viewModel.modes.collectAsState()
@@ -210,6 +220,8 @@ fun ChatScreen(
         viewModel.refreshAvailableModels()
         viewModel.events.collect { event ->
             when (event) {
+                ChatUiEvent.RequestCallContactsPermission -> callContactsLauncher.launch(Manifest.permission.READ_CONTACTS)
+                ChatUiEvent.RequestCallPermission -> callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
                 ChatUiEvent.RequestContactsPermission -> {
                     contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                 }

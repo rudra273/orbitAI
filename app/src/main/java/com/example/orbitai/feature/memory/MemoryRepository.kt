@@ -17,9 +17,9 @@ class MemoryRepository(context: Context) {
     val memories: Flow<List<MemoryEntity>> = dao.observeMemories()
 
     suspend fun addMemory(content: String, source: String = "auto") = withContext(Dispatchers.IO) {
-        if (!memoryFeatureStore.isEnabled) return@withContext
+        if (!memoryFeatureStore.isEnabled) return@withContext false
         val trimmed = content.trim()
-        if (trimmed.isBlank()) return@withContext
+        if (trimmed.isBlank()) return@withContext false
 
         dao.insertMemory(
             MemoryEntity(
@@ -29,6 +29,7 @@ class MemoryRepository(context: Context) {
                 createdAt = System.currentTimeMillis(),
             )
         )
+        true
     }
 
     suspend fun setUserNameMemory(name: String) = withContext(Dispatchers.IO) {

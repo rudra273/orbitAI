@@ -28,6 +28,7 @@ import com.example.orbitai.feature.automation.parser.AutomationRequest
 import com.example.orbitai.feature.memory.MemoryRepository
 import com.example.orbitai.core.prompt.ModelPromptBuilder
 import com.example.orbitai.feature.automation.parser.EmailDraftParser
+import com.example.orbitai.feature.automation.parser.ReminderDraft
 import com.example.orbitai.feature.automation.parser.ReminderDraftParser
 import com.example.orbitai.feature.automation.parser.RuntimeToolPermission
 import com.example.orbitai.feature.automation.parser.WhatsAppDraftParser
@@ -59,6 +60,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
+data class NotificationReplyDraftState(
+    val key: String = "",
+    val revision: Long = 0,
+    val text: String = "",
+    val loading: Boolean = false,
+    val error: String? = null,
+)
+
 data class ChatUiState(
     val isModelLoading: Boolean = false,
     val isGenerating: Boolean = false,
@@ -77,6 +86,8 @@ data class CloudSendRequest(
 sealed interface ChatUiEvent {
     data object RequestContactsPermission : ChatUiEvent
     data object RequestNotificationsPermission : ChatUiEvent
+    data object RequestCallContactsPermission : ChatUiEvent
+    data object RequestCallPermission : ChatUiEvent
 }
 
 private data class PendingWhatsAppExecution(
@@ -84,8 +95,15 @@ private data class PendingWhatsAppExecution(
     val draft: com.example.orbitai.feature.automation.parser.WhatsAppDraft,
 )
 
-private data class PendingReminderExecution(
-    val draft: com.example.orbitai.feature.automation.parser.ReminderDraft,
+data class CallReviewRequest(
+    val chatId: String,
+    val contacts: List<com.example.orbitai.feature.automation.executor.CallContact>,
+)
+
+data class ReminderReviewRequest(
+    val chatId: String,
+    val draft: ReminderDraft,
+    val useLocalReminder: Boolean,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -142,11 +160,253 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var generationJob: Job? = null
     private var activeGenerationToken: Long = 0L
     private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
-    private var pendingReminderExecution: PendingReminderExecution? = null
+    private var pendingReminderExecution: ReminderReviewRequest? = null
+    private val _reminderReview = MutableStateFlow<ReminderReviewRequest?>(null)
+    val reminderReview = _reminderReview.asStateFlow()
+    val reminders = reminderScheduler.reminders.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun dismissReminderReview() { _reminderReview.value = null }
+
+    fun cancelReminder(id: String) {
+        viewModelScope.launch {
+            try {
+                reminderScheduler.cancel(id)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(loadError = "Couldn't remove the reminder. Please try again.") }
+            }
+        }
+    }
+
+    fun confirmReminder(draft: ReminderDraft, useLocalReminder: Boolean) {
+        val reviewed = _reminderReview.value?.copy(draft = draft, useLocalReminder = useLocalReminder) ?: return
+        _reminderReview.value = null
+        viewModelScope.launch {
+            try {
+                if (useLocalReminder) {
+                    scheduleReviewedReminder(reviewed)
+                } else {
+                    val result = automationExecutor.execute(AutomationRequest.CreateReminder(draft.title), draft)
+                    if (result !is AutomationExecutionResult.Launched) _reminderReview.value = reviewed
+                    handleIntentResult(
+                        result,
+                        onLaunched = { _uiState.update { it.copy(loadError = null, infoMessage = "Calendar opened. Save the event there to finish.") } },
+                        onPermissionRequired = { result -> _uiState.update { it.copy(loadError = result.message) } },
+                    )
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _reminderReview.value = reviewed
+                _uiState.update { it.copy(loadError = "Couldn't save the reminder. Please try again.") }
+            }
+        }
+    }
+
+    private suspend fun scheduleReviewedReminder(reviewed: ReminderReviewRequest, requestPermission: Boolean = true) {
+        when (val result = reminderScheduler.schedule(reviewed.draft)) {
+            AutomationExecutionResult.Launched -> {
+                _uiState.update { it.copy(loadError = null, infoMessage = "Reminder saved in Orbit for ${formatReminderTime(reviewed.draft.startTimeMillis)}${if (reminderScheduler.exactAlarmsEnabled()) "." else " (approximate; enable Alarms & reminders for precise timing)."}") }
+            }
+            is AutomationExecutionResult.Failed -> {
+                _reminderReview.value = reviewed
+                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+            }
+            is AutomationExecutionResult.PermissionRequired -> {
+                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                if (requestPermission) {
+                    pendingReminderExecution = reviewed
+                    _events.emit(ChatUiEvent.RequestNotificationsPermission)
+                } else {
+                    _reminderReview.value = reviewed
+                }
+            }
+        }
+    }
+
+    fun editReminder(reminder: com.example.orbitai.core.database.ReminderEntity? = null) {
+        val start = reminder?.triggerAt ?: System.currentTimeMillis() + 3_600_000L
+        _uiState.update { it.copy(loadError = null, infoMessage = null) }
+        _reminderReview.value = ReminderReviewRequest("", ReminderDraft(
+            reminder?.title.orEmpty(), reminder?.description.orEmpty(), start, start + 1_800_000L,
+            reminder?.id, reminder?.repeat ?: "NONE",
+        ), true)
+    }
+
+    fun snoozeReminder(id: String) = updateReminder { reminderScheduler.snooze(id) }
+    fun completeReminder(id: String) = updateReminder { reminderScheduler.complete(id) }
+    fun refreshReminders() = updateReminder { reminderScheduler.restore() }
+    private fun updateReminder(action: suspend () -> Unit) {
+        viewModelScope.launch {
+            try { action(); _uiState.update { it.copy(loadError = null) } }
+            catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(loadError = "Couldn't update the reminder. Please try again.") }
+            }
+        }
+    }
+
+    private val _callReview = MutableStateFlow<CallReviewRequest?>(null)
+    val callReview = _callReview.asStateFlow()
+    private var pendingCallLookup: Pair<String, String>? = null
+    private var pendingCall: com.example.orbitai.feature.automation.executor.CallContact? = null
+
+    fun dismissCallReview() { _callReview.value = null; pendingCall = null }
+
+    private fun resolveCall(chatId: String, recipient: String) {
+        val app = getApplication<Application>()
+        val number = com.example.orbitai.feature.automation.executor.callableNumber(recipient)
+        if (number != null) {
+            _callReview.value = CallReviewRequest(chatId, listOf(com.example.orbitai.feature.automation.executor.CallContact(recipient, number)))
+            return
+        }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingCallLookup = chatId to recipient
+            viewModelScope.launch { _events.emit(ChatUiEvent.RequestCallContactsPermission) }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val contacts = withContext(Dispatchers.IO) {
+                    com.example.orbitai.feature.automation.executor.ContactResolver(app).findCallContacts(recipient)
+                }
+                if (contacts.isEmpty()) _uiState.update { it.copy(loadError = "No phone number found for $recipient. Try the saved contact name or a phone number.") }
+                else _callReview.value = CallReviewRequest(chatId, contacts)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(loadError = "Couldn't read contacts. Check contacts permission in Android Settings.") }
+            }
+        }
+    }
+
+    fun onCallContactsPermissionResult(granted: Boolean) {
+        val lookup = pendingCallLookup ?: return
+        pendingCallLookup = null
+        if (granted) resolveCall(lookup.first, lookup.second)
+        else _uiState.update { it.copy(loadError = "Contacts permission was denied. You can call using a phone number instead.") }
+    }
+
+    fun confirmCall(contact: com.example.orbitai.feature.automation.executor.CallContact, dialOnly: Boolean = false) {
+        if (_callReview.value?.contacts?.contains(contact) != true) return
+        val app = getApplication<Application>()
+        if (!dialOnly && contact.number.count(Char::isDigit) >= 7 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.CALL_PHONE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingCall = contact
+            viewModelScope.launch { _events.emit(ChatUiEvent.RequestCallPermission) }
+            return
+        }
+        val error = com.example.orbitai.feature.automation.executor.CallExecutor(app).launch(contact, dialOnly)
+        _uiState.update { it.copy(loadError = error, infoMessage = if (error == null) "Phone app opened for ${contact.name}." else null) }
+        if (error == null) dismissCallReview()
+    }
+
+    fun onCallPermissionResult(granted: Boolean) {
+        val contact = pendingCall ?: return
+        pendingCall = null
+        if (granted) confirmCall(contact)
+        else _uiState.update { it.copy(loadError = "Phone permission was denied. Choose Open dialer to continue manually.") }
+    }
+
+    private fun handleDeviceCommand(chatId: String, text: String): Boolean {
+        val normalized = com.example.orbitai.feature.automation.parser.DeviceCommandParser.normalize(text)
+        val command = com.example.orbitai.feature.automation.parser.DeviceCommandParser.parse(text)
+        val reminder = com.example.orbitai.feature.automation.parser.AutomationCommandParser.parse(normalized) as? AutomationRequest.CreateReminder
+        if (command == null && reminder == null) return false
+        stopGeneration()
+        _uiState.update { it.copy(loadError = null, infoMessage = null) }
+        viewModelScope.launch {
+            try {
+                chatRepo.addMessage(chatId, Message(role = Role.USER, content = text))
+                val response = when (command) {
+                    is com.example.orbitai.feature.automation.parser.DeviceCommand.Call -> {
+                        resolveCall(chatId, command.recipient)
+                        "Choose and confirm the phone number to call."
+                    }
+                    is com.example.orbitai.feature.automation.parser.DeviceCommand.Remember -> {
+                        if (memoryRepo.addMemory(command.content, source = "manual"))
+                            "Saved to Orbit Memory: ${command.content}"
+                        else "Memory is disabled. Enable it in Settings > Memory, then ask me to remember this again."
+                    }
+                    null -> {
+                        val draft = com.example.orbitai.feature.automation.parser.LocalReminderParser.parse(reminder!!.topicHint)
+                        _reminderReview.value = ReminderReviewRequest(chatId, draft, true)
+                        "Review the reminder below, then save it in Orbit. Check the suggested date and time; you can change them before saving."
+                    }
+                }
+                chatRepo.addMessage(chatId, Message(role = Role.ASSISTANT, content = response))
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(loadError = "Couldn't complete this action. Please try again.") }
+            }
+        }
+        return true
+    }
+
+    private val _notificationReplyDraft = MutableStateFlow(NotificationReplyDraftState())
+    val notificationReplyDraft = _notificationReplyDraft.asStateFlow()
+    private var notificationGenerationToken: Long? = null
+
+    fun clearNotificationReplyDraft() {
+        if (notificationGenerationToken == activeGenerationToken) stopGeneration()
+        notificationGenerationToken = null
+        _notificationReplyDraft.value = NotificationReplyDraftState()
+    }
+
+    fun draftNotificationReply(preview: com.example.orbitai.feature.automation.replies.ReplyNotification, instruction: String) {
+        if (instruction.isBlank()) return
+        val model = com.example.orbitai.feature.automation.replies.selectLocalReplyModel(
+            availableChatModels(modelDownloader, tokenStore), tokenStore.lastSelectedModelId,
+        )
+        if (model == null) {
+            _notificationReplyDraft.value = NotificationReplyDraftState(preview.key, preview.revision,
+                error = "Download a local model in Settings > Model, or write your reply below.")
+            return
+        }
+        stopGeneration()
+        val closingEngine = engineCloseJob
+        val token = beginNewGenerationToken()
+        notificationGenerationToken = token
+        _notificationReplyDraft.value = NotificationReplyDraftState(preview.key, preview.revision, loading = true)
+        generationJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                closingEngine?.join()
+                val settings = com.example.orbitai.core.common.InferenceSettings(maxDecodedTokens = 256)
+                llmRepo.loadModel(model, settings)
+                val prompt = ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle,
+                    com.example.orbitai.feature.automation.replies.ReplyDraftPrompt.build(preview.message, instruction))
+                var text = ""
+                llmRepo.generateResponseStream(InferenceInput(prompt), settings.maxDecodedTokens).collect { part ->
+                    if (!isGenerationTokenActive(token)) throw CancellationException("Stale reply draft")
+                    text += part
+                }
+                if (isGenerationTokenActive(token)) {
+                    _notificationReplyDraft.value = NotificationReplyDraftState(preview.key, preview.revision,
+                        text = text.trim().take(4000), error = if (text.isBlank()) "No draft was generated. Try again or write a reply." else null)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                if (isGenerationTokenActive(token)) {
+                    _notificationReplyDraft.value = NotificationReplyDraftState(preview.key, preview.revision,
+                        error = "Couldn't generate a local draft. Try again or write your reply.")
+                }
+            } finally {
+                if (isGenerationTokenActive(token)) generationJob = null
+            }
+        }
+    }
+
     private val reminderTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, hh:mm a")
 
     init {
         refreshAvailableModels()
+        viewModelScope.launch {
+            try {
+                reminderScheduler.restore()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(loadError = "Couldn't restore saved reminders. Reopen Orbit to retry.") }
+            }
+        }
         viewModelScope.launch {
             modes.collect { activeModes ->
                 if (activeModes.none { it.id == _activeModeId.value }) {
@@ -217,9 +477,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         pendingReminderExecution = null
 
         if (!granted) {
+            _reminderReview.value = pending
             _uiState.update {
                 it.copy(
-                    loadError = "Notifications permission is required for automatic reminder execution.",
+                    loadError = "Enable notifications in Android Settings, or choose calendar handoff.",
                     infoMessage = null,
                 )
             }
@@ -227,20 +488,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (pending != null) {
-            handleIntentResult(
-                reminderScheduler.schedule(pending.draft),
-                onLaunched = {
-                    _uiState.update {
-                        it.copy(
-                            loadError = null,
-                            infoMessage = "Reminder scheduled for ${formatReminderTime(pending.draft.startTimeMillis)}",
-                        )
-                    }
-                },
-                onPermissionRequired = { permissionResult ->
-                    _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
-                },
-            )
+            viewModelScope.launch {
+                try {
+                    scheduleReviewedReminder(pending, requestPermission = false)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    _reminderReview.value = pending
+                    _uiState.update { it.copy(loadError = "Couldn't save the reminder. Please try again.") }
+                }
+            }
         }
     }
 
@@ -299,6 +555,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val trimmedText = userText.trim().ifBlank {
             if (imageUris.isNotEmpty()) "Describe the attached image(s)." else ""
         }
+        if (imageUris.isEmpty() && handleDeviceCommand(chatId, trimmedText)) return
         val currentAvailableModels = availableChatModels(modelDownloader, tokenStore)
         _availableModels.value = currentAvailableModels
 
@@ -560,50 +817,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                     modelOutput = accumulated,
                                     topicHint = toolRequest.topicHint,
                                 )
-                                if (automationSettingsStore.isAutomationExecutionEnabled) {
-                                    when (val result = reminderScheduler.schedule(draft)) {
-                                        AutomationExecutionResult.Launched -> {
-                                            _uiState.update {
-                                                it.copy(
-                                                    loadError = null,
-                                                    infoMessage = "Reminder scheduled for ${formatReminderTime(draft.startTimeMillis)}",
-                                                )
-                                            }
-                                        }
-                                        is AutomationExecutionResult.Failed -> {
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                        is AutomationExecutionResult.PermissionRequired -> {
-                                            if (result.permission == RuntimeToolPermission.NOTIFICATIONS) {
-                                                pendingReminderExecution = PendingReminderExecution(draft)
-                                                _events.emit(ChatUiEvent.RequestNotificationsPermission)
-                                                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    when (
-                                        val result = automationExecutor.execute(
-                                            request = toolRequest,
-                                            draft = draft,
-                                        )
-                                    ) {
-                                        AutomationExecutionResult.Launched -> {
-                                            _uiState.update {
-                                                it.copy(
-                                                    loadError = null,
-                                                    infoMessage = "Calendar opened for reminder on ${formatReminderTime(draft.startTimeMillis)}",
-                                                )
-                                            }
-                                        }
-                                        is AutomationExecutionResult.Failed -> {
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                        is AutomationExecutionResult.PermissionRequired -> {
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                    }
-                                }
+                                _reminderReview.value = ReminderReviewRequest(
+                                    chatId, draft, true,
+                                )
                             }
                             null -> Unit
                         }

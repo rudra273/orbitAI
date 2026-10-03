@@ -47,3 +47,13 @@ The endpoint must actually accept and retain the report for developer review bef
 ## Build checks
 
 Run `assembleDebug testDebugUnitTest lintDebug`, then `bundleRelease` with real production configuration and signing. Release configuration validation is expected to fail while contact details and URLs are missing. Never bypass that check to upload an incomplete app.
+
+### Notification reply verification
+
+- Keep the public privacy policy and Data Safety declarations aligned with the in-app notification-access disclosure.
+- Verify that no message previews appear before feature opt-in, app selection, and Android notification access.
+- On each supported messaging app, receive a test message, generate a local draft, edit it, and explicitly send it to a test account. Confirm receipt in that account; Orbit only confirms handoff.
+- Update or remove the notification while the review dialog is open; confirm the stale reply cannot be sent.
+- Revoke notification access and disable the feature; verify previews clear and sending is blocked.
+- Verify a cloud-only configuration cannot generate notification drafts, and that previews never enter saved chat history.
+- Check choice-only replies, grouped summaries, redacted content, and expired actions; unsupported notifications should not offer a send path.

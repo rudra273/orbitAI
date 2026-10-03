@@ -11,6 +11,51 @@ OrbitAI is an advanced on-device AI chat and productivity assistant for Android,
 - **Modern UI**: Built with Jetpack Compose for a smooth, responsive experience.
 - **Optional Cloud AI**: Local inference stays on your device. Gemini sends prompts, relevant context and attachments to Google only after confirmation. Voice recognition may use your device's speech provider when on-device recognition is unavailable.
 
+## Orbit reminders, calls, and memory
+
+- **Reminders:** ask “Remind me at 10 pm to call Mom”, “Remind me in 10 minutes to drink water”,
+  or “Set a reminder every Friday at 6 pm to submit expenses”. These common commands work
+  without a model. Orbit uses the phone's local time zone and shows an editable preview;
+  **10 pm means 22:00**. Without a date, an elapsed time moves to the next day. Check suggested
+  fields for unsupported or incomplete phrases before saving.
+- **Own reminder manager:** open **Settings > Tools > Saved reminders** to create reminders
+  directly, edit them, set daily/weekly repeats, snooze for 10 minutes, complete, or delete.
+  Reminder notifications also have Snooze and Done actions. Done dismisses the current
+  occurrence of a repeating reminder; Stop repeating in the manager ends the series.
+- **Delivery:** allow notifications and the OrbitAI Reminders channel. Enable Android
+  **Alarms & reminders** access from the manager for precise alarms; otherwise delivery
+  is approximate. Saved reminders are restored on reboot, app update, and reopening Orbit.
+  Android force-stop and device power-off can still prevent delivery until the app/device resumes.
+- **Calendar:** remains an explicit alternative in the preview; reminder commands default
+  to saving in Orbit, regardless of the old calendar-handoff preference.
+- **Sharing:** share text to Orbit and choose Create reminder, then send the prefilled command
+  and review the result. No overlay or microphone access is needed.
+- **Calls:** ask “Call Mom” or “Call +91 98765 43210”. Contact lookup needs contacts permission.
+  Choose the number and tap Call; direct calls require phone permission. Open dialer is available
+  without phone permission, and short phone numbers use the dialer. No model is needed.
+- **Memory:** “Remember that my bike is parked on level 2” saves to the existing Orbit Memory
+  section, without a model or cloud request. If Memory is disabled, Orbit reports that nothing
+  was saved there. Manage entries in Settings > Memory.
+
+Alarms from versions before reminder persistence cannot be recovered after reboot because
+those versions did not store them.
+
+## Optional notification replies
+
+Open **Settings > Tools > Message replies**, enable the feature after its disclosure,
+select apps, and grant Android notification access. Only active notifications with one
+usable text reply action appear. Support depends on the messaging app's notification
+format; selecting an app does not guarantee every conversation can be replied to.
+
+Choose **Review reply**, write a response or provide an instruction for **Draft with local AI**,
+review the conversation and wording, then tap **Send reply**. A downloaded local model is
+required for AI drafts, even if Gemini is your usual chat model. Previews and drafts stay
+in memory, outside chat history. Orbit checks for changed or removed notifications before
+handing the reply to the originating app; delivery is not confirmed by Orbit.
+
+This version does not send unattended auto-replies. Disable the feature to clear previews;
+Android notification access can also be revoked from the same screen.
+
 ## Screenshots
 
 *Add screenshots here to showcase the UI and features.*

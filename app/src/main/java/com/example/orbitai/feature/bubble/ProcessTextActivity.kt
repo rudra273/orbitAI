@@ -25,27 +25,42 @@ class ProcessTextActivity : Activity() {
             else -> null
         }
 
-        if (!sharedText.isNullOrBlank()) {
-            val audioGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-            if (!OrbitBubbleService.canDrawOverlays(this) || !audioGranted) {
-                openSharedTextInApp(sharedText)
-            } else {
-                try {
-                    val serviceIntent = Intent(this, OrbitBubbleService::class.java).apply {
-                        action = ACTION_USE_TEXT
-                        putExtra(EXTRA_SHARED_TEXT, sharedText)
-                    }
-                    ContextCompat.startForegroundService(this, serviceIntent)
-                } catch (_: IllegalStateException) {
-                    openSharedTextInApp(sharedText)
-                } catch (_: SecurityException) {
-                    openSharedTextInApp(sharedText)
+        if (sharedText.isNullOrBlank()) {
+            finish()
+            return
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Use text in Orbit")
+            .setItems(arrayOf("Create reminder", "Ask Orbit")) { _, which ->
+                if (which == 0) {
+                    openSharedTextInApp("/remind $sharedText")
+                } else {
+                    askOrbit(sharedText)
                 }
+                finish()
+            }
+            .setOnCancelListener { finish() }
+            .show()
+    }
+
+    private fun askOrbit(sharedText: String) {
+        val audioGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!OrbitBubbleService.canDrawOverlays(this) || !audioGranted) {
+            openSharedTextInApp(sharedText)
+        } else {
+            try {
+                val serviceIntent = Intent(this, OrbitBubbleService::class.java).apply {
+                    action = ACTION_USE_TEXT
+                    putExtra(EXTRA_SHARED_TEXT, sharedText)
+                }
+                ContextCompat.startForegroundService(this, serviceIntent)
+            } catch (_: IllegalStateException) {
+                openSharedTextInApp(sharedText)
+            } catch (_: SecurityException) {
+                openSharedTextInApp(sharedText)
             }
         }
-
-        finish()
     }
     private fun openSharedTextInApp(text: String) {
         Toast.makeText(this, "Shared text opened in Orbit. Add your instruction before sending.", Toast.LENGTH_LONG).show()

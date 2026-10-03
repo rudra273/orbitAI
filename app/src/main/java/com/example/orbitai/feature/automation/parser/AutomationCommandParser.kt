@@ -3,18 +3,18 @@ package com.example.orbitai.feature.automation.parser
 object AutomationCommandParser {
 
     private val draftEmailPatterns = listOf(
-        Regex("""(?i)^/(?:mail|email|draft-mail|draft-email)\b\s*(.*)$"""),
-        Regex("""(?i)^draft\s+(?:an?\s+)?(?:mail|email)\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^/(?:mail|email|draft-mail|draft-email)\b\s*(.*)$"""),
+        Regex("""(?is)^draft\s+(?:an?\s+)?(?:mail|email)\b[:\-\s]*(.*)$"""),
     )
     private val draftWhatsAppPatterns = listOf(
-        Regex("""(?i)^/(?:whatsapp|wa)\b\s*(.*)$"""),
-        Regex("""(?i)^(?:draft|write|send)\s+(?:a\s+)?(?:whatsapp|wa)(?:\s+message)?\b[:\-\s]*(.*)$"""),
-        Regex("""(?i)^whatsapp\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^/(?:whatsapp|wa)\b\s*(.*)$"""),
+        Regex("""(?is)^(?:draft|write|send)\s+(?:a\s+)?(?:whatsapp|wa)(?:\s+message)?\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^whatsapp\b[:\-\s]*(.*)$"""),
     )
     private val reminderPatterns = listOf(
-        Regex("""(?i)^/(?:remind|reminder)\b\s*(.*)$"""),
-        Regex("""(?i)^(?:set|create|add)\s+(?:a\s+)?reminder\b[:\-\s]*(.*)$"""),
-        Regex("""(?i)^remind\s+me(?:\s+to)?\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^/(?:remind|reminder)\b\s*(.*)$"""),
+        Regex("""(?is)^(?:set|create|add)\s+(?:a\s+)?reminder\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^remind\s+me(?:\s+to)?\b[:\-\s]*(.*)$"""),
     )
 
     fun parse(input: String): AutomationRequest? {

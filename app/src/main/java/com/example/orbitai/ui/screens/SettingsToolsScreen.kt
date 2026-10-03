@@ -65,8 +65,9 @@ private val ToolsInk: Color
 fun ToolsSettingsScreen(
     toolSettingsStore: AutomationSettingsStore,
     onBack: () -> Unit,
+    onOpenReminders: () -> Unit,
+    onOpenReplies: () -> Unit,
 ) {
-    var automationEnabled by remember { mutableStateOf(toolSettingsStore.isAutomationExecutionEnabled) }
 
     LazyColumn(
         modifier = Modifier
@@ -142,23 +143,26 @@ fun ToolsSettingsScreen(
                     description = "Available tool. Opens WhatsApp compose flow with manual handoff.",
                 )
                 ToolsHairlineDivider()
-                ToolToggleRow(
+                ToolInfoRow(
                     icon = Icons.Default.Event,
-                    title = "Reminder",
-                    description = if (automationEnabled) {
-                        "Automation ON. Reminders are scheduled directly in background notifications."
-                    } else {
-                        "Automation OFF. Orbit opens a reminder app flow instead of scheduling automatically."
-                    },
-                    checked = automationEnabled,
-                    onCheckedChange = {
-                        automationEnabled = it
-                        toolSettingsStore.isAutomationExecutionEnabled = it
-                    },
+                    title = "Orbit reminders",
+                    description = "Save, edit, repeat, snooze, and complete reminders on this device. Calendar is optional.",
+                )
+                ToolsHairlineDivider()
+                ToolInfoRow(
+                    icon = Icons.Default.Build,
+                    title = "Calls and memory",
+                    description = "Ask ‘Call Alex’ or ‘Remember that…’. These actions work without a model.",
                 )
             }
         }
 
+        item {
+            androidx.compose.material3.TextButton(onClick = onOpenReminders) { Text("Saved reminders") }
+        }
+        item {
+            androidx.compose.material3.TextButton(onClick = onOpenReplies) { Text("Message replies") }
+        }
         item { ToolsSectionHeader("NOTES") }
         item {
             ToolsGroupedCard {
