@@ -25,7 +25,7 @@ object WhatsNew {
         "Find and organise chats" to "Search all messages, pin, rename, archive, and export a chat as PDF or text.",
         "Share to Orbit" to "Share files or images from any app, or select text and choose Orbit to proofread, rewrite, translate or summarise.",
         "Voice in the Orbit Bubble" to "Talk hands-free from the bubble and reply to follow up. Continue in app keeps the conversation.",
-        "Your phone, your data" to "Backup & restore, a Privacy center with a network log, Calendar awareness you switch on, and your own model files.",
+        "Your phone, your data" to "Backup & restore, a Privacy center with a network log, and your own model files.",
         "Make it yours" to "Themes and text size, Modes with colours and templates, and Hindi by default for Translate (any language works).",
     )
 }

@@ -158,35 +158,6 @@ fun ToolsSettingsScreen(
         }
 
         item {
-            ToolsGroupedCard {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                var on by remember {
-                    mutableStateOf(
-                        toolSettingsStore.isCalendarAwarenessEnabled &&
-                            com.example.orbitai.feature.calendar.CalendarReader(context).hasPermission(),
-                    )
-                }
-                val permission = androidx.activity.compose.rememberLauncherForActivityResult(
-                    androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
-                ) { granted ->
-                    on = granted
-                    toolSettingsStore.isCalendarAwarenessEnabled = granted
-                }
-                ToolToggleRow(
-                    icon = Icons.Default.Build,
-                    title = "Calendar awareness",
-                    description = "Lets Orbit read your calendar to answer questions like \"what's on my day?\" or \"am I free Friday?\". " +
-                        "Only the day or week you ask about is read, kept for that one answer, and never sent to the cloud model.",
-                    checked = on,
-                    onCheckedChange = { wanted ->
-                        if (wanted) permission.launch(android.Manifest.permission.READ_CALENDAR)
-                        else { on = false; toolSettingsStore.isCalendarAwarenessEnabled = false }
-                    },
-                )
-            }
-        }
-
-        item {
             androidx.compose.material3.TextButton(onClick = onOpenReminders) { Text("Saved reminders") }
         }
         item {

@@ -10,7 +10,7 @@ Labels: enhancement, bug
 **Proposed behavior:**
 - `DocumentIngestWorker` (WorkManager) per document, idempotent, resumable after process death
 - Stale `PROCESSING` rows are re-queued on app start
-- Store an `errorMessage` on `rag_documents` (migration): "Password-protected PDF", "No selectable text (scanned PDF), try OCR (f035)", "File no longer accessible", "Out of memory"
+- Store an `errorMessage` on `rag_documents` (migration): "Password-protected PDF", "No selectable text (scanned PDF)", "File no longer accessible", "Out of memory"
 - Per-document progress (pages processed / total) in `SpaceDetailScreen`
 - Retry button on failed documents
 

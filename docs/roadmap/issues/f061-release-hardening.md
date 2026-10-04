@@ -12,7 +12,7 @@ Labels: enhancement
 - **Closed testing track** on Play for ≥ 2 weeks; GitHub pre-release APKs for sideload users
 - **Device matrix** (minimum): one Snapdragon 8-series (NPU path, #40), one Exynos/Tensor, one MediaTek, one 6 GB RAM device, one 12 GB+ device, plus the oldest supported Android version (f003)
 - **Upgrade test:** install 1.1.3 → create data in every feature → upgrade to 2.0 → verify everything survived
-- `docs/play-release-checklist.md` extended with the 2.0 items (data safety form: diagnostics f010, backup f055, calendar f043, notification digest f044)
+- `docs/play-release-checklist.md` extended with the 2.0 items (data safety form: diagnostics f010, backup f055, notification digest f044)
 
 **Acceptance Criteria:**
 - [ ] Zero open P0 issues in the `2.0` milestone

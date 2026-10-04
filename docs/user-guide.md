@@ -19,7 +19,6 @@ Orbit offers "Remember this?" when you share a lasting fact. Tap to save it. Man
 ## Tools
 Ask in your own words, for example "send hi to Aditya on WhatsApp", "remind me every Friday at 6 pm to submit expenses", "set a timer for 10 minutes", "navigate to the airport", or "turn on the flashlight". Orbit shows what it will do and waits for your confirmation; messages and calls need your final tap in the other app. Switch any tool off in Settings > Tools.
 
-**Calendar awareness** (Settings > Tools, off by default): ask "what's on my day tomorrow?" or "am I free Friday?". Orbit reads only that day or week, uses it for that one answer, and never sends it to the cloud model.
 
 ## Orbit Bubble
 Enable it in Settings > Orbit Bubble (needs "draw over other apps" and the microphone). Tap the bubble and speak. Tap **Reply** on the answer card to ask a follow-up; **Continue in app** saves the exchange as a chat. Turn on "Save bubble conversations to history" to keep every bubble chat.

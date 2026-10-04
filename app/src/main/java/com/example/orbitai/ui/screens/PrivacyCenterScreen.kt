@@ -74,7 +74,6 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
             PermissionRow("Microphone", "Talk to the Orbit Bubble. Audio is turned into text on the phone.", granted(Manifest.permission.RECORD_AUDIO)),
             PermissionRow("Contacts", "Find a contact by name for WhatsApp, SMS and calls.", granted(Manifest.permission.READ_CONTACTS)),
             PermissionRow("Phone calls", "Place a call after you confirm.", granted(Manifest.permission.CALL_PHONE)),
-            PermissionRow("Calendar", "Answer schedule questions, only when Calendar awareness is on.", granted(Manifest.permission.READ_CALENDAR)),
             PermissionRow("Notifications", "Show reminders.", granted(Manifest.permission.POST_NOTIFICATIONS)),
             PermissionRow("Draw over other apps", "Show the Orbit Bubble above other apps.", Settings.canDrawOverlays(context)),
             PermissionRow(

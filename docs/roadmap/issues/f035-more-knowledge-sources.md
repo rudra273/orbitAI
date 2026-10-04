@@ -1,9 +1,9 @@
-# f035 More knowledge sources: DOCX, EPUB, web pages, image OCR and in-app notes
+# f035 More knowledge sources: DOCX, EPUB, web pages, and in-app notes
 Labels: enhancement
 **Milestone:** M3 Power Features · **Priority:** P2 · **Size:** L · **Area:** Spaces
 **Depends on:** f034
 
-**Status:** 🚧 In progress (2026-10-04). Word (.docx) and e-book (.epub) files are now indexed in Spaces, with unit tests. Still to do: web page by URL, image/scanned-PDF OCR (needs a library decision), in-app notes.
+**Status:** 🚧 In progress (2026-10-04). Word (.docx) and e-book (.epub) files are now indexed in Spaces, with unit tests. Still to do: web page by URL, in-app notes.
 
 **Title:** Broaden what can be added to a Space
 
@@ -14,11 +14,9 @@ Spaces accept PDF and text-like files (`isTextLikeDocument`). Common inputs fail
 1. **DOCX:** unzip + parse `word/document.xml` (no heavy dependency)
 2. **EPUB:** unzip + strip XHTML chapters
 3. **Web page:** paste a URL → fetch (respecting the cleartext-off policy) → readability-style main-text extraction → store title + URL
-4. **OCR:** images and scanned PDFs via an on-device text recognizer (decide on a dependency, e.g. bundled ML Kit Text Recognition, vs none)
-5. **Notes:** create and edit a plain-text note inside a Space
+4. **Notes:** create and edit a plain-text note inside a Space
 
 **Acceptance Criteria:**
 - [ ] Each source type has a unit test with a small fixture file
 - [ ] Web fetch shows the URL being fetched and never runs without user action
-- [ ] OCR runs fully on-device; if the chosen library needs Play services, that is stated in the PR
 - [ ] Unsupported files show a specific message listing the supported types

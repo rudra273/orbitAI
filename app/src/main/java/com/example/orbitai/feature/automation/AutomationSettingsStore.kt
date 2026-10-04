@@ -16,10 +16,5 @@ class AutomationSettingsStore(context: Context) {
 
     fun setEnabled(tool: OrbitTool, enabled: Boolean) = prefs.edit { putBoolean("tool_enabled_${tool.name}", enabled) }
 
-    /** Calendar awareness (f043) reads calendar events, so it is off until the user turns it on. */
-    var isCalendarAwarenessEnabled: Boolean
-        get() = prefs.getBoolean("calendar_awareness", false)
-        set(value) = prefs.edit { putBoolean("calendar_awareness", value) }
-
     fun enabledTools(): Set<OrbitTool> = OrbitTool.entries.filterTo(mutableSetOf(), ::isEnabled)
 }

@@ -8,7 +8,6 @@ OrbitAI is an advanced on-device AI chat and productivity assistant for Android,
 - **Spaces (RAG)**: add PDF, Word (.docx), EPUB and text files; answers use hybrid keyword + meaning search and show the pages they came from.
 - **Memory**: Orbit suggests facts to remember and you tap to save; only relevant ones are used in a reply.
 - **Tools by natural language**: WhatsApp, email, SMS, calls, reminders (repeating too), timers, alarms, navigation, open app, web search, calendar events and flashlight, with typo-tolerant commands, native tool calling on LiteRT-LM models, and a confirmation before every action. Each tool can be switched off in Settings > Tools.
-- **Calendar awareness (opt-in)**: ask "what's on my day?"; only the day or week you ask about is read, and never sent to the cloud model.
 - **Orbit Bubble**: floating assistant with hands-free voice, voice follow-ups, and Continue in app.
 - **Text selection and sharing**: select text anywhere and choose Orbit to proofread, rewrite, translate (Hindi by default, any language works), summarise, explain or reply; share files and images to Orbit.
 - **Organise and export**: search all chats, pin, rename, archive, and export a chat as PDF, Markdown or text.
@@ -180,7 +179,7 @@ Set `ANDROID_UPLOAD_KEY_ALIAS` to `upload-key`. Pushing a tag such as `v1.0.0` w
 - **Accompanist, Material3, Navigation Compose** for UI/UX.
 
 ## Permissions
-- `INTERNET`, `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `READ_CONTACTS`, `CALL_PHONE`, `READ_CALENDAR` (opt-in), `POST_NOTIFICATIONS`, `SET_ALARM`, `SCHEDULE_EXACT_ALARM`
+- `INTERNET`, `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `READ_CONTACTS`, `CALL_PHONE`, `POST_NOTIFICATIONS`, `SET_ALARM`, `SCHEDULE_EXACT_ALARM`
 - Accessibility, broad storage access and APK installation permissions are absent from the Play branch. Screen capture requests Android consent each time; generated text is copied for manual pasting.
 
 ## Contributing

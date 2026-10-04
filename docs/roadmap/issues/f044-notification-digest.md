@@ -2,6 +2,8 @@
 Labels: enhancement
 **Milestone:** M3 Power Features · **Priority:** P2 · **Size:** L · **Area:** Automation / Privacy
 
+**Play policy check (added 2026-10-04):** this reads other apps' notifications, which Google Play reviews closely (sensitive user data, prominent in-app disclosure before access, Data safety form, a purpose that is core to the app). Before building: confirm the existing Message replies feature passes review with the same listener, keep the digest off by default with its own disclosure, never store OTPs or one-time codes (filter them out before anything is buffered), and keep the buffer in memory or encrypted and cleared after each digest. If review pushes back, remove the digest and keep Message replies. Do not ship it unless this holds.
+
 **Title:** Summarize the day's notifications from selected apps with the local model
 
 **Description:**
