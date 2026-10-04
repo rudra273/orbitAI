@@ -64,7 +64,7 @@ The largest orchestration surface — read this to understand the end-to-end mes
 2. Routes the input through `AutomationRouter` → either a tool request or normal chat.
 3. Resolves the model (chat's model → last-selected → first available), validates vision support for image input.
 4. Persists the user message, may offer a "Remember …?" suggestion (`MemorySuggester`, saved only on tap).
-5. Builds the prompt: for normal chat, pulls RAG chunks from active spaces + memories + the active mode's system prompt; for tool requests, uses the corresponding draft prompt builder.
+5. Builds the prompt: for normal chat, pulls RAG chunks from active spaces + relevant memories (`MemoryRepository.selectForPrompt` → `MemorySelector`: profile facts + top-5 relevant, ~150-token budget) + the active mode's system prompt; for tool requests, uses the corresponding draft prompt builder.
 6. Streams the response into a placeholder assistant message, then (for tool requests) parses the model output and executes the automation.
 
 Active **mode** (`activeModeId`) selects the system prompt and per-mode `InferenceSettings`; active **spaces** (`activeSpaceIds`) scope RAG retrieval.
@@ -81,7 +81,7 @@ A `SYSTEM_ALERT_WINDOW` overlay service (the largest single file, ~1800 lines) p
 
 ### Data layer (`core/database`)
 
-Single Room DB `orbitai.db` (`AppDatabase`, version in `AppDatabase.VERSION`, currently **15**) with entities split across files: chats/messages (`Entities.kt`), RAG docs/chunks with embeddings (`RagEntities.kt`), memories (`MemoryEntities.kt`), spaces (`SpaceEntities.kt`), modes (`ModeEntities.kt`), reminders (`ReminderEntity.kt`). **All schema changes require a hand-written `Migration` appended to `ALL_MIGRATIONS`** (no auto-migrations). Schemas are exported to `app/schemas/`: every version bump must commit the new schema JSON and extend `app/src/androidTest/.../database/MigrationTest.kt` (`./gradlew connectedAndroidTest`). Default modes (Orbit/Concise/Step-by-step) are seeded via migration SQL.
+Single Room DB `orbitai.db` (`AppDatabase`, version in `AppDatabase.VERSION`, currently **16**) with entities split across files: chats/messages (`Entities.kt`), RAG docs/chunks with embeddings (`RagEntities.kt`), memories (`MemoryEntities.kt`), spaces (`SpaceEntities.kt`), modes (`ModeEntities.kt`), reminders (`ReminderEntity.kt`). **All schema changes require a hand-written `Migration` appended to `ALL_MIGRATIONS`** (no auto-migrations). Schemas are exported to `app/schemas/`: every version bump must commit the new schema JSON and extend `app/src/androidTest/.../database/MigrationTest.kt` (`./gradlew connectedAndroidTest`). Default modes (Orbit/Concise/Step-by-step) are seeded via migration SQL.
 
 ### RAG & Spaces (`feature/spaces`)
 

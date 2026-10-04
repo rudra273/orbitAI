@@ -15,6 +15,8 @@ Labels: enhancement
 - "Memory used" indicator on the assistant message (tap to see which memories)
 
 **Acceptance Criteria:**
-- [ ] With 200 memories, prompt memory section ≤ ~150 tokens
-- [ ] Editing a memory re-embeds it
-- [ ] Unit tests for selection (profile always included, threshold respected)
+- [x] With 200 memories, prompt memory section ≤ ~150 tokens
+- [x] Editing a memory re-embeds it
+- [x] Unit tests for selection (profile always included, threshold respected)
+
+**Status:** 🟡 Done, device check pending (2026-10-04). DB v16 (MIGRATION_15_16): memories.embedding/useCount/lastUsedAt, messages.usedMemories. MemorySelector sends profile facts (name, how to address, reply language) plus up to 5 relevant memories (keyword overlap or cosine >= 0.3, rank-fused) within ~150 tokens; older memories are embedded on first use. Replies show 'Memory used' (tap for the list). Settings > Memory: tap to edit (re-embeds), search, Recent / Most used, source and use count. Device check pending: instrumented MigrationTest and the UI.

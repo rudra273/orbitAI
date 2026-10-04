@@ -151,6 +151,15 @@ interface MemoryDao {
     @Query("DELETE FROM memories WHERE id = :id")
     suspend fun deleteMemory(id: String)
 
+    @Query("UPDATE memories SET content = :content, embedding = :embedding WHERE id = :id")
+    suspend fun updateContent(id: String, content: String, embedding: ByteArray?)
+
+    @Query("UPDATE memories SET embedding = :embedding WHERE id = :id")
+    suspend fun updateEmbedding(id: String, embedding: ByteArray)
+
+    @Query("UPDATE memories SET useCount = useCount + 1, lastUsedAt = :now WHERE id IN (:ids)")
+    suspend fun markUsed(ids: List<String>, now: Long)
+
     @Query("DELETE FROM memories")
     suspend fun clearAll()
 }

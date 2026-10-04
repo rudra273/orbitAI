@@ -23,6 +23,10 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) { repository.deleteMemory(id) }
     }
 
+    fun updateMemory(id: String, content: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.updateMemory(id, content) }
+    }
+
     fun clearAll() {
         viewModelScope.launch(Dispatchers.IO) { repository.clearAll() }
     }

@@ -11,6 +11,7 @@ import com.example.orbitai.core.database.STEP_BY_STEP_MODE_ID
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
@@ -96,6 +97,17 @@ class MigrationTest {
                 assertNull(it.getString(1))
                 assertEquals(0, it.getInt(2))
                 assertEquals(0, it.getInt(3))
+            }
+            db.query("SELECT content, useCount, lastUsedAt, embedding FROM memories WHERE id = 'mem'").use {
+                it.moveToFirst()
+                assertEquals("Likes tea", it.getString(0))
+                assertEquals(0, it.getInt(1))
+                assertEquals(0L, it.getLong(2))
+                assertTrue(it.isNull(3))
+            }
+            db.query("SELECT usedMemories FROM messages WHERE id = 'msg'").use {
+                it.moveToFirst()
+                assertTrue(it.isNull(0))
             }
         }
         context.deleteDatabase(name)

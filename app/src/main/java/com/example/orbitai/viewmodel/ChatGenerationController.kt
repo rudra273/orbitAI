@@ -366,7 +366,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 // 3. Build prompt from history + RAG context + memories
                 val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
                 val memories = if (memoryEnabled) {
-                    memoryRepo.getAllMemories().map { it.content }
+                    memoryRepo.selectForPrompt(trimmedText).map { it.content }
                 } else {
                     emptyList()
                 }
@@ -389,6 +389,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     )
                     null -> null
                 }
+                var usedMemories = memories
                 val (prompt, structuredPrompt) = if (toolInstruction != null) {
                     ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle, toolInstruction) to
                         ModelPromptBuilder.structuredInstruction(toolInstruction)
@@ -408,6 +409,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                         imageCount = imageUris.size,
                     )
                     reportContextTrimming(chatId, budgeted)
+                    usedMemories = budgeted.memories
                     ModelPromptBuilder.buildChatPrompt(
                         promptStyle = model.promptStyle,
                         messages = budgeted.messages,
@@ -444,6 +446,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     content = "",
                     modeName = activeMode?.name ?: "Orbit",
                     isStreaming = true,
+                    usedMemories = usedMemories,
                 )
                 chatRepo.addMessage(chatId, assistantMsg)
                 _uiState.update { it.copy(isGenerating = true) }

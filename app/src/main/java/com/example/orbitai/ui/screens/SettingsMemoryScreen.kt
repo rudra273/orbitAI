@@ -23,7 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -74,7 +78,30 @@ fun MemorySettingsScreen(
 ) {
     var enabled by remember { mutableStateOf(memoryStore.isEnabled) }
     var suggest by remember { mutableStateOf(memoryStore.suggestionsEnabled) }
-    val memories by memoryViewModel.memories.collectAsState()
+    val allMemories by memoryViewModel.memories.collectAsState()
+    var query by remember { mutableStateOf("") }
+    var sortByUse by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<MemoryEntity?>(null) }
+    val memories = remember(allMemories, query, sortByUse) {
+        allMemories
+            .filter { query.isBlank() || it.content.contains(query.trim(), ignoreCase = true) }
+            .sortedWith(if (sortByUse) compareByDescending<MemoryEntity> { it.useCount }.thenByDescending { it.lastUsedAt } else compareByDescending { it.createdAt })
+    }
+    editing?.let { memory ->
+        var text by remember(memory.id) { mutableStateOf(memory.content) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Edit memory") },
+            text = { OutlinedTextField(value = text, onValueChange = { text = it }, maxLines = 4) },
+            confirmButton = {
+                TextButton(enabled = text.isNotBlank(), onClick = {
+                    memoryViewModel.updateMemory(memory.id, text)
+                    editing = null
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -167,12 +194,30 @@ fun MemorySettingsScreen(
         }
 
         item { MemorySectionHeader("STORED") }
+        if (allMemories.size > 1) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Search memories") },
+                        singleLine = true,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !sortByUse, onClick = { sortByUse = false }, label = { Text("Recent") })
+                        FilterChip(selected = sortByUse, onClick = { sortByUse = true }, label = { Text("Most used") })
+                    }
+                }
+            }
+        }
         if (memories.isNotEmpty()) {
             item {
                 MemoryGroupedCard {
                     memories.forEachIndexed { index, memory ->
                         MemoryStoredRow(
                             memory = memory,
+                            onEdit = { editing = memory },
                             onDelete = { memoryViewModel.deleteMemory(memory.id) },
                         )
                         if (index != memories.lastIndex) {
@@ -232,6 +277,13 @@ fun MemorySettingsScreen(
             )
         }
     }
+}
+
+private fun memorySourceLabel(source: String): String = when (source) {
+    "user_profile" -> "Profile"
+    "suggested" -> "Saved from a suggestion"
+    "auto" -> "Saved automatically"
+    else -> "Added by you"
 }
 
 @Composable
@@ -338,11 +390,13 @@ private fun MemoryToggleRow(
 @Composable
 private fun MemoryStoredRow(
     memory: MemoryEntity,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClickLabel = "Edit memory", onClick = onEdit)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,
@@ -354,16 +408,26 @@ private fun MemoryStoredRow(
                 .clip(CircleShape)
                 .background(MemoryGreen),
         )
-        Text(
-            text = memory.content,
-            modifier = Modifier.weight(1f),
-            color = MemoryInk.copy(alpha = 0.82f),
-            fontFamily = MemorySans,
-            fontSize = 13.sp,
-            lineHeight = 17.sp,
-            maxLines = 4,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = memory.content,
+                color = MemoryInk.copy(alpha = 0.82f),
+                fontFamily = MemorySans,
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = listOfNotNull(
+                    memorySourceLabel(memory.source),
+                    memory.useCount.takeIf { it > 0 }?.let { "used $it ${if (it == 1) "time" else "times"}" },
+                ).joinToString(" · "),
+                color = MemoryInk.copy(alpha = 0.38f),
+                fontFamily = MemorySans,
+                fontSize = 11.sp,
+            )
+        }
         IconButton(
             onClick = onDelete,
             modifier = Modifier.size(28.dp),

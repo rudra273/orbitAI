@@ -36,6 +36,8 @@ data class MessageEntity(
     val modeName: String? = null,
     val imageUrisCsv: String? = null,
     val timestampMs: Long,
+    /** Memories sent with this reply, one per line. */
+    val usedMemories: String? = null,
 )
 
 /** Chat list row: chat fields plus its newest message, without loading other messages. */
@@ -93,6 +95,7 @@ fun MessageEntity.toDomain(): Message = Message(
     imageUris   = imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     isStreaming = false,
     timestampMs = timestampMs,
+    usedMemories = usedMemories?.split("\n")?.filter { it.isNotBlank() } ?: emptyList(),
 )
 
 fun Chat.toEntity(): ChatEntity = ChatEntity(id, title, modelId, createdAt)
@@ -105,4 +108,5 @@ fun Message.toEntity(chatId: String): MessageEntity = MessageEntity(
     modeName    = modeName,
     imageUrisCsv = if (imageUris.isEmpty()) null else imageUris.joinToString(","),
     timestampMs = timestampMs,
+    usedMemories = usedMemories.takeIf { it.isNotEmpty() }?.joinToString("\n"),
 )

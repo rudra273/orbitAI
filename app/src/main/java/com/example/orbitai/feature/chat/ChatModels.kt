@@ -12,6 +12,8 @@ data class Message(
     val imageUris: List<String> = emptyList(),
     val isStreaming: Boolean = false,
     val timestampMs: Long = System.currentTimeMillis(),
+    /** Memories that were sent with this reply (shown as "Memory used"). */
+    val usedMemories: List<String> = emptyList(),
 )
 
 data class Chat(

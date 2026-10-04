@@ -1063,6 +1063,35 @@ private fun MessageBubble(
                     }
                     MessageActionIcon(Icons.Outlined.Share, "Share reply", onClick = share)
                     MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
+                    if (msg.usedMemories.isNotEmpty()) {
+                        var showMemories by remember { mutableStateOf(false) }
+                        TextButton(
+                            onClick = { showMemories = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier.height(36.dp),
+                        ) {
+                            Icon(Icons.Outlined.Psychology, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Memory used", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        }
+                        if (showMemories) {
+                            AlertDialog(
+                                onDismissRequest = { showMemories = false },
+                                title = { Text("Memories used") },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        msg.usedMemories.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+                                        Text(
+                                            "Manage memories in Settings > Memory.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextMuted,
+                                        )
+                                    }
+                                },
+                                confirmButton = { TextButton(onClick = { showMemories = false }) { Text("OK") } },
+                            )
+                        }
+                    }
                 }
             }
         }
