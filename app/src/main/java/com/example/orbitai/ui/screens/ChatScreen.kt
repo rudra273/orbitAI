@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.*
@@ -234,6 +235,12 @@ fun ChatScreen(
 
     val isTemporary = remember(chatId) { viewModel.isTemporaryChat(chatId) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+    chat?.takeIf { showExport }?.let { current ->
+        val modelName = (availableModels + com.example.orbitai.core.model.AVAILABLE_MODELS)
+            .find { it.id == current.modelId }?.displayName
+        ExportChatDialog(current, modelName, onDismiss = { showExport = false })
+    }
     val leave = {
         if (isTemporary) viewModel.discardTemporaryChat(chatId)
         onBack()
@@ -291,6 +298,7 @@ fun ChatScreen(
                     onSelectMode    = { viewModel.selectMode(it) },
                     onToggleSpace   = { viewModel.toggleSpace(it) },
                     onNavigateToSettings = onNavigateToSettings,
+                    onExport = { showExport = true },
                 )
             },
             bottomBar = {
@@ -461,6 +469,7 @@ private fun ChatTopBar(
     onSelectMode:   (String) -> Unit,
     onToggleSpace:  (String) -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onExport: () -> Unit = {},
 ) {
     val activeMode = modes.find { it.id == activeModeId } ?: modes.firstOrNull()
     val title = remember(chat?.title) { displayChatTitle(chat) }
@@ -525,7 +534,19 @@ private fun ChatTopBar(
                 )
             }
 
-            Spacer(Modifier.width(4.dp))
+            if (chat != null && chat.messages.isNotEmpty()) {
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Chat options", tint = TextMuted, modifier = Modifier.size(18.dp))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(text = { Text("Export chat") }, onClick = { menuOpen = false; onExport() })
+                    }
+                }
+            } else {
+                Spacer(Modifier.width(4.dp))
+            }
         }
 
         // ── Row 2: context strip — mode chip + space chips ─────────────────

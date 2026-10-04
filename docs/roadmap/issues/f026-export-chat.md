@@ -14,7 +14,9 @@ There's no way to get a conversation out of OrbitAI: users can't save an answer 
 - Option to include or exclude images (vision chats)
 
 **Acceptance Criteria:**
-- [ ] Markdown export round-trips code blocks and lists correctly
+- [x] Markdown export round-trips code blocks and lists correctly
 - [ ] PDF renders long chats across pages without cut-off lines
-- [ ] Export runs off the main thread, with progress for long chats
-- [ ] Temporary chats (f027) can be exported before they're discarded
+- [x] Export runs off the main thread, with progress for long chats
+- [x] Temporary chats (f027) can be exported before they're discarded
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Chat ⋮ menu → Export chat: Markdown, text or PDF (PdfDocument, paged by line); Share via FileProvider or Save via the system picker; images optional in PDF. Device check pending: long PDF paging and the share sheet.
