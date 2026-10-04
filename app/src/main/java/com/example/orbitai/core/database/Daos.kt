@@ -18,7 +18,7 @@ interface ChatDao {
 
     @Query(
         """
-        SELECT c.id, c.title, c.modelId, c.createdAt,
+        SELECT c.id, c.title, c.modelId, c.createdAt, c.isPinned, c.isArchived,
             (SELECT substr(m.content, 1, 200) FROM messages m
                 WHERE m.chatId = c.id ORDER BY m.timestampMs DESC LIMIT 1) AS lastMessagePreview,
             (SELECT MAX(m.timestampMs) FROM messages m WHERE m.chatId = c.id) AS lastMessageAt
@@ -31,7 +31,7 @@ interface ChatDao {
     @Query(
         """
         SELECT * FROM chats c
-        WHERE NOT EXISTS (
+        WHERE c.isArchived = 0 AND NOT EXISTS (
             SELECT 1 FROM messages m
             WHERE m.chatId = c.id AND m.role = 'USER'
         )
@@ -52,6 +52,30 @@ interface ChatDao {
 
     @Query("DELETE FROM chats WHERE id = :chatId")
     suspend fun deleteChat(chatId: String)
+
+    @Query("UPDATE chats SET title = :title, isTitleLocked = 1 WHERE id = :chatId")
+    suspend fun rename(chatId: String, title: String)
+
+    @Query("UPDATE chats SET isPinned = :pinned WHERE id IN (:chatIds)")
+    suspend fun setPinned(chatIds: List<String>, pinned: Boolean)
+
+    @Query("UPDATE chats SET isArchived = :archived, isPinned = 0 WHERE id IN (:chatIds)")
+    suspend fun setArchived(chatIds: List<String>, archived: Boolean)
+
+    /** Messages matching an FTS [match] expression, newest first, with a highlighted excerpt. */
+    @Query(
+        """
+        SELECT m.id AS messageId, m.chatId AS chatId, c.title AS chatTitle, m.timestampMs AS timestampMs,
+            snippet(messages_fts, '[', ']', '…', -1, 10) AS snippet
+        FROM messages_fts
+        JOIN messages m ON m.rowid = messages_fts.rowid
+        JOIN chats c ON c.id = m.chatId
+        WHERE messages_fts MATCH :match
+        ORDER BY m.timestampMs DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun searchMessages(match: String, limit: Int = 50): List<MessageSearchRow>
 }
 
 @Dao

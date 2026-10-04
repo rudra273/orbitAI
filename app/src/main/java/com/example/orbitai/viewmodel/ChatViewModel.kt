@@ -90,6 +90,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) { chatRepo.deleteChat(chatId) }
     }
 
+    fun deleteChats(chatIds: Collection<String>) {
+        viewModelScope.launch(Dispatchers.IO) { chatIds.forEach { chatRepo.deleteChat(it) } }
+    }
+
+    fun renameChat(chatId: String, title: String) {
+        viewModelScope.launch { chatRepo.renameChat(chatId, title) }
+    }
+
+    fun setPinned(chatIds: Collection<String>, pinned: Boolean) {
+        viewModelScope.launch { chatRepo.setPinned(chatIds.toList(), pinned) }
+    }
+
+    fun setArchived(chatIds: Collection<String>, archived: Boolean) {
+        viewModelScope.launch { chatRepo.setArchived(chatIds.toList(), archived) }
+    }
+
+    suspend fun searchMessages(query: String): List<com.example.orbitai.feature.chat.MessageSearchHit> =
+        chatRepo.searchMessages(query)
+
     // ── Generation ────────────────────────────────────────────────────────────
     val activeSpaceIds: StateFlow<Set<String>> = generation.activeSpaceIds
     val activeModeId: StateFlow<String> = generation.activeModeId

@@ -109,6 +109,15 @@ class MigrationTest {
                 it.moveToFirst()
                 assertTrue(it.isNull(0))
             }
+            db.query("SELECT isPinned, isArchived, isTitleLocked FROM chats WHERE id = 'chat'").use {
+                it.moveToFirst()
+                assertEquals(listOf(0, 0, 0), listOf(it.getInt(0), it.getInt(1), it.getInt(2)))
+            }
+            // Existing messages are searchable, and new ones are indexed by the triggers.
+            fun matches(term: String) = db.query("SELECT COUNT(*) FROM messages_fts WHERE messages_fts MATCH '$term'").use { it.moveToFirst(); it.getInt(0) }
+            assertEquals(1, matches("Answer"))
+            db.execSQL("INSERT INTO messages (id, chatId, role, content, modeName, imageUrisCsv, timestampMs) VALUES ('msg2', 'chat', 'USER', 'Pineapple pizza', NULL, NULL, 3)")
+            assertEquals(1, matches("pineapple"))
         }
         context.deleteDatabase(name)
     }

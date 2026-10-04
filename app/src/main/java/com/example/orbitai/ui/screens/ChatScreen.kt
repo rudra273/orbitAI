@@ -123,6 +123,8 @@ fun ChatScreen(
     onInitialTextConsumed: () -> Unit = {},
     initialAttachments: List<String> = emptyList(),
     onInitialAttachmentsConsumed: () -> Unit = {},
+    /** A message to scroll to and highlight, e.g. from search. */
+    focusMessageId: String? = null,
 ) {
     val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
     val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
@@ -330,7 +332,19 @@ fun ChatScreen(
         }
     }
 
+    var focusPending by rememberSaveable(focusMessageId) { mutableStateOf(focusMessageId != null) }
+    var highlightedId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(messages.size) {
+        if (focusPending) {
+            val index = messages.indexOfFirst { it.id == focusMessageId }
+            if (index < 0) return@LaunchedEffect
+            focusPending = false
+            listState.scrollToItem(index)
+            highlightedId = focusMessageId
+            kotlinx.coroutines.delay(2500)
+            highlightedId = null
+            return@LaunchedEffect
+        }
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
@@ -458,6 +472,11 @@ fun ChatScreen(
                         val latestReplyId = messages.lastOrNull { it.role == Role.ASSISTANT }?.id
                         val actionsEnabled = !uiState.isGenerating && !uiState.isModelLoading
                         items(messages, key = { it.id }) { msg ->
+                          Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (msg.id == highlightedId) VioletGlowSoft else Color.Transparent),
+                          ) {
                             MessageBubble(
                                 msg = msg,
                                 isLatestReply = msg.id == latestReplyId,
@@ -477,6 +496,7 @@ fun ChatScreen(
                                     onDismiss = viewModel::dismissMemorySuggestion,
                                 )
                             }
+                          }
                         }
                     }
 

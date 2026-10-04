@@ -120,7 +120,7 @@ class ChatRepository(context: Context) {
         // Auto-title from first user message
         if (message.role == Role.USER) {
             val chat = chatDao.getChatById(chatId)
-            if (chat != null && chat.title == "New Chat") {
+            if (chat != null && chat.title == "New Chat" && !chat.isTitleLocked) {
                 val title = message.content.take(40).let {
                     if (message.content.length > 40) "$it…" else it
                 }
@@ -194,6 +194,28 @@ class ChatRepository(context: Context) {
             return@withContext
         }
         messageDao.updateMessageContentById(messageId, content)
+    }
+
+    /** Renames a chat; later automatic titles won't replace the name. */
+    suspend fun renameChat(chatId: String, title: String) = withContext(Dispatchers.IO) {
+        val trimmed = title.trim()
+        if (trimmed.isNotEmpty() && !isTemporaryChat(chatId)) chatDao.rename(chatId, trimmed)
+    }
+
+    suspend fun setPinned(chatIds: List<String>, pinned: Boolean) = withContext(Dispatchers.IO) {
+        chatDao.setPinned(chatIds, pinned)
+    }
+
+    suspend fun setArchived(chatIds: List<String>, archived: Boolean) = withContext(Dispatchers.IO) {
+        chatDao.setArchived(chatIds, archived)
+    }
+
+    /** Full-text search over all saved messages, newest first. */
+    suspend fun searchMessages(query: String, limit: Int = 50): List<MessageSearchHit> = withContext(Dispatchers.IO) {
+        val match = ChatSearch.matchQuery(query) ?: return@withContext emptyList()
+        chatDao.searchMessages(match, limit).map {
+            MessageSearchHit(it.messageId, it.chatId, it.chatTitle, it.snippet, it.timestampMs)
+        }
     }
 
     suspend fun deleteChat(chatId: String) = withContext(Dispatchers.IO) {

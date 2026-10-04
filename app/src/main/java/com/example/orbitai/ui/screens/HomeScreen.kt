@@ -26,6 +26,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.text.withStyle
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -80,6 +83,7 @@ private data class ChatGroup(val title: String, val chats: List<ChatSummary>)
 private sealed interface ChatListItem {
     data class Header(val label: String) : ChatListItem
     data class Row(val chat: ChatSummary) : ChatListItem
+    data class Hit(val hit: com.example.orbitai.feature.chat.MessageSearchHit) : ChatListItem
 }
 
 @Composable
@@ -87,26 +91,80 @@ fun HomeScreen(
     viewModel: ChatViewModel,
     onOpenChat: (String) -> Unit,
     onDownloadModel: () -> Unit,
+    onOpenMessage: (chatId: String, messageId: String) -> Unit = { chatId, _ -> onOpenChat(chatId) },
 ) {
     val chats by viewModel.chatSummaries.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var searchActive by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var showArchived by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(emptySet<String>()) }
+    var renaming by remember { mutableStateOf<ChatSummary?>(null) }
+    var messageHits by remember { mutableStateOf(emptyList<com.example.orbitai.feature.chat.MessageSearchHit>()) }
 
-    val filteredChats = remember(chats, searchQuery) {
+    val filteredChats = remember(chats, searchQuery, showArchived) {
         val lowerq = searchQuery.lowercase()
-        chats.filter { displayTitle(it).lowercase().contains(lowerq) || previewText(it).lowercase().contains(lowerq) }
+        chats.filter { it.isArchived == showArchived }
+            .filter { displayTitle(it).lowercase().contains(lowerq) || previewText(it).lowercase().contains(lowerq) }
     }
 
-    val groupedItems = remember(filteredChats) {
-        buildListItems(filteredChats.sortedByDescending { chatTimestamp(it) })
+    // Full-text search inside messages, after a short pause in typing.
+    androidx.compose.runtime.LaunchedEffect(searchQuery) {
+        val query = searchQuery.trim()
+        if (query.length < 2) {
+            messageHits = emptyList()
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(250)
+        messageHits = viewModel.searchMessages(query)
+    }
+
+    val groupedItems = remember(filteredChats, messageHits) {
+        buildListItems(filteredChats.sortedByDescending { chatTimestamp(it) }) +
+            if (messageHits.isEmpty()) emptyList()
+            else listOf(ChatListItem.Header("IN MESSAGES")) + messageHits.map { ChatListItem.Hit(it) }
+    }
+    val selectionMode = selected.isNotEmpty()
+    androidx.activity.compose.BackHandler(enabled = selectionMode || showArchived) {
+        if (selectionMode) selected = emptySet() else showArchived = false
+    }
+
+    renaming?.let { chat ->
+        var name by remember(chat.id) { mutableStateOf(displayTitle(chat)) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { renaming = null },
+            containerColor = popupSurface,
+            title = { Text("Rename chat", color = inkColor, fontFamily = Sans) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true)
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = {
+                    viewModel.renameChat(chat.id, name)
+                    renaming = null
+                }) { Text("Save") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+        )
     }
 
     Scaffold(
         containerColor = surfaceColor,
-        topBar = { 
+        topBar = {
+          if (selectionMode) {
+            SelectionBar(
+                count = selected.size,
+                archivedView = showArchived,
+                onClose = { selected = emptySet() },
+                onArchive = { viewModel.setArchived(selected, !showArchived); selected = emptySet() },
+                onDelete = { viewModel.deleteChats(selected); selected = emptySet() },
+            )
+          } else {
             ChatHistoryTopBar(
+                title = if (showArchived) "Archived" else "Chats",
+                archivedView = showArchived,
+                onToggleArchived = { showArchived = !showArchived },
                 chatCount = filteredChats.size,
                 searchQuery = searchQuery,
                 onSearchChange = { searchQuery = it },
@@ -116,7 +174,8 @@ fun HomeScreen(
                     if (!searchActive) searchQuery = "" 
                 },
                 onClearAll = { showClearConfirm = true }
-            ) 
+            )
+          }
         },
         floatingActionButton = {
             Column(
@@ -184,6 +243,7 @@ fun HomeScreen(
                     when (it) {
                         is ChatListItem.Header -> "h_${it.label}"
                         is ChatListItem.Row -> it.chat.id
+                        is ChatListItem.Hit -> "m_${it.hit.messageId}"
                     }
                 }) { index, item ->
                     when (item) {
@@ -192,12 +252,23 @@ fun HomeScreen(
                             isFirst = index == 0,
                         )
                         is ChatListItem.Row -> {
+                            val id = item.chat.id
                             ChatRow(
                                 chat = item.chat,
-                                onOpen = { onOpenChat(item.chat.id) },
-                                onDelete = { viewModel.deleteChat(item.chat.id) },
+                                selectionMode = selectionMode,
+                                isSelected = id in selected,
+                                onOpen = {
+                                    if (selectionMode) selected = if (id in selected) selected - id else selected + id
+                                    else onOpenChat(id)
+                                },
+                                onDelete = { viewModel.deleteChat(id) },
+                                onRename = { renaming = item.chat },
+                                onTogglePin = { viewModel.setPinned(listOf(id), !item.chat.isPinned) },
+                                onToggleArchive = { viewModel.setArchived(listOf(id), !item.chat.isArchived) },
+                                onSelect = { selected = selected + id },
                             )
                         }
+                        is ChatListItem.Hit -> MessageHitRow(item.hit) { onOpenMessage(item.hit.chatId, item.hit.messageId) }
                     }
                 }
             }
@@ -221,7 +292,7 @@ fun HomeScreen(
             },
             text = {
                 Text(
-                    "Are you sure you want to delete all conversations? This action cannot be undone.",
+                    "Delete all conversations except archived ones? This action cannot be undone.",
                     color = inkColor.copy(alpha = 0.7f),
                     fontFamily = Sans,
                     fontSize = 14.sp
@@ -233,7 +304,7 @@ fun HomeScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(DeleteRed.copy(alpha = 0.15f))
                         .clickable(onClick = {
-                            chats.forEach { viewModel.deleteChat(it.id) }
+                            viewModel.deleteChats(chats.filter { !it.isArchived }.map { it.id })
                             showClearConfirm = false
                         })
                         .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -264,6 +335,9 @@ fun HomeScreen(
 
 @Composable
 private fun ChatHistoryTopBar(
+    title: String,
+    archivedView: Boolean,
+    onToggleArchived: () -> Unit,
     chatCount: Int,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
@@ -326,7 +400,7 @@ private fun ChatHistoryTopBar(
         } else {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Chats",
+                    text = title,
                     style = androidx.compose.material3.MaterialTheme.typography.displaySmall.copy(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -387,6 +461,13 @@ private fun ChatHistoryTopBar(
                         border = androidx.compose.foundation.BorderStroke(1.dp, inkColor.copy(alpha = 0.10f)),
                     ) {
                         DropdownMenuItem(
+                            text = { Text(if (archivedView) "All chats" else "Archived chats", color = inkColor, fontFamily = Sans, fontSize = 14.sp) },
+                            onClick = {
+                                menuExpanded = false
+                                onToggleArchived()
+                            },
+                        )
+                        if (!archivedView) DropdownMenuItem(
                             text = { 
                                 Text(
                                     "Clear all chats", 
@@ -422,8 +503,14 @@ private fun GroupHeader(label: String, isFirst: Boolean = false) {
 @Composable
 private fun ChatRow(
     chat: ChatSummary,
+    selectionMode: Boolean,
+    isSelected: Boolean,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
+    onRename: () -> Unit,
+    onTogglePin: () -> Unit,
+    onToggleArchive: () -> Unit,
+    onSelect: () -> Unit,
 ) {
     var menuExpanded by remember(chat.id) { mutableStateOf(false) }
 
@@ -437,11 +524,19 @@ private fun ChatRow(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onOpen,
-                        onLongClick = { menuExpanded = true },
+                        onLongClick = { if (selectionMode) onOpen() else menuExpanded = true },
                     )
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (selectionMode) {
+                    androidx.compose.material3.Checkbox(checked = isSelected, onCheckedChange = { onOpen() })
+                    Spacer(Modifier.size(4.dp))
+                }
+                if (chat.isPinned) {
+                    Icon(Icons.Default.PushPin, contentDescription = "Pinned", tint = inkColor.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.size(6.dp))
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = displayTitle(chat),
@@ -514,30 +609,28 @@ private fun ChatRow(
                 shadowElevation = 0.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, inkColor.copy(alpha = 0.10f)),
             ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "Rename",
-                            color = inkColor,
-                            fontFamily = Sans,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                        )
-                    },
-                    onClick = { menuExpanded = false },
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "Pin",
-                            color = inkColor,
-                            fontFamily = Sans,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                        )
-                    },
-                    onClick = { menuExpanded = false },
-                )
+                listOfNotNull(
+                    "Rename" to onRename,
+                    if (chat.isArchived) null else (if (chat.isPinned) "Unpin" else "Pin") to onTogglePin,
+                    (if (chat.isArchived) "Unarchive" else "Archive") to onToggleArchive,
+                    "Select" to onSelect,
+                ).forEach { (label, action) ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = label,
+                                color = inkColor,
+                                fontFamily = Sans,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            action()
+                        },
+                    )
+                }
                 DropdownMenuItem(
                     text = {
                         Text(
@@ -560,6 +653,93 @@ private fun ChatRow(
                 .fillMaxWidth()
                 .height(1.dp)
                 .background(dividerColor),
+        )
+    }
+}
+
+@Composable
+private fun SelectionBar(
+    count: Int,
+    archivedView: Boolean,
+    onClose: () -> Unit,
+    onArchive: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = popupSurface,
+            title = { Text("Delete $count chat${if (count == 1) "" else "s"}?", color = inkColor, fontFamily = Sans) },
+            text = { Text("This can't be undone.", color = inkColor.copy(alpha = 0.7f), fontFamily = Sans) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = DeleteRed) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(surfaceColor)
+            .padding(start = 8.dp, end = 8.dp, top = 14.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.IconButton(onClick = onClose) {
+            Icon(Icons.Default.Close, contentDescription = "Cancel selection", tint = inkColor)
+        }
+        Text("$count selected", color = inkColor, fontFamily = Sans, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        androidx.compose.material3.TextButton(onClick = onArchive) { Text(if (archivedView) "Unarchive" else "Archive", color = inkColor) }
+        androidx.compose.material3.TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = DeleteRed) }
+    }
+}
+
+/** A search match inside a message: chat title plus the excerpt with matches in bold. */
+@Composable
+private fun MessageHitRow(hit: com.example.orbitai.feature.chat.MessageSearchHit, onOpen: () -> Unit) {
+    val excerpt = remember(hit.snippet) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            Regex("""\[([^\]]*)]""").let { marker ->
+                var last = 0
+                marker.findAll(hit.snippet).forEach { m ->
+                    append(hit.snippet.substring(last, m.range.first))
+                    withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(m.groupValues[1]) }
+                    last = m.range.last + 1
+                }
+                append(hit.snippet.substring(last))
+            }
+        }
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .padding(vertical = 10.dp),
+    ) {
+        Text(
+            text = hit.chatTitle.takeUnless { it.isBlank() || it.equals("New Chat", true) } ?: "Untitled chat",
+            color = inkColor,
+            fontFamily = Sans,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = excerpt,
+            color = inkColor.copy(alpha = 0.6f),
+            fontFamily = Sans,
+            fontSize = 13.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        Text(
+            text = formatChatTimestamp(hit.timestampMs),
+            color = inkColor.copy(alpha = 0.4f),
+            fontFamily = Mono,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }
@@ -625,10 +805,12 @@ private fun EmptyChats(
     }
 }
 
-private fun buildListItems(chats: List<ChatSummary>): List<ChatListItem> {
-    if (chats.isEmpty()) return emptyList()
+private fun buildListItems(allChats: List<ChatSummary>): List<ChatListItem> {
+    if (allChats.isEmpty()) return emptyList()
+    val chats = allChats.filter { !it.isPinned }
 
     val groups = listOf(
+        ChatGroup("PINNED", allChats.filter { it.isPinned }),
         ChatGroup("TODAY", chats.filter { ageInDays(chatTimestamp(it)) == 0L }),
         ChatGroup("YESTERDAY", chats.filter { ageInDays(chatTimestamp(it)) == 1L }),
         ChatGroup("LAST 7 DAYS", chats.filter { ageInDays(chatTimestamp(it)) in 2L..7L }),

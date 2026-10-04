@@ -32,4 +32,6 @@ data class ChatSummary(
     val createdAt: Long,
     val lastMessagePreview: String?,
     val lastMessageAt: Long?,
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
 )

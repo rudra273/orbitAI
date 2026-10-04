@@ -1,8 +1,10 @@
 package com.example.orbitai.core.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Fts4
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
@@ -16,6 +18,24 @@ data class ChatEntity(
     val title: String,
     val modelId: String,
     val createdAt: Long,
+    @ColumnInfo(defaultValue = "0") val isPinned: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val isArchived: Boolean = false,
+    /** True once the user renamed the chat; automatic titles leave it alone. */
+    @ColumnInfo(defaultValue = "0") val isTitleLocked: Boolean = false,
+)
+
+/** Full-text index over message content, kept in sync with `messages` by Room's triggers. */
+@Fts4(contentEntity = MessageEntity::class)
+@Entity(tableName = "messages_fts")
+data class MessageFtsEntity(val content: String)
+
+/** A message matching a search, with its chat and a highlighted excerpt. */
+data class MessageSearchRow(
+    val messageId: String,
+    val chatId: String,
+    val chatTitle: String,
+    val snippet: String,
+    val timestampMs: Long,
 )
 
 @Entity(
@@ -48,6 +68,8 @@ data class ChatSummaryRow(
     val createdAt: Long,
     val lastMessagePreview: String?,
     val lastMessageAt: Long?,
+    val isPinned: Boolean,
+    val isArchived: Boolean,
 )
 
 fun ChatSummaryRow.toDomain() = com.example.orbitai.feature.chat.ChatSummary(
@@ -57,6 +79,8 @@ fun ChatSummaryRow.toDomain() = com.example.orbitai.feature.chat.ChatSummary(
     createdAt = createdAt,
     lastMessagePreview = lastMessagePreview,
     lastMessageAt = lastMessageAt,
+    isPinned = isPinned,
+    isArchived = isArchived,
 )
 
 /** Room relation: one chat with all its messages. */

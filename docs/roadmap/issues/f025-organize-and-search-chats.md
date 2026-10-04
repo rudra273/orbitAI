@@ -15,7 +15,9 @@ Labels: enhancement
 - Multi-select delete/archive
 
 **Acceptance Criteria:**
-- [ ] Migration adds `isPinned`, `isArchived`, `updatedAt` to `chats` and creates the FTS table + triggers; migration test added (f005)
+- [x] Migration adds `isPinned`, `isArchived`, `updatedAt` to `chats` and creates the FTS table + triggers; migration test added (f005)
 - [ ] Search across 10k messages returns in < 200 ms on a mid-range device
-- [ ] Tapping a search hit scrolls to and highlights the message
-- [ ] Rename persists and disables auto-titling (f030) for that chat
+- [x] Tapping a search hit scrolls to and highlights the message
+- [x] Rename persists and disables auto-titling (f030) for that chat
+
+**Status:** 🟡 Done, device check pending (2026-10-04). DB v17 (MIGRATION_16_17): chats.isPinned/isArchived/isTitleLocked and an FTS4 messages_fts table synced by Room's triggers (existing messages indexed with 'rebuild'); MigrationTest checks both. Long-press menu: Rename, Pin, Archive, Select, Delete; Pinned section on top; Archived view from the list menu; multi-select archive/delete. Search also looks inside messages (ChatSearch builds a safe prefix MATCH query) and shows highlighted excerpts; tapping one opens the chat scrolled to the message, highlighted briefly. Renamed chats are never auto-titled. updatedAt was not added: the list already orders by the latest message time. Device check pending: 10k-message search timing, migration test.

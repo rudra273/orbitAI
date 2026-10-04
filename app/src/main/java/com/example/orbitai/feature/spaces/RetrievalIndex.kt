@@ -95,7 +95,7 @@ object Retrieval {
     )
 
     fun tokenize(text: String): List<String> =
-        text.lowercase().split(Regex("""[^\p{L}\p{N}]+""")).filter { it.length > 1 || it.firstOrNull()?.isDigit() == true }
+        text.lowercase().split(Regex("""[^\p{L}\p{M}\p{N}]+""")).filter { it.length > 1 || it.firstOrNull()?.isDigit() == true }
 
     /** Merges rankings (lists of item indices, best first); items found by several rankings rise. */
     fun reciprocalRankFusion(rankings: List<List<Int>>, k: Int = 60): List<Int> {

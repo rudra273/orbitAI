@@ -82,8 +82,9 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
 
     // ── Detail screens (not in bottom nav) ──────────────────────────────────
-    data object ChatDetail : Screen("chat/{chatId}") {
-        fun go(chatId: String) = "chat/$chatId"
+    data object ChatDetail : Screen("chat/{chatId}?focus={focus}") {
+        fun go(chatId: String, focusMessageId: String? = null) =
+            "chat/$chatId" + (focusMessageId?.let { "?focus=$it" } ?: "")
     }
     data object SpaceDetail : Screen("space_detail/{spaceId}") {
         fun go(spaceId: String) = "space_detail/$spaceId"
@@ -261,6 +262,7 @@ fun OrbitNavGraph(
                 HomeScreen(
                     viewModel  = chatViewModel,
                     onOpenChat = { navController.navigate(Screen.ChatDetail.go(it)) },
+                    onOpenMessage = { chatId, messageId -> navController.navigate(Screen.ChatDetail.go(chatId, messageId)) },
                     onDownloadModel = { navController.navigate(Screen.SettingsModel.route) },
                 )
             }
@@ -292,12 +294,17 @@ fun OrbitNavGraph(
 
             composable(
                 route     = Screen.ChatDetail.route,
-                arguments = listOf(navArgument("chatId") { type = NavType.StringType }),
+                arguments = listOf(
+                    navArgument("chatId") { type = NavType.StringType },
+                    navArgument("focus") { type = NavType.StringType; nullable = true; defaultValue = null },
+                ),
             ) { back ->
                 val chatId = back.arguments?.getString("chatId") ?: return@composable
+                val focusMessageId = back.arguments?.getString("focus")
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
+                    focusMessageId = focusMessageId,
                     initialText = sharedDraftText.takeIf { sharedDraftChatId == chatId }.orEmpty(),
                     initialAttachments = sharedDraftFiles.takeIf { sharedDraftChatId == chatId }.orEmpty(),
                     onInitialTextConsumed = { sharedDraftText = ""; if (sharedDraftFiles.isEmpty()) sharedDraftChatId = "" },
