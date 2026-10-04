@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OrbitAI</string>
+    <string name="shortcut_new_chat">New chat</string>
+    <string name="shortcut_voice">Voice</string>
+    <string name="shortcut_temporary_chat">Temporary chat</string>
+    <string name="shortcut_reminders">Reminders</string>
+    <string name="tile_label">Ask Orbit</string>
 </resources>

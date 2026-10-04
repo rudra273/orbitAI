@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_chat"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_new_chat">
+        <intent
+            android:action="com.example.orbitai.NEW_CHAT"
+            android:targetPackage="com.example.orbitai"
+            android:targetClass="com.example.orbitai.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="voice"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_voice">
+        <intent
+            android:action="com.example.orbitai.VOICE"
+            android:targetPackage="com.example.orbitai"
+            android:targetClass="com.example.orbitai.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="temporary_chat"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_temporary_chat">
+        <intent
+            android:action="com.example.orbitai.TEMPORARY_CHAT"
+            android:targetPackage="com.example.orbitai"
+            android:targetClass="com.example.orbitai.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="reminders"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_reminders">
+        <intent
+            android:action="com.example.orbitai.REMINDERS"
+            android:targetPackage="com.example.orbitai"
+            android:targetClass="com.example.orbitai.MainActivity" />
+    </shortcut>
+</shortcuts>

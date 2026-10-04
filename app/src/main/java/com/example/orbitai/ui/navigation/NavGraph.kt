@@ -82,9 +82,9 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
 
     // ── Detail screens (not in bottom nav) ──────────────────────────────────
-    data object ChatDetail : Screen("chat/{chatId}?focus={focus}") {
-        fun go(chatId: String, focusMessageId: String? = null) =
-            "chat/$chatId" + (focusMessageId?.let { "?focus=$it" } ?: "")
+    data object ChatDetail : Screen("chat/{chatId}?focus={focus}&voice={voice}") {
+        fun go(chatId: String, focusMessageId: String? = null, voice: Boolean = false) =
+            "chat/$chatId?voice=$voice" + (focusMessageId?.let { "&focus=$it" } ?: "")
     }
     data object SpaceDetail : Screen("space_detail/{spaceId}") {
         fun go(spaceId: String) = "space_detail/$spaceId"
@@ -136,6 +136,8 @@ fun OrbitNavGraph(
     memoryViewModel:   MemoryViewModel,
     overlayPromptRequest: OverlayPromptRequest?,
     onOverlayPromptConsumed: () -> Unit,
+    launchRequest: com.example.orbitai.LaunchRequest? = null,
+    onLaunchConsumed: () -> Unit = {},
     appearance:        com.example.orbitai.core.common.Appearance,
     onAppearanceChanged: (com.example.orbitai.core.common.Appearance) -> Unit,
 ) {
@@ -193,6 +195,24 @@ fun OrbitNavGraph(
                 androidx.compose.material3.TextButton(onClick = { diagnostics.dismissPrompt() }) { Text("Not now") }
             },
         )
+    }
+
+    // Launcher shortcuts and the Quick Settings tile.
+    LaunchedEffect(launchRequest, hasCompletedWelcome) {
+        if (!hasCompletedWelcome) return@LaunchedEffect
+        val request = launchRequest ?: return@LaunchedEffect
+        onLaunchConsumed()
+        when (request) {
+            com.example.orbitai.LaunchRequest.NewChat ->
+                navController.navigate(Screen.ChatDetail.go(chatViewModel.createNewChat())) { launchSingleTop = true }
+            com.example.orbitai.LaunchRequest.TemporaryChat ->
+                chatViewModel.openTemporaryChat { navController.navigate(Screen.ChatDetail.go(it)) { launchSingleTop = true } }
+            com.example.orbitai.LaunchRequest.Voice ->
+                navController.navigate(Screen.ChatDetail.go(chatViewModel.createNewChat(), voice = true)) { launchSingleTop = true }
+            com.example.orbitai.LaunchRequest.Reminders -> navController.navigate(Screen.Reminders.route) { launchSingleTop = true }
+            com.example.orbitai.LaunchRequest.Settings -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+            is com.example.orbitai.LaunchRequest.OpenChat -> navController.navigate(Screen.ChatDetail.go(request.chatId)) { launchSingleTop = true }
+        }
     }
 
     LaunchedEffect(overlayPromptRequest?.id, hasCompletedWelcome) {
@@ -298,14 +318,17 @@ fun OrbitNavGraph(
                 arguments = listOf(
                     navArgument("chatId") { type = NavType.StringType },
                     navArgument("focus") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("voice") { type = NavType.BoolType; defaultValue = false },
                 ),
             ) { back ->
                 val chatId = back.arguments?.getString("chatId") ?: return@composable
                 val focusMessageId = back.arguments?.getString("focus")
+                val startVoiceMode = back.arguments?.getBoolean("voice") == true
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
                     focusMessageId = focusMessageId,
+                    startVoiceMode = startVoiceMode,
                     initialText = sharedDraftText.takeIf { sharedDraftChatId == chatId }.orEmpty(),
                     initialAttachments = sharedDraftFiles.takeIf { sharedDraftChatId == chatId }.orEmpty(),
                     onInitialTextConsumed = { sharedDraftText = ""; if (sharedDraftFiles.isEmpty()) sharedDraftChatId = "" },
@@ -313,7 +336,7 @@ fun OrbitNavGraph(
                     onNavigateToSettings = { navController.navigate(Screen.SettingsModel.route) },
                     onBack    = {
                         navController.navigate(Screen.Chat.route) {
-                            popUpTo(Screen.ChatDetail.go(chatId)) { inclusive = true }
+                            popUpTo(Screen.ChatDetail.route) { inclusive = true }
                             launchSingleTop = true
                         }
                     },

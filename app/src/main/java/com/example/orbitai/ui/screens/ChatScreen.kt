@@ -125,6 +125,8 @@ fun ChatScreen(
     onInitialAttachmentsConsumed: () -> Unit = {},
     /** A message to scroll to and highlight, e.g. from search. */
     focusMessageId: String? = null,
+    /** Open straight into voice mode (launcher shortcut / Quick Settings tile). */
+    startVoiceMode: Boolean = false,
 ) {
     val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
     val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
@@ -337,7 +339,7 @@ fun ChatScreen(
     }
     val showGenerationDetails = remember { com.example.orbitai.feature.chat.ChatSettingsStore(context).showGenerationDetails }
     val generationStats by viewModel.generationStats.collectAsState()
-    var voiceMode by rememberSaveable { mutableStateOf(false) }
+    var voiceMode by rememberSaveable { mutableStateOf(startVoiceMode) }
     // Auto-read: speak replies that stream in while this chat is open.
     val autoReadStreams = remember { mutableMapOf<String, com.example.orbitai.feature.voice.SpeechText.Stream>() }
     val latestReply = messages.lastOrNull()?.takeIf { it.role == Role.ASSISTANT }

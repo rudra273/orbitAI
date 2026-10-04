@@ -43,6 +43,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     init {
         generation.automation = automationFlow
         reminderFlow.restoreOnStart()
+        // Launcher shortcuts for the two most recent chats; deleted chats lose theirs.
+        viewModelScope.launch(Dispatchers.Default) {
+            ctx.container.chatRepository.chatSummaries.collect { com.example.orbitai.feature.shortcuts.RecentChatShortcuts.update(application, it) }
+        }
     }
 
     // ── Shared UI state ───────────────────────────────────────────────────────

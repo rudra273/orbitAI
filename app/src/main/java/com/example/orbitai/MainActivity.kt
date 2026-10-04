@@ -32,6 +32,16 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
+/** Where a launcher shortcut, the Quick Settings tile or a notification asked the app to open. */
+sealed interface LaunchRequest {
+    data object NewChat : LaunchRequest
+    data object TemporaryChat : LaunchRequest
+    data object Voice : LaunchRequest
+    data object Reminders : LaunchRequest
+    data object Settings : LaunchRequest
+    data class OpenChat(val chatId: String) : LaunchRequest
+}
+
 data class OverlayPromptRequest(
     val chatId: String,
     val prompt: String,
@@ -50,10 +60,12 @@ class MainActivity : ComponentActivity() {
     private val modesViewModel:    ModesViewModel    by viewModels()
     private val memoryViewModel:   MemoryViewModel   by viewModels()
     private var pendingOverlayPrompt by mutableStateOf<OverlayPromptRequest?>(null)
+    private var pendingLaunch by mutableStateOf<LaunchRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleOverlayIntent(intent)
+        if (savedInstanceState == null) handleLaunchIntent(intent)
 
         val themeStore = ThemeSettingsStore(this)
         val darkWindowBg = android.graphics.Color.parseColor("#141413")
@@ -111,6 +123,8 @@ class MainActivity : ComponentActivity() {
                     memoryViewModel   = memoryViewModel,
                     overlayPromptRequest = pendingOverlayPrompt,
                     onOverlayPromptConsumed = { pendingOverlayPrompt = null },
+                    launchRequest     = pendingLaunch,
+                    onLaunchConsumed  = { pendingLaunch = null },
                     appearance        = appearance,
                     onAppearanceChanged = { updated ->
                         appearance = updated
@@ -125,6 +139,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOverlayIntent(intent)
+        handleLaunchIntent(intent)
     }
 
     override fun onResume() {
@@ -144,6 +159,30 @@ class MainActivity : ComponentActivity() {
         if (bubbleSettingsStore.isFloatingBubbleEnabled && overlayGranted && audioGranted) {
             OrbitBubbleService.setAppForeground(this, false)
         }
+    }
+
+    /** Turns a shortcut / tile intent into a [LaunchRequest] for the nav graph. */
+    private fun handleLaunchIntent(intent: Intent?) {
+        val request = when (intent?.action) {
+            ACTION_NEW_CHAT -> LaunchRequest.NewChat
+            ACTION_TEMPORARY_CHAT -> LaunchRequest.TemporaryChat
+            ACTION_VOICE -> LaunchRequest.Voice
+            ACTION_REMINDERS -> LaunchRequest.Reminders
+            ACTION_OPEN_CHAT -> intent.getStringExtra(EXTRA_CHAT_ID)?.let { LaunchRequest.OpenChat(it) }
+            android.service.quicksettings.TileService.ACTION_QS_TILE_PREFERENCES -> LaunchRequest.Settings
+            else -> null
+        } ?: return
+        pendingLaunch = request
+        val shortcutId = when (request) {
+            LaunchRequest.NewChat -> "new_chat"
+            LaunchRequest.Voice -> "voice"
+            LaunchRequest.TemporaryChat -> "temporary_chat"
+            LaunchRequest.Reminders -> "reminders"
+            is LaunchRequest.OpenChat -> "chat:${request.chatId}"
+            LaunchRequest.Settings -> null
+        }
+        shortcutId?.let { androidx.core.content.pm.ShortcutManagerCompat.reportShortcutUsed(this, it) }
+        intent?.action = Intent.ACTION_MAIN // Don't repeat on recreation.
     }
 
     private fun handleOverlayIntent(intent: Intent?) {
@@ -186,5 +225,11 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_SHARED_TEXT = "shared_text_draft"
         const val EXTRA_OVERLAY_TRANSCRIPT = "overlay_transcript"
         const val EXTRA_SHARED_FILES = "shared_files"
+        const val ACTION_NEW_CHAT = "com.example.orbitai.NEW_CHAT"
+        const val ACTION_TEMPORARY_CHAT = "com.example.orbitai.TEMPORARY_CHAT"
+        const val ACTION_VOICE = "com.example.orbitai.VOICE"
+        const val ACTION_REMINDERS = "com.example.orbitai.REMINDERS"
+        const val ACTION_OPEN_CHAT = "com.example.orbitai.OPEN_CHAT"
+        const val EXTRA_CHAT_ID = "chat_id"
     }
 }
