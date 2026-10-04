@@ -27,13 +27,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.orbitai.feature.chat.ChatSettingsStore
 
-/** Settings > Chat: smart titles and generation details. */
+/** Settings > Chat: smart titles, generation details and the translate language. */
 @Composable
 fun ChatSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val store = remember { ChatSettingsStore(context) }
     var smartTitles by remember { mutableStateOf(store.smartTitles) }
     var details by remember { mutableStateOf(store.showGenerationDetails) }
+    var language by remember { mutableStateOf(store.translateLanguage) }
+    var languageMenu by remember { mutableStateOf(false) }
     BackHandler(onBack = onBack)
 
     Scaffold { padding ->
@@ -59,6 +61,23 @@ fun ChatSettingsScreen(onBack: () -> Unit) {
                     description = "Under each new reply: time to first token, speed, hardware (CPU/GPU) and model.",
                     checked = details,
                 ) { details = it; store.showGenerationDetails = it }
+            }
+            item {
+                Column {
+                    Text("Translate to", style = MaterialTheme.typography.titleSmall)
+                    Text("Used by Translate when you select text in another app and pick Orbit AI.", style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.foundation.layout.Box {
+                        TextButton(onClick = { languageMenu = true }) { Text(language) }
+                        androidx.compose.material3.DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
+                            ChatSettingsStore.TRANSLATE_LANGUAGES.forEach { option ->
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = { language = option; store.translateLanguage = option; languageMenu = false },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

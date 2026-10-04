@@ -15,6 +15,8 @@ Labels: enhancement
 
 **Acceptance Criteria:**
 - [ ] Replace works in Gmail compose, WhatsApp and Chrome text fields
-- [ ] No overlay permission needed (this is an activity, not the bubble)
-- [ ] Preferred target language set in Settings
-- [ ] If no local model is downloaded, a clear CTA to download one
+- [x] No overlay permission needed (this is an activity, not the bubble)
+- [x] Preferred target language set in Settings
+- [x] If no local model is downloaded, a clear CTA to download one
+
+**Status:** 🟡 Done, device check pending (2026-10-04). ProcessTextActivity is now a Compose sheet: Proofread, Rewrite (formal / friendly / shorter), Translate (Settings > Chat > Translate to), Summarize, Explain, Reply, plus Ask Orbit and Create reminder. Results stream from the shared on-device model (never Gemini); editable selections get Replace (returns EXTRA_PROCESS_TEXT), read-only ones Copy / Share. No local model: a Download a model button. No overlay permission involved. Device check pending: Replace in Gmail, WhatsApp, Chrome.

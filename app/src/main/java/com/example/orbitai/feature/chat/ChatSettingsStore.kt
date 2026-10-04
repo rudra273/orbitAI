@@ -16,4 +16,21 @@ class ChatSettingsStore(context: Context) {
     var smartTitles: Boolean
         get() = prefs.getBoolean("smart_titles", true)
         set(value) = prefs.edit { putBoolean("smart_titles", value) }
+
+    /** Target language for Translate in the text-selection menu. */
+    var translateLanguage: String
+        get() = prefs.getString("translate_language", null) ?: defaultTranslateLanguage()
+        set(value) = prefs.edit { putString("translate_language", value) }
+
+    private fun defaultTranslateLanguage(): String {
+        val device = java.util.Locale.getDefault()
+        return if (device.language == "en") "Hindi" else device.getDisplayLanguage(java.util.Locale.ENGLISH)
+    }
+
+    companion object {
+        val TRANSLATE_LANGUAGES = listOf(
+            "English", "Hindi", "Odia", "Bengali", "Tamil", "Telugu", "Kannada", "Malayalam", "Marathi", "Gujarati",
+            "Punjabi", "Urdu", "Spanish", "French", "German", "Portuguese", "Japanese", "Chinese", "Korean", "Arabic",
+        )
+    }
 }
