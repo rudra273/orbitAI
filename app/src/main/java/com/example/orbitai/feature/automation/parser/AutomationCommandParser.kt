@@ -45,7 +45,7 @@ object AutomationCommandParser {
             if (reminderHint != null) {
                 AutomationRequest.CreateReminder(topicHint = reminderHint)
             } else {
-                null
+                RequestIntentDetector.detect(trimmed)
             }
         }
     }

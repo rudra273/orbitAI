@@ -28,6 +28,14 @@ object CommandSpelling {
         return result.toString()
     }
 
+    /** True when [word] is [keyword] or a one-typo spelling of it (same rules as [fix]). */
+    fun matches(word: String, keyword: String): Boolean {
+        val lower = word.lowercase()
+        if (lower == keyword) return true
+        if (lower.length < 4 || lower in realWords || lower.startsWith(keyword)) return false
+        return keyword.length >= 5 && distance(lower, keyword) == 1
+    }
+
     private fun correct(word: String): String {
         val lower = word.lowercase()
         if (lower.length < 4 || lower in keywords || lower in realWords) return word
