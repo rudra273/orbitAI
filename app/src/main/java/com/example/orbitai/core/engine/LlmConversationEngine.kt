@@ -14,6 +14,8 @@ interface LlmConversationEngine {
         systemInstruction: String,
         settings: InferenceSettings,
         toolSchemas: List<Any> = emptyList(),
+        /** Earlier turns to start the conversation with. */
+        history: List<PromptTurn> = emptyList(),
     ): ConversationSession
 
     fun close()

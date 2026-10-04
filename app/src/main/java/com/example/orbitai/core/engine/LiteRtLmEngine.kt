@@ -120,6 +120,7 @@ class LiteRtLmEngine(
         systemInstruction: String,
         settings: InferenceSettings,
         toolSchemas: List<Any>,
+        history: List<PromptTurn>,
     ): ConversationSession {
         val eng = engine ?: throw IllegalStateException("LiteRT-LM engine is not loaded.")
         val samplerConfig = SamplerConfig(
@@ -133,6 +134,7 @@ class LiteRtLmEngine(
 
         val conversationConfig = ConversationConfig(
             systemInstruction = Contents.of(systemInstruction),
+            initialMessages = history.map { if (it.isUser) Message.user(it.text) else Message.model(it.text) },
             tools = tools,
             samplerConfig = samplerConfig,
             automaticToolCalling = false,

@@ -3,16 +3,21 @@ package com.example.orbitai.viewmodel
 import com.example.orbitai.feature.automation.executor.AutomationExecutor
 import com.example.orbitai.feature.automation.parser.AutomationExecutionResult
 import com.example.orbitai.feature.automation.parser.AutomationRequest
+import com.example.orbitai.feature.automation.parser.EmailDraft
 import com.example.orbitai.feature.automation.parser.EmailDraftParser
+import com.example.orbitai.feature.automation.parser.LocalReminderParser
 import com.example.orbitai.feature.automation.parser.ReminderDraftParser
 import com.example.orbitai.feature.automation.parser.RuntimeToolPermission
+import com.example.orbitai.feature.automation.parser.WhatsAppDraft
 import com.example.orbitai.feature.automation.parser.WhatsAppDraftParser
+import com.example.orbitai.feature.automation.tools.ChatToolAction
 import com.example.orbitai.feature.chat.Message
 import com.example.orbitai.feature.chat.Role
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Typed device commands (call, remember, remind) and executing the email / WhatsApp / reminder
@@ -97,33 +102,13 @@ internal class AutomationFlowController(
                     }
                 }
             }
-            is AutomationRequest.DraftWhatsApp -> {
-                val draft = WhatsAppDraftParser.parse(
+            is AutomationRequest.DraftWhatsApp -> executeWhatsApp(
+                toolRequest,
+                WhatsAppDraftParser.parse(
                     modelOutput = accumulated,
                     topicHint = toolRequest.topicHint,
-                )
-                when (
-                    val result = automationExecutor.execute(
-                        request = toolRequest,
-                        draft = draft,
-                    )
-                ) {
-                    AutomationExecutionResult.Launched -> Unit
-                    is AutomationExecutionResult.Failed -> {
-                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                    }
-                    is AutomationExecutionResult.PermissionRequired -> {
-                        if (result.permission == RuntimeToolPermission.CONTACTS) {
-                            pendingWhatsAppExecution = PendingWhatsAppExecution(
-                                request = toolRequest,
-                                draft = draft,
-                            )
-                            _events.emit(ChatUiEvent.RequestContactsPermission)
-                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                        }
-                    }
-                }
-            }
+                ),
+            )
             is AutomationRequest.CreateReminder -> {
                 val draft = ReminderDraftParser.parse(
                     modelOutput = accumulated,
@@ -135,6 +120,65 @@ internal class AutomationFlowController(
             }
             null -> Unit
         }
+    }
+
+    private suspend fun executeWhatsApp(request: AutomationRequest.DraftWhatsApp, draft: WhatsAppDraft) {
+        when (val result = automationExecutor.execute(request = request, draft = draft)) {
+            AutomationExecutionResult.Launched -> Unit
+            is AutomationExecutionResult.Failed -> {
+                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+            }
+            is AutomationExecutionResult.PermissionRequired -> {
+                if (result.permission == RuntimeToolPermission.CONTACTS) {
+                    pendingWhatsAppExecution = PendingWhatsAppExecution(request = request, draft = draft)
+                    _events.emit(ChatUiEvent.RequestContactsPermission)
+                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs a phone action the model chose with a native tool call, replacing the
+     * assistant placeholder [assistantMessageId] with what Orbit did.
+     */
+    suspend fun handleToolAction(chatId: String, assistantMessageId: String, action: ChatToolAction) {
+        val reply = when (action) {
+            is ChatToolAction.SendWhatsApp -> {
+                executeWhatsApp(
+                    AutomationRequest.DraftWhatsApp(action.message),
+                    WhatsAppDraft(recipientName = action.recipient, message = action.message),
+                )
+                val to = action.recipient.takeIf { it.isNotBlank() }?.let { " for $it" }.orEmpty()
+                "Opening WhatsApp$to with this message:\n\n${action.message}"
+            }
+            is ChatToolAction.DraftEmail -> {
+                val result = automationExecutor.execute(
+                    request = AutomationRequest.DraftEmail(action.subject),
+                    draft = EmailDraft(subject = action.subject, body = action.body),
+                )
+                if (result is AutomationExecutionResult.Failed) {
+                    _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
+                }
+                "Opening your email app with a draft.\n\n**${action.subject}**\n\n${action.body}"
+            }
+            is ChatToolAction.SetReminder -> {
+                reminders.showReview(ReminderReviewRequest(chatId, LocalReminderParser.parse(action.request), true))
+                "Review the reminder below, then save it in Orbit. Check the suggested date and time; you can change them before saving."
+            }
+            is ChatToolAction.Call -> {
+                // The call flow posts its own messages.
+                chatRepo.deleteMessage(assistantMessageId)
+                withContext(Dispatchers.Main) { calls.resolveCall(chatId, action.contact) }
+                return
+            }
+            is ChatToolAction.Remember -> {
+                if (com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId)) "Temporary chats don't save anything to Orbit Memory."
+                else if (memoryRepo.addMemory(action.fact, source = "manual")) "Saved to Orbit Memory: ${action.fact}"
+                else "Memory is disabled. Enable it in Settings > Memory, then ask me to remember this again."
+            }
+        }
+        chatRepo.updateMessage(assistantMessageId, reply, isStreaming = false)
     }
 
     fun onContactsPermissionResult(granted: Boolean) {

@@ -7,6 +7,8 @@ import com.example.orbitai.core.common.ModeInferenceSettingsStore
 import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.core.database.ORBIT_MODE_ID
 import com.example.orbitai.core.engine.InferenceInput
+import com.example.orbitai.core.engine.StructuredPrompt
+import com.example.orbitai.core.engine.TurnResult
 import com.example.orbitai.core.model.DeviceFit
 import com.example.orbitai.core.model.LlmModel
 import com.example.orbitai.core.model.ModelFit
@@ -18,6 +20,9 @@ import com.example.orbitai.core.prompt.PromptBudget
 import com.example.orbitai.feature.automation.AutomationRoute
 import com.example.orbitai.feature.automation.AutomationRouter
 import com.example.orbitai.feature.automation.parser.AutomationRequest
+import com.example.orbitai.feature.automation.tools.ChatToolAction
+import com.example.orbitai.feature.automation.tools.ChatToolActions
+import com.example.orbitai.feature.automation.tools.OrbitChatToolSchema
 import com.example.orbitai.feature.automation.prompt.EmailDraftPromptBuilder
 import com.example.orbitai.feature.automation.prompt.ReminderPromptBuilder
 import com.example.orbitai.feature.automation.prompt.WhatsAppDraftPromptBuilder
@@ -447,16 +452,29 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 chatRepo.addMessage(chatId, assistantMsg)
                 _uiState.update { it.copy(isGenerating = true) }
 
-                // 5. Stream response
+                // 5. Stream response. Plain chat on LiteRT models also offers phone tools the model can call.
                 var accumulated = ""
                 var wasCancelled = false
+                var toolAction: ChatToolAction? = null
                 try {
-                    llmRepo.generateResponseStream(inferenceInput, settings.maxDecodedTokens).collect { token ->
+                    val onToken: suspend (String) -> Unit = { token ->
                         if (!isGenerationTokenActive(generationToken)) {
                             throw CancellationException("Stale generation request")
                         }
                         accumulated += token
                         chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = true)
+                    }
+                    val toolTurn = if (toolRequest == null && bitmaps.isEmpty()) {
+                        streamWithTools(structuredPrompt, settings, onToken)
+                    } else null
+                    if (toolTurn != null) {
+                        toolAction = toolTurn.toolCalls.firstNotNullOfOrNull { ChatToolActions.from(it.name, it.arguments) }
+                        if (accumulated.isBlank()) accumulated = toolTurn.text
+                        if (toolAction == null && accumulated.isBlank() && toolTurn.toolCalls.isNotEmpty()) {
+                            accumulated = "I couldn't complete that action. Try rephrasing, or use the / menu."
+                        }
+                    } else {
+                        llmRepo.generateResponseStream(inferenceInput, settings.maxDecodedTokens).collect { onToken(it) }
                     }
                 } catch (e: CancellationException) {
                     wasCancelled = true
@@ -470,7 +488,9 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     bitmaps.forEach { if (!it.isRecycled) it.recycle() }
 
                     if (isActiveRequest && !wasCancelled && !accumulated.startsWith("Error:")) {
-                        automation.handleDraftResult(chatId, toolRequest, accumulated)
+                        val action = toolAction
+                        if (action != null) automation.handleToolAction(chatId, assistantMsg.id, action)
+                        else automation.handleDraftResult(chatId, toolRequest, accumulated)
                     }
 
                     if (isActiveRequest) {
@@ -494,6 +514,35 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         }
     }
 
+
+    /**
+     * Streams one reply through a LiteRT conversation that offers [OrbitChatToolSchema].
+     * Returns null when the loaded model has no conversation support or can't start one
+     * with tools, so the caller falls back to plain streaming.
+     */
+    private suspend fun streamWithTools(
+        structured: StructuredPrompt,
+        settings: com.example.orbitai.core.common.InferenceSettings,
+        onToken: suspend (String) -> Unit,
+    ): TurnResult? {
+        val engine = llmRepo.conversationEngine() ?: return null
+        val turns = structured.turns.filter { it.text.isNotBlank() }
+        val latest = turns.lastOrNull()?.takeIf { it.isUser } ?: return null
+        val session = try {
+            engine.createConversation(
+                systemInstruction = structured.systemInstruction + "\n\n" + ChatToolActions.INSTRUCTION,
+                settings = settings,
+                toolSchemas = listOf(OrbitChatToolSchema()),
+                history = turns.dropLast(1),
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("ChatGeneration", "Tool conversation unavailable; using plain streaming", e)
+            return null
+        }
+        return session.use {
+            it.streamTurn(com.google.ai.edge.litertlm.Contents.of(latest.text), settings.maxDecodedTokens, onToken)
+        }
+    }
 
     /** Stops a reply that runs longer than [MAX_GENERATION_MS] (e.g. stuck native inference). */
     private fun startGenerationWatchdog(token: Long) {

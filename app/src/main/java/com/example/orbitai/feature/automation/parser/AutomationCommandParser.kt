@@ -20,7 +20,7 @@ object AutomationCommandParser {
     )
 
     fun parse(input: String): AutomationRequest? {
-        val trimmed = input.trim()
+        val trimmed = CommandSpelling.fix(input.trim())
         if (trimmed.isEmpty()) return null
 
         val topicHint = draftEmailPatterns.firstNotNullOfOrNull { pattern ->

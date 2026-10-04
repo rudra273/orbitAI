@@ -14,7 +14,7 @@ object DeviceCommandParser {
         .trim()
 
     fun parse(input: String): DeviceCommand? {
-        val text = normalize(input)
+        val text = CommandSpelling.fix(normalize(input))
         Regex("(?is)^(?:(?:i (?:want|need|would like) to )?(?:/(?:${OrbitCommands.slashNames("call")})|call|phone|dial)|(?:make|place) a call to)\\s+(.+)$").matchEntire(text)?.let {
             val recipient = it.groupValues[1].trim().replace(Regex("(?i)[, ]+please[.!?]*$"), "").trimEnd('.', '!', '?').trim()
             if (recipient.isNotBlank()) return DeviceCommand.Call(recipient)
