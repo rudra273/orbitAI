@@ -2,6 +2,8 @@
 Labels: documentation, good first issue
 **Milestone:** M4 Hardening & Beta · **Priority:** P2 · **Size:** S · **Area:** Docs
 
+**Status:** 🟡 Done except screenshots (2026-10-04). README feature list, permissions and architecture refreshed; docs/user-guide.md and CONTRIBUTING.md added; CLAUDE.md already matches DB v20. Screenshots (light and dark) still need a device.
+
 **Title:** Bring README, CLAUDE.md and in-repo docs up to date
 
 **Description:**

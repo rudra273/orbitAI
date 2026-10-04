@@ -4,12 +4,19 @@ OrbitAI is an advanced on-device AI chat and productivity assistant for Android,
 
 ## Features
 
-- **On-device LLM Chat**: Private, fast, and offline-capable AI chat using MediaPipe and LiteRtLm engines.
-- **Retrieval-Augmented Generation (RAG)**: Enhanced responses by embedding and searching your own data.
-- **Productivity Tools**: Floating bubble assistant, reminders, and more.
-- **Multiple Modes**: Switch between chat, spaces (knowledge bases), and custom modes.
-- **Modern UI**: Built with Jetpack Compose for a smooth, responsive experience.
-- **Optional Cloud AI**: Local inference stays on your device. Gemini sends prompts, relevant context and attachments to Google only after confirmation. Voice recognition may use your device's speech provider when on-device recognition is unavailable.
+- **On-device chat**: private, offline-capable chat with LiteRT-LM, ONNX Runtime GenAI and MediaPipe `.task` models, a device-aware model recommendation, resumable background downloads, and your own `.litertlm` / `.task` files (Settings > Models > Import model file).
+- **Spaces (RAG)**: add PDF, Word (.docx), EPUB and text files; answers use hybrid keyword + meaning search and show the pages they came from.
+- **Memory**: Orbit suggests facts to remember and you tap to save; only relevant ones are used in a reply.
+- **Tools by natural language**: WhatsApp, email, SMS, calls, reminders (repeating too), timers, alarms, navigation, open app, web search, calendar events and flashlight, with typo-tolerant commands, native tool calling on LiteRT-LM models, and a confirmation before every action. Each tool can be switched off in Settings > Tools.
+- **Calendar awareness (opt-in)**: ask "what's on my day?"; only the day or week you ask about is read, and never sent to the cloud model.
+- **Orbit Bubble**: floating assistant with hands-free voice, voice follow-ups, and Continue in app.
+- **Text selection and sharing**: select text anywhere and choose Orbit to proofread, rewrite, translate (Hindi by default, any language works), summarise, explain or reply; share files and images to Orbit.
+- **Organise and export**: search all chats, pin, rename, archive, and export a chat as PDF, Markdown or text.
+- **Modes**: reusable assistants with their own instructions, model, Spaces and colour; templates, import and export.
+- **Your data**: encrypted backup and restore, a Privacy center (storage, 30-day network log, permissions, delete everything), and light/dark/system themes with chat text size.
+- **Optional Cloud AI**: local inference stays on your device. Gemini sends prompts, relevant context and attachments to Google only after confirmation. Voice recognition may use your device's speech provider when on-device recognition is unavailable.
+
+See the [user guide](docs/user-guide.md) for how each feature works and [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
 
 ## Orbit reminders, calls, and memory
 
@@ -168,11 +175,12 @@ Set `ANDROID_UPLOAD_KEY_ALIAS` to `upload-key`. Pushing a tag such as `v1.0.0` w
 
 ## Architecture
 - **Kotlin, Jetpack Compose, Room** for UI and data.
-- **MediaPipe Tasks, LiteRtLm** for on-device LLM inference.
+- **LiteRT-LM, ONNX Runtime GenAI, MediaPipe Tasks** for on-device LLM inference, behind one shared `LlmRepository`.
+- **WorkManager** for document indexing and model downloads; **PDFBox** for PDFs.
 - **Accompanist, Material3, Navigation Compose** for UI/UX.
 
 ## Permissions
-- `INTERNET`, `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `READ_CONTACTS`, `POST_NOTIFICATIONS`
+- `INTERNET`, `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `READ_CONTACTS`, `CALL_PHONE`, `READ_CALENDAR` (opt-in), `POST_NOTIFICATIONS`, `SET_ALARM`, `SCHEDULE_EXACT_ALARM`
 - Accessibility, broad storage access and APK installation permissions are absent from the Play branch. Screen capture requests Android consent each time; generated text is copied for manual pasting.
 
 ## Contributing
