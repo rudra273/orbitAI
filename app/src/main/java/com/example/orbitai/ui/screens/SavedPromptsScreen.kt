@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,15 +65,15 @@ fun SavedPromptsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("Saved prompts", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.saved_prompts), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Type / in a chat to use them. Put ${CommandPalette.PLACEHOLDER} where you want to type, e.g. \"Translate ${CommandPalette.PLACEHOLDER} to Hindi\".",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
             item {
-                OutlinedButton(onClick = { editing = SavedPrompt(title = "", text = "") }) { Text("New prompt") }
+                OutlinedButton(onClick = { editing = SavedPrompt(title = "", text = "") }) { Text(stringResource(R.string.new_prompt)) }
             }
             itemsIndexed(prompts, key = { _, p -> p.id }) { index, prompt ->
                 Card(Modifier.fillMaxWidth()) {
@@ -81,10 +83,10 @@ fun SavedPromptsScreen(onBack: () -> Unit) {
                             Text(prompt.text, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         IconButton(onClick = { store.move(prompt.id, -1) }, enabled = index > 0) {
-                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Move up")
+                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
                         }
                         IconButton(onClick = { store.move(prompt.id, 1) }, enabled = index < prompts.lastIndex) {
-                            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Move down")
+                            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
                         }
                         IconButton(onClick = { editing = prompt }) { Icon(Icons.Outlined.Edit, contentDescription = "Edit ${prompt.title}") }
                         IconButton(onClick = { store.delete(prompt.id) }) { Icon(Icons.Outlined.Delete, contentDescription = "Delete ${prompt.title}") }
@@ -104,16 +106,16 @@ private fun SavedPromptDialog(initial: SavedPrompt, onDismiss: () -> Unit, onSav
         title = { Text(if (initial.title.isBlank()) "New prompt" else "Edit prompt") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Name") }, singleLine = true)
-                OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("Prompt") }, maxLines = 6)
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.name)) }, singleLine = true)
+                OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(stringResource(R.string.prompt)) }, maxLines = 6)
             }
         },
         confirmButton = {
             TextButton(
                 onClick = { onSave(initial.copy(title = title.trim(), text = text.trim())) },
                 enabled = title.isNotBlank() && text.isNotBlank(),
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

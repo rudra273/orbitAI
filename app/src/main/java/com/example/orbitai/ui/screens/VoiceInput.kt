@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -212,10 +214,10 @@ internal fun rememberVoiceInput(
     if (disclosure) {
         AlertDialog(
             onDismissRequest = { disclosure = false },
-            title = { Text("Use voice input?") },
-            text = { Text("Orbit uses your microphone to transcribe speech. It prefers on-device recognition; your device's speech provider may process audio online otherwise. Orbit does not save audio recordings. Call requests are handled when you finish speaking: Orbit says the matching contact and listens for your confirmation before calling. Other speech stays in the message box for review.") },
-            confirmButton = { TextButton(onClick = { consent = true; disclosure = false; begin() }) { Text("Continue") } },
-            dismissButton = { TextButton(onClick = { disclosure = false }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.use_voice_input)) },
+            text = { Text(stringResource(R.string.orbit_uses_your_microphone_to)) },
+            confirmButton = { TextButton(onClick = { consent = true; disclosure = false; begin() }) { Text(stringResource(R.string.action_continue)) } },
+            dismissButton = { TextButton(onClick = { disclosure = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 

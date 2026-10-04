@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -71,7 +73,7 @@ fun CustomModelSection() {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("YOUR MODELS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 4.dp))
+        Text(stringResource(R.string.your_models), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 4.dp))
         models.forEach { spec ->
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -82,12 +84,12 @@ fun CustomModelSection() {
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    TextButton(onClick = { deleting = spec }) { Text("Delete") }
+                    TextButton(onClick = { deleting = spec }) { Text(stringResource(R.string.delete)) }
                 }
             }
         }
         OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Import model file")
+            Text(stringResource(R.string.import_model_file))
         }
         Text(
             "Use a .litertlm or .task file you already have. It is copied into the app and test-loaded once.",
@@ -99,15 +101,15 @@ fun CustomModelSection() {
     if (picked != null) {
         AlertDialog(
             onDismissRequest = { if (!importing) picked = null },
-            title = { Text("Import model") },
+            title = { Text(stringResource(R.string.import_model)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         pickedName + if (pickedSize > 0) " · ${formatModelSize(pickedSize)}" else "",
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, enabled = !importing)
-                    Text("Prompt style", style = MaterialTheme.typography.labelMedium)
+                    OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.name)) }, singleLine = true, enabled = !importing)
+                    Text(stringResource(R.string.prompt_style), style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PromptStyle.entries.forEach { option ->
                             FilterChip(
@@ -120,12 +122,12 @@ fun CustomModelSection() {
                     OutlinedTextField(
                         contextText,
                         { contextText = it.filter(Char::isDigit).take(6) },
-                        label = { Text("Context size (tokens)") },
+                        label = { Text(stringResource(R.string.context_size_tokens)) },
                         singleLine = true,
                         enabled = !importing,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Understands images", Modifier.weight(1f))
+                        Text(stringResource(R.string.understands_images), Modifier.weight(1f))
                         Switch(vision, { vision = it }, enabled = !importing)
                     }
                     if (importing) {
@@ -151,9 +153,9 @@ fun CustomModelSection() {
                             result.onSuccess { picked = null }.onFailure { error = it.message }
                         }
                     },
-                ) { Text("Import") }
+                ) { Text(stringResource(R.string.action_import)) }
             },
-            dismissButton = { TextButton(enabled = !importing, onClick = { picked = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(enabled = !importing, onClick = { picked = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -161,9 +163,9 @@ fun CustomModelSection() {
         AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("Delete ${spec.displayName}?") },
-            text = { Text("The imported copy is removed from this phone. Your original file is not touched.") },
-            confirmButton = { TextButton(onClick = { importer.delete(spec); deleting = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            text = { Text(stringResource(R.string.the_imported_copy_is_removed)) },
+            confirmButton = { TextButton(onClick = { importer.delete(spec); deleting = null }) { Text(stringResource(R.string.delete)) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

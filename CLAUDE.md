@@ -93,6 +93,8 @@ Lightweight `SharedPreferences` wrappers, one concern each: `TokenStore` (HF tok
 
 ## Conventions
 
+- UI text goes in `res/values/strings.xml` with a Hindi version in `res/values-hi/strings.xml` (use `stringResource`); lint fails on a missing translation. Texts built from variables still use string templates in code.
+
 - Package layout is `core/*` (engine, model, prompt, database, common) for infrastructure and `feature/*` for user-facing features; UI is `ui/screens`, `ui/navigation`, `ui/theme`; ViewModels in `viewmodel/`.
 - Long-running work runs on `Dispatchers.IO` inside `viewModelScope`; generation cancellation uses the token pattern, not just `Job.cancel()`.
 - The `applicationId`/`namespace` is `com.example.orbitai` (kept as-is despite the `example` prefix — don't rename without cause).

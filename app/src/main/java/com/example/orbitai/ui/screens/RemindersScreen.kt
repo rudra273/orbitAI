@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.app.AlarmManager
 import android.content.Intent
 import android.net.Uri
@@ -53,22 +55,22 @@ fun RemindersScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
     review?.takeIf { it.chatId.isBlank() }?.let { ReminderReviewDialog(it, viewModel::dismissReminderReview, viewModel::confirmReminder, state.loadError) }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            TextButton(onClick = onBack) { Text("Back to Tools") }
-            Text("Orbit reminders", style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = { viewModel.editReminder() }) { Text("New reminder") }
+            TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_tools)) }
+            Text(stringResource(R.string.orbit_reminders), style = MaterialTheme.typography.headlineSmall)
+            TextButton(onClick = { viewModel.editReminder() }) { Text(stringResource(R.string.new_reminder)) }
             Text(if (exact) "Precise alarms enabled" else "Timing is approximate until Alarms & reminders access is enabled.")
             TextButton(onClick = {
                 try { context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))) }
                 catch (_: android.content.ActivityNotFoundException) { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
-            }) { Text("Alarms & reminders settings") }
+            }) { Text(stringResource(R.string.alarms_reminders_settings)) }
             Text(if (notifications) "Notifications enabled" else "Notifications are blocked. Enable them to receive reminders.")
             TextButton(onClick = {
                 context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-            }) { Text("Notification settings") }
+            }) { Text(stringResource(R.string.notification_settings)) }
         }
         state.loadError?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
         state.infoMessage?.let { info -> item { Text(info) } }
-        if (reminders.isEmpty()) item { Text("No saved reminders. Create one here or ask ‘Remind me at 10 pm to call Mom’.") }
+        if (reminders.isEmpty()) item { Text(stringResource(R.string.no_saved_reminders_create_one)) }
         val groups = com.example.orbitai.feature.automation.reminder.ReminderGroups.group(reminders, System.currentTimeMillis())
         groups.forEach { (group, list) ->
             item(key = "h_${group.name}") { Text(group.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
@@ -84,9 +86,9 @@ fun RemindersScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                         if (!reminder.completed) {
                             var snoozeMenu by remember { mutableStateOf(false) }
                             Row {
-                                TextButton(onClick = { viewModel.editReminder(reminder) }) { Text("Edit") }
+                                TextButton(onClick = { viewModel.editReminder(reminder) }) { Text(stringResource(R.string.edit)) }
                                 androidx.compose.foundation.layout.Box {
-                                    TextButton(onClick = { snoozeMenu = true }) { Text("Snooze") }
+                                    TextButton(onClick = { snoozeMenu = true }) { Text(stringResource(R.string.snooze)) }
                                     androidx.compose.material3.DropdownMenu(expanded = snoozeMenu, onDismissRequest = { snoozeMenu = false }) {
                                         val S = com.example.orbitai.feature.automation.reminder.ReminderScheduler
                                         listOf(S.SNOOZE_10_MIN to "10 minutes", S.SNOOZE_HOUR to "1 hour", S.SNOOZE_TOMORROW to "Tomorrow morning").forEach { (choice, label) ->
@@ -102,7 +104,7 @@ fun RemindersScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 Text(if (rule == com.example.orbitai.feature.automation.reminder.RepeatRule.Once) "Complete" else "Stop repeating")
                             }
                         }
-                        TextButton(onClick = { viewModel.cancelReminder(reminder.id) }) { Text("Delete") }
+                        TextButton(onClick = { viewModel.cancelReminder(reminder.id) }) { Text(stringResource(R.string.delete)) }
                     }
                 }
             }

@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,8 +30,8 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("OrbitAI Privacy policy", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.orbitai_privacy_policy), style = MaterialTheme.typography.headlineMedium)
             }
             item { PrivacySection("Data on your device", "Orbit stores chats, imported document text, memories, reminders, model files, settings and API keys in app storage on your device. Local AI models process your prompts on the device. Orbit does not include advertising or analytics SDKs. Android cloud backup and device transfer of Orbit's app data are disabled.") }
             item { PrivacySection("Optional Gemini cloud AI", "Before sending a Gemini request, Orbit asks for your confirmation. The request may contain your message, chat history, attached images and document text, relevant memories, and excerpts from selected Spaces. Google receives these data and your API key to generate a response under its Gemini API terms and privacy practices. Choose a local model to use on-device inference.") }
@@ -45,7 +47,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                 }
                 if (BuildConfig.PRIVACY_POLICY_URL.isNotBlank()) {
                     TextButton(onClick = { uriHandler.openUri(BuildConfig.PRIVACY_POLICY_URL) }) {
-                        Text("Read the public privacy policy")
+                        Text(stringResource(R.string.read_the_public_privacy_policy))
                     }
                 }
             }

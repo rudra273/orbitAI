@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
@@ -175,7 +177,7 @@ private fun ModeListScreen(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Modes",
+                    text = stringResource(R.string.modes),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -203,7 +205,7 @@ private fun ModeListScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Create mode",
+                    contentDescription = stringResource(R.string.create_mode),
                     tint = if (IsOrbitDarkTheme) SpaceDeep else Color.White,
                     modifier = Modifier.size(18.dp),
                 )
@@ -250,7 +252,7 @@ private fun ModeListScreen(
             if (builtInModes.isNotEmpty()) {
                 item {
                     Text(
-                        text = "BUILT-IN",
+                        text = stringResource(R.string.built_in),
                         color = ModesInk.copy(alpha = 0.30f),
                         fontFamily = ModesMono,
                         fontSize = 10.sp,
@@ -410,20 +412,20 @@ private fun NewModeCell(
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                text = "New mode",
+                text = stringResource(R.string.new_mode),
                 color = ModesInk.copy(alpha = 0.35f),
                 fontFamily = ModesSans,
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
             )
             Text(
-                text = "Prompt + tuning",
+                text = stringResource(R.string.prompt_tuning),
                 color = ModesInk.copy(alpha = 0.30f),
                 fontFamily = ModesSans,
                 fontSize = 11.sp,
             )
             Text(
-                text = "Add emoji, prompt, and parameters",
+                text = stringResource(R.string.add_emoji_prompt_and_parameters),
                 color = ModesInk.copy(alpha = 0.24f),
                 fontFamily = ModesSans,
                 fontSize = 10.sp,
@@ -596,7 +598,7 @@ private fun ModeEditScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.back),
                                 tint = ModesInk,
                             )
                         }
@@ -659,7 +661,7 @@ private fun ModeEditScreen(
                         }
                         Spacer(Modifier.width(6.dp))
                         FlatActionButton(
-                            label = "Save",
+                            label = stringResource(R.string.save),
                             onClick = {
                                 if (canSave) {
                                     onSave(
@@ -743,7 +745,7 @@ private fun ModeEditScreen(
                         readOnly   = isDefault,
                     )
                     Text(
-                        text = "Tip: add emoji in the mode name, e.g. 🤖 Code Reviewer",
+                        text = stringResource(R.string.tip_add_emoji_in_the),
                         fontFamily = ModesSans,
                         fontSize = 10.sp,
                         color = ModesInk.copy(alpha = 0.38f),
@@ -821,7 +823,7 @@ private fun ModeEditScreen(
                     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                         presetEditor()
                         onExport?.let { export ->
-                            androidx.compose.material3.TextButton(onClick = export) { Text("Share this mode") }
+                            androidx.compose.material3.TextButton(onClick = export) { Text(stringResource(R.string.share_this_mode)) }
                         }
                     }
                 }
@@ -834,7 +836,7 @@ private fun ModeEditScreen(
                     ) {
                         ModeFieldLabel("Inference")
                         FlatActionButton(
-                            label = "Reset Default",
+                            label = stringResource(R.string.reset_default),
                             onClick = resetInference,
                             enabled = true,
                             filled = false,
@@ -850,7 +852,7 @@ private fun ModeEditScreen(
                     Spacer(Modifier.height(6.dp))
 
                     CompactModeSlider(
-                        label = "Temperature",
+                        label = stringResource(R.string.temperature),
                         value = temperature,
                         valueStr = "%.2f".format(temperature),
                         range = 0.1f..2.0f,
@@ -858,7 +860,7 @@ private fun ModeEditScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
-                        label = "Top-K",
+                        label = stringResource(R.string.top_k),
                         value = topK.toFloat(),
                         valueStr = topK.toString(),
                         range = 1f..100f,
@@ -867,7 +869,7 @@ private fun ModeEditScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
-                        label = "Top-P",
+                        label = stringResource(R.string.top_p),
                         value = topP,
                         valueStr = "%.2f".format(topP),
                         range = 0.1f..1.0f,
@@ -875,7 +877,7 @@ private fun ModeEditScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
-                        label = "Max output tokens",
+                        label = stringResource(R.string.max_output_tokens),
                         value = maxDecodedTokens.toFloat(),
                         valueStr = maxDecodedTokens.toString(),
                         range = 128f..2048f,
@@ -889,7 +891,7 @@ private fun ModeEditScreen(
                     item {
                         Spacer(Modifier.height(4.dp))
                         FlatActionButton(
-                            label = "Delete Mode",
+                            label = stringResource(R.string.delete_mode),
                             onClick = { showDeleteConfirm = true },
                             modifier = Modifier
                                 .fillMaxWidth(),
@@ -908,14 +910,14 @@ private fun ModeEditScreen(
             onDismissRequest = { showDeleteConfirm = false },
             title = {
                 Text(
-                    text = "Delete mode?",
+                    text = stringResource(R.string.delete_mode_2),
                     color = TextPrimary,
                     style = MaterialTheme.typography.titleLarge,
                 )
             },
             text = {
                 Text(
-                    text = "This will permanently remove this mode.",
+                    text = stringResource(R.string.this_will_permanently_remove_this),
                     color = TextMuted,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -927,12 +929,12 @@ private fun ModeEditScreen(
                         onDelete()
                     },
                 ) {
-                    Text("Delete", color = Destructive)
+                    Text(stringResource(R.string.delete), color = Destructive)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel", color = TextMuted)
+                    Text(stringResource(R.string.cancel), color = TextMuted)
                 }
             },
         )
@@ -1187,13 +1189,13 @@ private fun ModeLibraryBar(viewModel: ModesViewModel) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        androidx.compose.material3.OutlinedButton(onClick = { showTemplates = true }) { Text("Templates") }
-        androidx.compose.material3.OutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Import") }
+        androidx.compose.material3.OutlinedButton(onClick = { showTemplates = true }) { Text(stringResource(R.string.templates)) }
+        androidx.compose.material3.OutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text(stringResource(R.string.action_import)) }
     }
     if (showTemplates) {
         AlertDialog(
             onDismissRequest = { showTemplates = false },
-            title = { Text("Add a mode") },
+            title = { Text(stringResource(R.string.add_a_mode)) },
             text = {
                 Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     com.example.orbitai.feature.modes.ModeTemplates.all.forEach { template ->
@@ -1210,7 +1212,7 @@ private fun ModeLibraryBar(viewModel: ModesViewModel) {
                     }
                 }
             },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { showTemplates = false }) { Text("Close") } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showTemplates = false }) { Text(stringResource(R.string.close)) } },
         )
     }
 }
@@ -1235,14 +1237,14 @@ private fun ModePresetEditor(
                 ?: "Keep the chat's model"
             androidx.compose.material3.OutlinedButton(onClick = { modelMenu = true }) { Text("Model: $current", maxLines = 1, overflow = TextOverflow.Ellipsis) }
             androidx.compose.material3.DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Keep the chat's model") }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = null)) })
+                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.keep_the_chat_s_model)) }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = null)) })
                 models.forEach { model ->
                     androidx.compose.material3.DropdownMenuItem(text = { Text(model.displayName) }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = model.id)) })
                 }
             }
         }
         if (spaces.isNotEmpty()) {
-            Text("Spaces to turn on", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.spaces_to_turn_on), style = MaterialTheme.typography.bodySmall)
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 spaces.forEach { space ->
                     val on = space.id in preset.defaultSpaceIds
@@ -1254,7 +1256,7 @@ private fun ModePresetEditor(
                 }
             }
         }
-        Text("Colour", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.colour), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ModeAccentColors.forEach { color ->
                 val selected = preset.accentColor == color

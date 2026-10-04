@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -273,7 +274,7 @@ fun OrbitBubbleSettingsScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings),
                     color = BubbleInk.copy(alpha = 0.40f),
                     fontFamily = BubbleMono,
                     fontSize = 13.sp,
@@ -296,14 +297,14 @@ fun OrbitBubbleSettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = "Orbit Bubble",
+                            text = stringResource(R.string.orbit_bubble),
                             color = BubbleInk,
                             fontFamily = BubbleSans,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 20.sp,
                         )
                         Text(
-                            text = "Floating assistant behavior",
+                            text = stringResource(R.string.floating_assistant_behavior),
                             color = BubbleInk.copy(alpha = 0.35f),
                             fontFamily = BubbleMono,
                             fontSize = 11.sp,
@@ -333,7 +334,7 @@ fun OrbitBubbleSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "No on-device models downloaded.\nDownload a model from Settings › Model.",
+                            text = stringResource(R.string.no_on_device_models_downloaded),
                             color = BubbleInk.copy(alpha = 0.45f),
                             fontFamily = BubbleSans,
                             fontSize = 13.sp,
@@ -378,7 +379,7 @@ fun OrbitBubbleSettingsScreen(
         item {
             GroupedCard {
                 ToggleRow(
-                    title = "Response mode",
+                    title = stringResource(R.string.response_mode),
                     subtitle = if (resultsInOverlay) {
                         "Response appears directly over current app"
                     } else {
@@ -392,7 +393,7 @@ fun OrbitBubbleSettingsScreen(
                 )
                 HairlineDivider()
                 ToggleRow(
-                    title = "Save bubble conversations to history",
+                    title = stringResource(R.string.save_bubble_conversations_to_history),
                     subtitle = if (saveHistory) {
                         "Every bubble chat is saved in your chat list"
                     } else {
@@ -420,7 +421,7 @@ fun OrbitBubbleSettingsScreen(
         item {
             GroupedCard(paddingHorizontal = 0.dp) {
                 AppearanceSliderRow(
-                    title = "Bubble size",
+                    title = stringResource(R.string.bubble_size),
                     valueLabel = "${bubbleSizePercent.toInt()}% · ${bubbleSizeDp}px",
                     value = bubbleSizeDp.toFloat(),
                     range = 40f..80f,
@@ -430,11 +431,11 @@ fun OrbitBubbleSettingsScreen(
                 )
                 HairlineDivider()
                 AppearanceSliderRow(
-                    title = "Idle opacity",
+                    title = stringResource(R.string.idle_opacity),
                     valueLabel = "${bubbleIdleAlphaPercent}%",
                     value = bubbleIdleAlphaPercent.toFloat(),
                     range = 20f..100f,
-                    description = "How visible bubble stays when idle",
+                    description = stringResource(R.string.how_visible_bubble_stays_when),
                     previewContent = {
                         Box(
                             modifier = Modifier
@@ -463,11 +464,11 @@ fun OrbitBubbleSettingsScreen(
                 )
                 HairlineDivider()
                 AppearanceSliderRow(
-                    title = "Response height",
+                    title = stringResource(R.string.response_height),
                     valueLabel = "${responseHeightPercent.toInt()}%",
                     value = responseHeightDp.toFloat(),
                     range = 100f..400f,
-                    description = "Overlay response panel height",
+                    description = stringResource(R.string.overlay_response_panel_height),
                     onValueChange = { value ->
                         responseHeightDp = value.toInt().coerceIn(100, 400)
                         toolSettingsStore.bubbleResponseHeightDp = responseHeightDp
@@ -476,11 +477,11 @@ fun OrbitBubbleSettingsScreen(
                 )
                 HairlineDivider()
                 AppearanceSliderRow(
-                    title = "Response opacity",
+                    title = stringResource(R.string.response_opacity),
                     valueLabel = "${bubbleResponseAlphaPercent}%",
                     value = bubbleResponseAlphaPercent.toFloat(),
                     range = 10f..100f,
-                    description = "Overlay response window glass opacity",
+                    description = stringResource(R.string.overlay_response_window_glass_opacity),
                     onValueChange = { value ->
                         bubbleResponseAlphaPercent = value.toInt().coerceIn(10, 100)
                         toolSettingsStore.bubbleResponseAlphaPercent = bubbleResponseAlphaPercent
@@ -512,7 +513,7 @@ fun OrbitBubbleSettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = BubbleInk.copy(alpha = 0.20f),
                 fontFamily = BubbleMono,
@@ -540,7 +541,7 @@ private fun ResetDefaultsButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Reset defaults",
+            text = stringResource(R.string.reset_defaults),
             color = BubbleInk.copy(alpha = 0.65f),
             fontFamily = BubbleMono,
             fontSize = 11.sp,
@@ -723,7 +724,7 @@ private fun ThemeDropdownRow(
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Text(
-                    text = "Response Theme",
+                    text = stringResource(R.string.response_theme),
                     color = BubbleInk,
                     fontFamily = BubbleSans,
                     fontWeight = FontWeight.Medium,
@@ -934,14 +935,14 @@ private fun BubbleStyleRow(
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             Text(
-                text = "Bubble style",
+                text = stringResource(R.string.bubble_style),
                 color = BubbleInk,
                 fontFamily = BubbleSans,
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
             )
             Text(
-                text = "Round bubble or right-side slide tab",
+                text = stringResource(R.string.round_bubble_or_right_side),
                 color = BubbleInk.copy(alpha = 0.35f),
                 fontFamily = BubbleSans,
                 fontSize = 11.sp,
@@ -950,12 +951,12 @@ private fun BubbleStyleRow(
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             SegmentedChip(
-                label = "Round",
+                label = stringResource(R.string.round),
                 selected = currentStyle == "round",
                 onClick = { onChange("round") },
             )
             SegmentedChip(
-                label = "Slide",
+                label = stringResource(R.string.slide),
                 selected = currentStyle == "slide",
                 onClick = { onChange("slide") },
             )

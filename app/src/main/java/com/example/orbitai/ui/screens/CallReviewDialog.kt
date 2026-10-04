@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -18,7 +20,7 @@ fun CallReviewDialog(request: CallReviewRequest, error: String?, onDismiss: () -
     var selected by remember(request) { mutableStateOf(request.selected) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Call contact") },
+        title = { Text(stringResource(R.string.call_contact)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(if (request.selected != null) "Confirm the matching contact and number." else "Several contacts match. Choose the number to call.")
@@ -31,11 +33,11 @@ fun CallReviewDialog(request: CallReviewRequest, error: String?, onDismiss: () -
                 error?.let { Text(it) }
             }
         },
-        confirmButton = { TextButton(enabled = selected != null, onClick = { selected?.let { onCall(it, false) } }) { Text("Call") } },
+        confirmButton = { TextButton(enabled = selected != null, onClick = { selected?.let { onCall(it, false) } }) { Text(stringResource(R.string.call)) } },
         dismissButton = {
             Row {
-                TextButton(enabled = selected != null, onClick = { selected?.let { onCall(it, true) } }) { Text("Open dialer") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(enabled = selected != null, onClick = { selected?.let { onCall(it, true) } }) { Text(stringResource(R.string.open_dialer)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },
     )

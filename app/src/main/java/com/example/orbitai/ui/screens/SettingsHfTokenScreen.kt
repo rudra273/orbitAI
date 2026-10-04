@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -109,7 +111,7 @@ fun SettingsHfTokenScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Models",
+                    text = stringResource(R.string.models),
                     color = SettingsInk.copy(alpha = 0.40f),
                     fontFamily = SettingsMono,
                     fontSize = 13.sp,
@@ -123,7 +125,7 @@ fun SettingsHfTokenScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "HuggingFace Token",
+                    text = stringResource(R.string.huggingface_token),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -133,7 +135,7 @@ fun SettingsHfTokenScreen(
                     fontFamily = SettingsSans,
                 )
                 Text(
-                    text = "Authenticate to download gated models",
+                    text = stringResource(R.string.authenticate_to_download_gated_models),
                     color = SettingsInk.copy(alpha = 0.35f),
                     fontFamily = SettingsMono,
                     fontSize = 11.sp,
@@ -149,14 +151,14 @@ fun SettingsHfTokenScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "Access Token",
+                            text = stringResource(R.string.access_token),
                             color = SettingsInk,
                             fontFamily = SettingsSans,
                             fontWeight = FontWeight.Medium,
                             fontSize = 13.sp,
                         )
                         Text(
-                            text = "Paste your HuggingFace access token securely.",
+                            text = stringResource(R.string.paste_your_huggingface_access_token),
                             color = SettingsInk.copy(alpha = 0.35f),
                             fontFamily = SettingsMono,
                             fontSize = 11.sp,
@@ -238,7 +240,7 @@ fun SettingsHfTokenScreen(
                         )
 
                         SmallOutlineButton(
-                            label = "Clear",
+                            label = stringResource(R.string.clear),
                             color = SettingsRed,
                             onClick = {
                                 token = ""
@@ -262,15 +264,15 @@ fun SettingsHfTokenScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     GuideStep(
                         step = "1",
-                        title = "Generate Token",
-                        description = "You need a free HuggingFace account to generate an Access Token.",
+                        title = stringResource(R.string.generate_token),
+                        description = stringResource(R.string.you_need_a_free_huggingface),
                         buttonLabel = "Create Token",
                         onClick = { uriHandler.openUri("https://huggingface.co/settings/tokens") }
                     )
                     GuideStep(
                         step = "2",
-                        title = "Check Model Licenses",
-                        description = "Models like Gemma 4 require you to read and accept their license before downloading.",
+                        title = stringResource(R.string.check_model_licenses),
+                        description = stringResource(R.string.models_like_gemma_4_require),
                         buttonLabel = "Accept Gemma 4 License",
                         onClick = { uriHandler.openUri("https://huggingface.co/google/gemma-3-2b-it") } // They referred to Gemma 4 e2b, but its currently titled Gemma-3n-2b or Gemma-4 on HF
                     )

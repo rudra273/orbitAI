@@ -1,5 +1,7 @@
 package com.example.orbitai.feature.bubble
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -166,13 +168,13 @@ private fun TextActionSheet(
         var typed by remember { mutableStateOf("") }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { pickingLanguage = false },
-            title = { Text("Translate to") },
+            title = { Text(stringResource(R.string.translate_to)) },
             text = {
                 androidx.compose.material3.OutlinedTextField(
                     value = typed,
                     onValueChange = { typed = it },
                     singleLine = true,
-                    placeholder = { Text("e.g. Tamil, French, Japanese") },
+                    placeholder = { Text(stringResource(R.string.e_g_tamil_french_japanese)) },
                 )
             },
             confirmButton = {
@@ -180,9 +182,9 @@ private fun TextActionSheet(
                     language = typed.trim()
                     pickingLanguage = false
                     action = TextAction.TRANSLATE
-                }) { Text("Translate") }
+                }) { Text(stringResource(R.string.translate)) }
             },
-            dismissButton = { TextButton(onClick = { pickingLanguage = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { pickingLanguage = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -198,8 +200,8 @@ private fun TextActionSheet(
             val chosen = action
             if (chosen == null) {
                 if (model == null) {
-                    Text("Text actions run on an on-device model, and none is downloaded yet.", style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = onGetModel) { Text("Download a model") }
+                    Text(stringResource(R.string.text_actions_run_on_an), style = MaterialTheme.typography.bodyMedium)
+                    Button(onClick = onGetModel) { Text(stringResource(R.string.download_a_model)) }
                 } else {
                     TextAction.entries.forEach { option ->
                         val label = if (option == TextAction.TRANSLATE) "Translate to $language" else option.label
@@ -227,16 +229,16 @@ private fun TextActionSheet(
                 }
                 if (done) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (canReplace && error == null && output.isNotBlank()) Button(onClick = { onReplace(output) }) { Text("Replace") }
+                        if (canReplace && error == null && output.isNotBlank()) Button(onClick = { onReplace(output) }) { Text(stringResource(R.string.replace)) }
                         OutlinedButton(enabled = output.isNotBlank(), onClick = {
                             context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Orbit", output))
                             Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
-                        }) { Text("Copy") }
+                        }) { Text(stringResource(R.string.copy)) }
                         OutlinedButton(enabled = output.isNotBlank(), onClick = {
                             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, output), null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        }) { Text("Share") }
+                        }) { Text(stringResource(R.string.share)) }
                     }
-                    TextButton(onClick = { action = null }) { Text("Other actions") }
+                    TextButton(onClick = { action = null }) { Text(stringResource(R.string.other_actions)) }
                 }
             }
         }

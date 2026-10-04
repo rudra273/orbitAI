@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,16 +51,16 @@ fun ReminderReviewDialog(
     var error by rememberSaveable(request) { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Review reminder") },
+        title = { Text(stringResource(R.string.review_reminder)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Check the suggested date and time before saving.")
-                OutlinedTextField(title, { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(description, { description = it }, label = { Text("Details") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(date, { date = it }, label = { Text("Date (YYYY-MM-DD)") }, singleLine = true)
-                OutlinedTextField(time, { time = it }, label = { Text("Time (HH:mm)") }, singleLine = true)
+                Text(stringResource(R.string.check_the_suggested_date_and))
+                OutlinedTextField(title, { title = it }, label = { Text(stringResource(R.string.title)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(description, { description = it }, label = { Text(stringResource(R.string.details)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(date, { date = it }, label = { Text(stringResource(R.string.date_yyyy_mm_dd)) }, singleLine = true)
+                OutlinedTextField(time, { time = it }, label = { Text(stringResource(R.string.time_hh_mm)) }, singleLine = true)
                 Text("Time zone: ${ZoneId.systemDefault().id}")
-                Text("Repeat")
+                Text(stringResource(R.string.repeat))
                 // Common choices based on the chosen date, plus whatever was parsed from the request.
                 val startDate = runCatching { LocalDate.parse(date.trim()) }.getOrNull() ?: localTime.toLocalDate()
                 val options = remember(startDate, draft.repeat) {
@@ -78,7 +80,7 @@ fun ReminderReviewDialog(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = local, onCheckedChange = { local = it })
-                    Text("Notify me in Orbit")
+                    Text(stringResource(R.string.notify_me_in_orbit))
                 }
                 Text(if (local) "Saved on this device. Precise timing needs Android’s Alarms & reminders access." else "Open your calendar to review and save the event.")
                 (error ?: saveError)?.let { Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error) }
@@ -102,6 +104,6 @@ fun ReminderReviewDialog(
                 }
             }) { Text(if (local) "Save reminder" else "Open calendar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -70,8 +72,8 @@ fun VoiceSettingsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("Voice", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.voice), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Tap the speaker icon under a reply to hear it. Talking to Orbit by voice works in the Orbit Bubble.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -89,11 +91,11 @@ fun VoiceSettingsScreen(onBack: () -> Unit) {
             }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Voice", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    OutlinedButton(onClick = ::preview) { Text("Play sample") }
+                    Text(stringResource(R.string.voice), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = ::preview) { Text(stringResource(R.string.play_sample)) }
                 }
                 if (!speaker.isAvailable) {
-                    Text("Text-to-speech isn't available on this phone. Install a speech engine in Android settings.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.text_to_speech_isn_t), style = MaterialTheme.typography.bodySmall)
                 }
             }
             item {

@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -135,7 +137,7 @@ fun HomeScreen(
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { renaming = null },
             containerColor = popupSurface,
-            title = { Text("Rename chat", color = inkColor, fontFamily = Sans) },
+            title = { Text(stringResource(R.string.rename_chat), color = inkColor, fontFamily = Sans) },
             text = {
                 androidx.compose.material3.OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true)
             },
@@ -143,9 +145,9 @@ fun HomeScreen(
                 androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = {
                     viewModel.renameChat(chat.id, name)
                     renaming = null
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.save)) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -192,7 +194,7 @@ fun HomeScreen(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.VisibilityOff,
-                    contentDescription = "New temporary chat",
+                    contentDescription = stringResource(R.string.new_temporary_chat),
                     tint = inkColor,
                     modifier = Modifier.size(20.dp),
                 )
@@ -215,7 +217,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "New chat",
+                        contentDescription = stringResource(R.string.new_chat),
                         tint = surfaceColor,
                         modifier = Modifier.size(22.dp),
                     )
@@ -358,7 +360,7 @@ private fun ChatHistoryTopBar(
         if (searchActive) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = inkColor,
                 modifier = Modifier
                     .size(24.dp)
@@ -429,7 +431,7 @@ private fun ChatHistoryTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
+                        contentDescription = stringResource(R.string.search),
                         tint = inkColor,
                         modifier = Modifier.size(20.dp),
                     )
@@ -447,7 +449,7 @@ private fun ChatHistoryTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More options",
+                        contentDescription = stringResource(R.string.more_options),
                         tint = inkColor,
                         modifier = Modifier.size(20.dp),
                     )
@@ -534,7 +536,7 @@ private fun ChatRow(
                     Spacer(Modifier.size(4.dp))
                 }
                 if (chat.isPinned) {
-                    Icon(Icons.Default.PushPin, contentDescription = "Pinned", tint = inkColor.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.PushPin, contentDescription = stringResource(R.string.pinned), tint = inkColor.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
                     Spacer(Modifier.size(6.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -634,7 +636,7 @@ private fun ChatRow(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = "Delete",
+                            text = stringResource(R.string.delete),
                             color = DeleteRed,
                             fontFamily = Sans,
                             fontSize = 14.sp,
@@ -671,11 +673,11 @@ private fun SelectionBar(
             onDismissRequest = { confirmDelete = false },
             containerColor = popupSurface,
             title = { Text("Delete $count chat${if (count == 1) "" else "s"}?", color = inkColor, fontFamily = Sans) },
-            text = { Text("This can't be undone.", color = inkColor.copy(alpha = 0.7f), fontFamily = Sans) },
+            text = { Text(stringResource(R.string.this_can_t_be_undone), color = inkColor.copy(alpha = 0.7f), fontFamily = Sans) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = DeleteRed) }
+                androidx.compose.material3.TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.delete), color = DeleteRed) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     Row(
@@ -686,11 +688,11 @@ private fun SelectionBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         androidx.compose.material3.IconButton(onClick = onClose) {
-            Icon(Icons.Default.Close, contentDescription = "Cancel selection", tint = inkColor)
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel_selection), tint = inkColor)
         }
         Text("$count selected", color = inkColor, fontFamily = Sans, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         androidx.compose.material3.TextButton(onClick = onArchive) { Text(if (archivedView) "Unarchive" else "Archive", color = inkColor) }
-        androidx.compose.material3.TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = DeleteRed) }
+        androidx.compose.material3.TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete), color = DeleteRed) }
     }
 }
 
@@ -756,7 +758,7 @@ private fun EmptyChats(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "No conversations yet",
+            text = stringResource(R.string.no_conversations_yet),
             color = inkColor.copy(alpha = 0.4f),
             fontFamily = Sans,
             fontSize = 18.sp,
@@ -793,7 +795,7 @@ private fun EmptyChats(
                         modifier = Modifier.size(16.dp),
                     )
                     Text(
-                        text = "Download a model to use",
+                        text = stringResource(R.string.download_a_model_to_use),
                         color = surfaceColor,
                         fontFamily = Sans,
                         fontSize = 13.sp,

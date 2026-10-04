@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Intent
@@ -67,24 +69,24 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
 
     if (disclosure) AlertDialog(
         onDismissRequest = { disclosure = false },
-        title = { Text("Enable message replies?") },
-        text = { Text("Android notification access lets Orbit receive notifications. Orbit only keeps reply-capable previews from the apps you select, in memory while those notifications are active. Drafting uses a downloaded local model; previews aren't saved to chat or sent to cloud AI. A reply is handed to the messaging app only when you tap Send reply. You can turn this off and revoke access at any time.") },
+        title = { Text(stringResource(R.string.enable_message_replies)) },
+        text = { Text(stringResource(R.string.android_notification_access_lets_orbit)) },
         confirmButton = {
             TextButton(onClick = {
                 settings.enabled = true
                 enabled = true
                 disclosure = false
                 NotificationReplyListener.refreshSettings()
-            }) { Text("Enable") }
+            }) { Text(stringResource(R.string.enable)) }
         },
-        dismissButton = { TextButton(onClick = { disclosure = false }) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = { disclosure = false }) { Text(stringResource(R.string.cancel)) } },
     )
 
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            TextButton(onClick = onBack) { Text("Back to Tools") }
-            Text("Message replies", style = MaterialTheme.typography.headlineSmall)
-            Text("Review and reply to active notifications from supported apps.")
+            TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_tools)) }
+            Text(stringResource(R.string.message_replies), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.review_and_reply_to_active))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = enabled, onCheckedChange = { value ->
                     if (value) disclosure = true else {
@@ -94,7 +96,7 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                         NotificationReplyListener.refreshSettings()
                     }
                 })
-                Text("Enable message replies", Modifier.padding(start = 12.dp))
+                Text(stringResource(R.string.enable_message_replies_2), Modifier.padding(start = 12.dp))
             }
             Text("Notification access: ${if (access) "granted" else "not granted"}")
             TextButton(onClick = {
@@ -106,7 +108,7 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
             }) { Text(if (access) "Manage Android access" else "Grant Android access") }
         }
         if (enabled) {
-            item { Text("Choose apps", style = MaterialTheme.typography.titleMedium) }
+            item { Text(stringResource(R.string.choose_apps), style = MaterialTheme.typography.titleMedium) }
             items(NotificationReplySettings.apps.entries.toList(), key = { it.key }) { app ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = app.key in packages, onCheckedChange = { checked ->
@@ -120,11 +122,11 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
             }
         }
         item {
-            Text("Only notifications with a usable text reply action appear. Hidden content, some group notifications, and expired messages may be unavailable.")
+            Text(stringResource(R.string.only_notifications_with_a_usable))
             status?.let { Text(it) }
         }
         if (enabled && access) {
-            if (notifications.isEmpty()) item { Text("No reply-ready messages. Select an app and wait for a message notification.") }
+            if (notifications.isEmpty()) item { Text(stringResource(R.string.no_reply_ready_messages_select)) }
             items(notifications, key = { it.key }) { notification ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -135,7 +137,7 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                             viewModel.clearNotificationReplyDraft()
                             status = null
                             selected = notification
-                        }) { Text("Review reply") }
+                        }) { Text(stringResource(R.string.review_reply)) }
                     }
                 }
             }
@@ -163,16 +165,16 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(NotificationReplySettings.apps[notification.packageName].orEmpty())
                     Text(notification.message)
-                    if (!current) Text("This notification changed or disappeared. Close this preview and review the latest message.")
+                    if (!current) Text(stringResource(R.string.this_notification_changed_or_disappeared))
                     OutlinedTextField(instruction, { instruction = it.take(1000) }, enabled = current && !loading,
-                        label = { Text("What should the reply say?") }, modifier = Modifier.fillMaxWidth())
+                        label = { Text(stringResource(R.string.what_should_the_reply_say)) }, modifier = Modifier.fillMaxWidth())
                     TextButton(enabled = current && !loading && instruction.isNotBlank(), onClick = {
                         error = null
                         viewModel.draftNotificationReply(notification, instruction)
                     }) { Text(if (loading) "Drafting on device…" else "Draft with local AI") }
                     OutlinedTextField(reply, { reply = it.take(4000) }, enabled = current && !loading,
-                        label = { Text("Reply to send") }, modifier = Modifier.fillMaxWidth())
-                    Text("Check the conversation and wording. Sending uses the messaging app and may require a network connection.")
+                        label = { Text(stringResource(R.string.reply_to_send)) }, modifier = Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.check_the_conversation_and_wording))
                     (error ?: draft.error.takeIf { matchingDraft })?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
@@ -187,9 +189,9 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                         sent = false
                         error = failure
                     }
-                }) { Text("Send reply") }
+                }) { Text(stringResource(R.string.send_reply)) }
             },
-            dismissButton = { TextButton(onClick = { closeReply() }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { closeReply() }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

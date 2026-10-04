@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -189,12 +190,12 @@ fun ChatScreen(
             onDismissRequest = { cancelCloudSend() },
             title = { Text("Send to ${request.modelName}?") },
             text = {
-                Text("Orbit will send this message, chat history, attached images or document text, and relevant memories and Space excerpts to Google for a cloud AI response. Google processes this data under its Gemini API terms. Use a local model to keep inference on this device.")
+                Text(stringResource(R.string.orbit_will_send_this_message))
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.onCloudSendConsent(true) }) { Text("Send to Google") }
+                TextButton(onClick = { viewModel.onCloudSendConsent(true) }) { Text(stringResource(R.string.send_to_google)) }
             },
-            dismissButton = { TextButton(onClick = { cancelCloudSend() }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { cancelCloudSend() }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -306,8 +307,8 @@ fun ChatScreen(
             onDismissRequest = viewModel::cancelDeviceAction,
             title = { Text(request.action.tool.title) },
             text = { Text(request.action.confirmation()) },
-            confirmButton = { TextButton(onClick = viewModel::confirmDeviceAction) { Text("Do it") } },
-            dismissButton = { TextButton(onClick = viewModel::cancelDeviceAction) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = viewModel::confirmDeviceAction) { Text(stringResource(R.string.do_it)) } },
+            dismissButton = { TextButton(onClick = viewModel::cancelDeviceAction) { Text(stringResource(R.string.cancel)) } },
         )
     }
     var openSource by remember { mutableStateOf<com.example.orbitai.feature.chat.MessageSource?>(null) }
@@ -362,10 +363,10 @@ fun ChatScreen(
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
-            title = { Text("Discard temporary chat?") },
-            text = { Text("Temporary chats aren't saved. This conversation will be gone.") },
-            confirmButton = { TextButton(onClick = { confirmDiscard = false; leave() }) { Text("Discard", color = Destructive) } },
-            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep chatting") } },
+            title = { Text(stringResource(R.string.discard_temporary_chat)) },
+            text = { Text(stringResource(R.string.temporary_chats_aren_t_saved)) },
+            confirmButton = { TextButton(onClick = { confirmDiscard = false; leave() }) { Text(stringResource(R.string.discard), color = Destructive) } },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep_chatting)) } },
         )
     }
 
@@ -582,7 +583,7 @@ fun ChatScreen(
                         ) {
                             Image(
                                 painter            = painterResource(R.drawable.vector_logo),
-                                contentDescription = "OrbitAI",
+                                contentDescription = stringResource(R.string.orbitai),
                                 modifier           = Modifier.size(64.dp),
                             )
                             Spacer(Modifier.height(20.dp))
@@ -659,7 +660,7 @@ private fun ChatTopBar(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     tint = TextMuted,
                     modifier = Modifier.size(18.dp),
                 )
@@ -698,10 +699,10 @@ private fun ChatTopBar(
                 var menuOpen by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Chat options", tint = TextMuted, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.chat_options), tint = TextMuted, modifier = Modifier.size(18.dp))
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(text = { Text("Export chat") }, onClick = { menuOpen = false; onExport() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.export_chat)) }, onClick = { menuOpen = false; onExport() })
                     }
                 }
             } else {
@@ -797,7 +798,7 @@ private fun OnDeviceModelPill(
             )
             Icon(
                 Icons.Default.ExpandMore,
-                contentDescription = "Select model",
+                contentDescription = stringResource(R.string.select_model),
                 tint     = OnDevicePillText.copy(alpha = 0.7f),
                 modifier = Modifier.size(13.dp),
             )
@@ -881,7 +882,7 @@ private fun ModeDropdownChip(
             )
             Icon(
                 Icons.Default.ExpandMore,
-                contentDescription = "Switch mode",
+                contentDescription = stringResource(R.string.switch_mode),
                 tint     = TextMuted,
                 modifier = Modifier.size(14.dp),
             )
@@ -1045,12 +1046,12 @@ private fun MessageBubble(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete message?") },
-            text = { Text("This removes the message from the chat. It can't be undone.") },
+            title = { Text(stringResource(R.string.delete_message)) },
+            text = { Text(stringResource(R.string.this_removes_the_message_from)) },
             confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = Destructive) }
+                TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.delete), color = Destructive) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -1098,7 +1099,7 @@ private fun MessageBubble(
                                 ) {
                                     Icon(
                                         Icons.Default.AttachFile,
-                                        contentDescription = "Image preview",
+                                        contentDescription = stringResource(R.string.image_preview),
                                         tint = Color.White.copy(alpha = 0.6f),
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -1115,23 +1116,23 @@ private fun MessageBubble(
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("Copy") },
+                        text = { Text(stringResource(R.string.copy)) },
                         leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
                         onClick = { menuOpen = false; copy() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Edit & resend") },
+                        text = { Text(stringResource(R.string.edit_resend)) },
                         leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                         enabled = actionsEnabled,
                         onClick = { menuOpen = false; editing = true },
                     )
                     DropdownMenuItem(
-                        text = { Text("Remind me about this") },
+                        text = { Text(stringResource(R.string.remind_me_about_this)) },
                         leadingIcon = { Icon(Icons.Outlined.Alarm, contentDescription = null) },
                         onClick = { menuOpen = false; onRemind() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Delete") },
+                        text = { Text(stringResource(R.string.delete)) },
                         leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                         enabled = actionsEnabled,
                         onClick = { menuOpen = false; confirmDelete = true },
@@ -1208,12 +1209,12 @@ private fun MessageBubble(
                         ) {
                             Icon(Icons.Outlined.Psychology, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Memory used", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            Text(stringResource(R.string.memory_used), style = MaterialTheme.typography.labelSmall, color = TextMuted)
                         }
                         if (showMemories) {
                             AlertDialog(
                                 onDismissRequest = { showMemories = false },
-                                title = { Text("Memories used") },
+                                title = { Text(stringResource(R.string.memories_used)) },
                                 text = {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         msg.usedMemories.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
@@ -1224,7 +1225,7 @@ private fun MessageBubble(
                                         )
                                     }
                                 },
-                                confirmButton = { TextButton(onClick = { showMemories = false }) { Text("OK") } },
+                                confirmButton = { TextButton(onClick = { showMemories = false }) { Text(stringResource(R.string.ok)) } },
                             )
                         }
                     }
@@ -1260,17 +1261,17 @@ private fun EditMessageDialog(initialText: String, onDismiss: () -> Unit, onSend
     var text by remember { mutableStateOf(initialText) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit message") },
+        title = { Text(stringResource(R.string.edit_message)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(), maxLines = 8)
-                Text("Replies after this message will be replaced.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text(stringResource(R.string.replies_after_this_message_will), style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSend(text) }, enabled = text.isNotBlank()) { Text("Send") }
+            TextButton(onClick = { onSend(text) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.send)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -1407,7 +1408,7 @@ private fun ChatInputBar(
                 )
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Remove attachment",
+                    contentDescription = stringResource(R.string.remove_attachment),
                     tint     = TextMuted,
                     modifier = Modifier
                         .size(16.dp)
@@ -1451,7 +1452,7 @@ private fun ChatInputBar(
                         // Remove icon overlay
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Remove image",
+                            contentDescription = stringResource(R.string.remove_image),
                             tint = Color.White,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
@@ -1496,13 +1497,13 @@ private fun ChatInputBar(
                     contentAlignment = Alignment.Center,
                 ) {
                     DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
-                        DropdownMenuItem(text = { Text("Camera") }, onClick = { attachMenu = false; onTakePhoto() })
-                        DropdownMenuItem(text = { Text("Photos") }, onClick = { attachMenu = false; onPickPhoto() })
-                        DropdownMenuItem(text = { Text("Files") }, onClick = { attachMenu = false; onPickAttachment() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.camera)) }, onClick = { attachMenu = false; onTakePhoto() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.photos)) }, onClick = { attachMenu = false; onPickPhoto() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.files)) }, onClick = { attachMenu = false; onPickAttachment() })
                     }
                     Icon(
                         Icons.Default.AttachFile,
-                        contentDescription = "Attach file",
+                        contentDescription = stringResource(R.string.attach_file),
                         tint     = if (selectedModelSupportsAttachments) TextSecondary else TextMuted.copy(alpha = 0.5f),
                         modifier = Modifier.size(20.dp),
                     )
@@ -1563,7 +1564,7 @@ private fun ChatInputBar(
                     ) {
                         Icon(
                             Icons.Default.Mic,
-                            contentDescription = "Voice input",
+                            contentDescription = stringResource(R.string.voice_input),
                             tint     = TextSecondary,
                             modifier = Modifier.size(20.dp),
                         )
@@ -1612,7 +1613,7 @@ private fun SendButton(
         } else {
             Icon(
                 Icons.AutoMirrored.Filled.Send,
-                contentDescription = "Send",
+                contentDescription = stringResource(R.string.send),
                 tint     = if (enabled) SpaceDeep else TextMuted,
                 modifier = Modifier.size(20.dp),
             )
@@ -1637,7 +1638,7 @@ private fun StopButton(onClick: () -> Unit) {
     ) {
         Icon(
             Icons.Default.Stop,
-            contentDescription = "Stop generation",
+            contentDescription = stringResource(R.string.stop_generation),
             tint     = Destructive,
             modifier = Modifier.size(22.dp),
         )
@@ -1762,7 +1763,7 @@ private suspend fun readAttachmentForPrompt(
 @Composable
 private fun SourcesRow(sources: List<com.example.orbitai.feature.chat.MessageSource>, onClick: (com.example.orbitai.feature.chat.MessageSource) -> Unit) {
     Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
-        Text("Sources", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        Text(stringResource(R.string.sources), style = MaterialTheme.typography.labelSmall, color = TextMuted)
         androidx.compose.foundation.layout.FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -1822,9 +1823,9 @@ private fun SourceSheet(source: com.example.orbitai.feature.chat.MessageSource, 
                     .padding(12.dp),
             )
             if (source.available) {
-                OutlinedButton(onClick = onOpenDocument) { Text("Open document") }
+                OutlinedButton(onClick = onOpenDocument) { Text(stringResource(R.string.open_document)) }
             } else {
-                Text("This document was removed from its Space. The excerpt above is what Orbit used.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text(stringResource(R.string.this_document_was_removed_from), style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
         }
     }
@@ -1838,12 +1839,12 @@ private fun MemorySuggestionChip(fact: String, onSave: (String) -> Unit, onDismi
     if (editing) {
         AlertDialog(
             onDismissRequest = { editing = false },
-            title = { Text("Remember") },
+            title = { Text(stringResource(R.string.remember)) },
             text = { OutlinedTextField(value = edited, onValueChange = { edited = it }, maxLines = 3) },
             confirmButton = {
-                TextButton(enabled = edited.isNotBlank(), onClick = { editing = false; onSave(edited.trim()) }) { Text("Save") }
+                TextButton(enabled = edited.isNotBlank(), onClick = { editing = false; onSave(edited.trim()) }) { Text(stringResource(R.string.save)) }
             },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     Row(
@@ -1866,10 +1867,10 @@ private fun MemorySuggestionChip(fact: String, onSave: (String) -> Unit, onDismi
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        TextButton(onClick = { onSave(fact) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Save") }
-        TextButton(onClick = { editing = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Edit") }
+        TextButton(onClick = { onSave(fact) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.save)) }
+        TextButton(onClick = { editing = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.edit)) }
         IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Filled.Close, contentDescription = "Don't remember", tint = TextMuted, modifier = Modifier.size(16.dp))
+            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.don_t_remember), tint = TextMuted, modifier = Modifier.size(16.dp))
         }
     }
 }

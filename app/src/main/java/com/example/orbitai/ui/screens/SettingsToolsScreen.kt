@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -96,7 +98,7 @@ fun ToolsSettingsScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings),
                     color = ToolsInk.copy(alpha = 0.40f),
                     fontFamily = ToolsMono,
                     fontSize = 13.sp,
@@ -110,7 +112,7 @@ fun ToolsSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Tools",
+                    text = stringResource(R.string.tools),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -120,7 +122,7 @@ fun ToolsSettingsScreen(
                     fontFamily = ToolsSans,
                 )
                 Text(
-                    text = "Tool availability and support",
+                    text = stringResource(R.string.tool_availability_and_support),
                     color = ToolsInk.copy(alpha = 0.35f),
                     fontFamily = ToolsMono,
                     fontSize = 11.sp,
@@ -131,7 +133,7 @@ fun ToolsSettingsScreen(
         item { ToolsSectionHeader("TOOLS") }
         item {
             Text(
-                text = "Orbit asks before every action. Messages and calls always need your final tap in the other app.",
+                text = stringResource(R.string.orbit_asks_before_every_action),
                 color = ToolsInk.copy(alpha = 0.5f),
                 fontFamily = ToolsSans,
                 fontSize = 12.sp,
@@ -158,18 +160,18 @@ fun ToolsSettingsScreen(
         }
 
         item {
-            androidx.compose.material3.TextButton(onClick = onOpenReminders) { Text("Saved reminders") }
+            androidx.compose.material3.TextButton(onClick = onOpenReminders) { Text(stringResource(R.string.saved_reminders)) }
         }
         item {
-            androidx.compose.material3.TextButton(onClick = onOpenReplies) { Text("Message replies") }
+            androidx.compose.material3.TextButton(onClick = onOpenReplies) { Text(stringResource(R.string.message_replies)) }
         }
         item { ToolsSectionHeader("NOTES") }
         item {
             ToolsGroupedCard {
                 ToolInfoRow(
                     icon = Icons.Default.Build,
-                    title = "Execution",
-                    description = "Only tools that support safe background execution should use automation.",
+                    title = stringResource(R.string.execution),
+                    description = stringResource(R.string.only_tools_that_support_safe),
                 )
             }
         }
@@ -177,7 +179,7 @@ fun ToolsSettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = ToolsInk.copy(alpha = 0.20f),
                 fontFamily = ToolsMono,

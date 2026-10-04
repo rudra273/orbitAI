@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -179,7 +181,7 @@ fun SpacesScreen(
                                 modifier = Modifier.size(14.dp),
                             )
                             Text(
-                                text = "Download",
+                                text = stringResource(R.string.download),
                                 color = SpaceDeep,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
@@ -241,7 +243,7 @@ private fun SpacesTopBar(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "Spaces",
+                text = stringResource(R.string.spaces),
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -270,7 +272,7 @@ private fun SpacesTopBar(
         ) {
             Icon(
                 Icons.Default.Add,
-                contentDescription = "Create Space",
+                contentDescription = stringResource(R.string.create_space),
                 tint = SpaceDeep,
                 modifier = Modifier.size(18.dp),
             )
@@ -417,7 +419,7 @@ private fun SpaceCard(
             ) {
                 Icon(
                     Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Show documents",
+                    contentDescription = stringResource(R.string.show_documents),
                     tint = TextSecondary.copy(alpha = if (isActive) 1f else 0.5f),
                     modifier = Modifier.size(14.dp),
                 )
@@ -493,14 +495,14 @@ private fun InlineDocRow(doc: RagDocument) {
         when (doc.status) {
             RagStatus.DONE -> Icon(
                 Icons.Default.CheckCircle,
-                contentDescription = "Indexed",
+                contentDescription = stringResource(R.string.indexed),
                 tint = IndexedGreen,
                 modifier = Modifier.size(14.dp),
             )
 
             RagStatus.PROCESSING, RagStatus.PENDING -> Icon(
                 Icons.Default.HourglassEmpty,
-                contentDescription = "Processing",
+                contentDescription = stringResource(R.string.processing),
                 tint = processingTint,
                 modifier = Modifier.size(14.dp),
             )
@@ -667,7 +669,7 @@ private fun CreateSpaceDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextMuted)
+                Text(stringResource(R.string.cancel), color = TextMuted)
             }
         },
     )

@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -91,15 +93,15 @@ fun MemorySettingsScreen(
         var text by remember(memory.id) { mutableStateOf(memory.content) }
         AlertDialog(
             onDismissRequest = { editing = null },
-            title = { Text("Edit memory") },
+            title = { Text(stringResource(R.string.edit_memory)) },
             text = { OutlinedTextField(value = text, onValueChange = { text = it }, maxLines = 4) },
             confirmButton = {
                 TextButton(enabled = text.isNotBlank(), onClick = {
                     memoryViewModel.updateMemory(memory.id, text)
                     editing = null
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.save)) }
             },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -130,7 +132,7 @@ fun MemorySettingsScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings),
                     color = MemoryInk.copy(alpha = 0.40f),
                     fontFamily = MemoryMono,
                     fontSize = 13.sp,
@@ -144,7 +146,7 @@ fun MemorySettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Memory",
+                    text = stringResource(R.string.memory),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -154,7 +156,7 @@ fun MemorySettingsScreen(
                     fontFamily = MemorySans,
                 )
                 Text(
-                    text = "Stored memories and controls",
+                    text = stringResource(R.string.stored_memories_and_controls),
                     color = MemoryInk.copy(alpha = 0.35f),
                     fontFamily = MemoryMono,
                     fontSize = 11.sp,
@@ -166,7 +168,7 @@ fun MemorySettingsScreen(
         item {
             MemoryGroupedCard {
                 MemoryToggleRow(
-                    title = "Use memory",
+                    title = stringResource(R.string.use_memory),
                     description = if (enabled) {
                         "OrbitAI uses the memories you save in conversations."
                     } else {
@@ -181,8 +183,8 @@ fun MemorySettingsScreen(
                 if (enabled) {
                     MemoryHairlineDivider()
                     MemoryToggleRow(
-                        title = "Suggest memories",
-                        description = "When you share a personal fact, like where you live, Orbit asks before remembering it.",
+                        title = stringResource(R.string.suggest_memories),
+                        description = stringResource(R.string.when_you_share_a_personal),
                         checked = suggest,
                         onCheckedChange = {
                             suggest = it
@@ -201,12 +203,12 @@ fun MemorySettingsScreen(
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Search memories") },
+                        placeholder = { Text(stringResource(R.string.search_memories)) },
                         singleLine = true,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = !sortByUse, onClick = { sortByUse = false }, label = { Text("Recent") })
-                        FilterChip(selected = sortByUse, onClick = { sortByUse = true }, label = { Text("Most used") })
+                        FilterChip(selected = !sortByUse, onClick = { sortByUse = false }, label = { Text(stringResource(R.string.recent)) })
+                        FilterChip(selected = sortByUse, onClick = { sortByUse = true }, label = { Text(stringResource(R.string.most_used)) })
                     }
                 }
             }
@@ -268,7 +270,7 @@ fun MemorySettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = MemoryInk.copy(alpha = 0.20f),
                 fontFamily = MemoryMono,
@@ -434,7 +436,7 @@ private fun MemoryStoredRow(
         ) {
             Icon(
                 imageVector = Icons.Default.Delete,
-                contentDescription = "Delete memory",
+                contentDescription = stringResource(R.string.delete_memory),
                 tint = MemoryRed.copy(alpha = 0.82f),
                 modifier = Modifier.size(15.dp),
             )

@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -32,14 +34,14 @@ fun ContentReportDialog(responseText: String, source: String, onDismiss: () -> U
         text = {
             Column {
                 if (sent) {
-                    Text("Thank you. Your report was submitted to the developer for review.")
+                    Text(stringResource(R.string.thank_you_your_report_was))
                 } else {
-                    Text("Submit the selected AI response and your optional note to the developer for safety review. They may contain personal information. Submit only what you want to share.")
+                    Text(stringResource(R.string.submit_the_selected_ai_response))
                     Spacer(androidx.compose.ui.Modifier.height(12.dp))
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it.take(2000) },
-                        label = { Text("Reason (optional)") },
+                        label = { Text(stringResource(R.string.reason_optional)) },
                         enabled = !isSending,
                         maxLines = 4,
                     )
@@ -64,7 +66,7 @@ fun ContentReportDialog(responseText: String, source: String, onDismiss: () -> U
             }) { Text(if (sent) "Done" else if (isSending) "Sending…" else "Submit report") }
         },
         dismissButton = {
-            if (!sent) TextButton(enabled = !isSending, onClick = onDismiss) { Text("Cancel") }
+            if (!sent) TextButton(enabled = !isSending, onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }

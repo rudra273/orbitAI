@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,10 +48,10 @@ fun AppearanceScreen(appearance: Appearance, onChange: (Appearance) -> Unit, onB
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("Appearance", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.appearance), style = MaterialTheme.typography.headlineMedium)
             }
-            item { Text("Theme", style = MaterialTheme.typography.titleSmall) }
+            item { Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleSmall) }
             ThemeMode.entries.forEach { mode ->
                 item(key = mode.name) {
                     Row(
@@ -66,8 +68,8 @@ fun AppearanceScreen(appearance: Appearance, onChange: (Appearance) -> Unit, onB
             }
             item {
                 SwitchRow(
-                    title = "Dynamic colour",
-                    description = "Use accent colours from your wallpaper instead of Orbit violet.",
+                    title = stringResource(R.string.dynamic_colour),
+                    description = stringResource(R.string.use_accent_colours_from_your),
                     checked = appearance.dynamicColor,
                 ) { onChange(appearance.copy(dynamicColor = it)) }
             }
@@ -87,8 +89,8 @@ fun AppearanceScreen(appearance: Appearance, onChange: (Appearance) -> Unit, onB
             }
             item {
                 SwitchRow(
-                    title = "Compact messages",
-                    description = "Less space between chat messages.",
+                    title = stringResource(R.string.compact_messages),
+                    description = stringResource(R.string.less_space_between_chat_messages),
                     checked = appearance.compactMessages,
                 ) { onChange(appearance.copy(compactMessages = it)) }
             }

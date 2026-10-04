@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,7 +74,7 @@ fun ExportChatDialog(chat: Chat, modelName: String?, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Export chat") },
+        title = { Text(stringResource(R.string.export_chat)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ExportFormat.entries.forEach { option ->
@@ -96,14 +98,14 @@ fun ExportChatDialog(chat: Chat, modelName: String?, onDismiss: () -> Unit) {
                     ) {
                         Checkbox(checked = includeImages, onCheckedChange = null, enabled = !busy)
                         Spacer(Modifier.width(8.dp))
-                        Text("Include images")
+                        Text(stringResource(R.string.include_images))
                     }
                 }
                 if (busy) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(10.dp))
-                        Text("Exporting…")
+                        Text(stringResource(R.string.exporting))
                     }
                 }
             }
@@ -111,12 +113,12 @@ fun ExportChatDialog(chat: Chat, modelName: String?, onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(enabled = !busy, onClick = {
                 run { context.startActivity(exporter.shareIntent(chat, modelName, format, includeImages)) }
-            }) { Text("Share") }
+            }) { Text(stringResource(R.string.share)) }
         },
         dismissButton = {
             Row {
-                TextButton(enabled = !busy, onClick = { saveLauncher.launch(ChatExport.fileName(chat, format)) }) { Text("Save") }
-                TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") }
+                TextButton(enabled = !busy, onClick = { saveLauncher.launch(ChatExport.fileName(chat, format)) }) { Text(stringResource(R.string.save)) }
+                TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },
     )

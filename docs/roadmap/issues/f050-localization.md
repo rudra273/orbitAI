@@ -2,6 +2,8 @@
 Labels: enhancement
 **Milestone:** M2 Core Experience · **Priority:** P1 · **Size:** L · **Area:** UI / i18n
 
+**Status:** 🟡 First pass done, device check pending (2026-10-04). Owner chose Hindi. About 310 UI texts moved to string resources with a Hindi translation (`values-hi`), a per-app language picker (Settings > App language, via `locales_config.xml`), and lint already flags a missing translation. Still English: texts built from variables (counts, names, status lines), messages in the floating bubble, notifications, and the model prompts. The Hindi was written by me and needs a native reader to review it. Not done: pseudo-locale and RTL layout checks, CI check against new hardcoded strings, plurals.
+
 **Title:** Externalize every user-facing string and add the first non-English locales
 
 **Description:**

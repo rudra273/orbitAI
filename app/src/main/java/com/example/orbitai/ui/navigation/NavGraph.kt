@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.navigation
 
+import androidx.compose.ui.res.stringResource
 import com.example.orbitai.appContainer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -199,16 +200,16 @@ fun OrbitNavGraph(
     if (showCrashPrompt && hasCompletedWelcome) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { diagnostics.dismissPrompt() },
-            title = { Text("Orbit closed unexpectedly") },
-            text = { Text("A diagnostics report was saved on this device. Review it and share it with the developer to help fix the problem? It doesn't include your chats.") },
+            title = { Text(stringResource(R.string.orbit_closed_unexpectedly)) },
+            text = { Text(stringResource(R.string.a_diagnostics_report_was_saved)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     diagnostics.dismissPrompt()
                     navController.navigate(Screen.SettingsDiagnostics.route) { launchSingleTop = true }
-                }) { Text("Review") }
+                }) { Text(stringResource(R.string.review)) }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { diagnostics.dismissPrompt() }) { Text("Not now") }
+                androidx.compose.material3.TextButton(onClick = { diagnostics.dismissPrompt() }) { Text(stringResource(R.string.not_now)) }
             },
         )
     }
@@ -673,7 +674,7 @@ private fun OrbitNavButton(
             ) {
                 Image(
                     painter            = painterResource(R.drawable.vector_logo),
-                    contentDescription = "Orbit",
+                    contentDescription = stringResource(R.string.orbit),
                     modifier           = Modifier.size(26.dp),
                 )
             }

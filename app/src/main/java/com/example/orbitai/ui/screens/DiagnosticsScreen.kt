@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +51,8 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("Diagnostics", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.diagnostics), style = MaterialTheme.typography.headlineMedium)
             }
             item {
                 Text(
@@ -63,9 +65,9 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
             }
             val text = reports
             if (text == null) {
-                item { Text("Loading…") }
+                item { Text(stringResource(R.string.loading)) }
             } else if (text.isBlank()) {
-                item { Text("No reports. Orbit hasn't recorded any crashes.", style = MaterialTheme.typography.bodyMedium) }
+                item { Text(stringResource(R.string.no_reports_orbit_hasn_t), style = MaterialTheme.typography.bodyMedium) }
             } else {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -79,11 +81,11 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
                                 putExtra(Intent.EXTRA_TEXT, text)
                             }
                             context.startActivity(Intent.createChooser(send, "Share diagnostics"))
-                        }) { Text("Share") }
+                        }) { Text(stringResource(R.string.share)) }
                         OutlinedButton(onClick = {
                             store.clear()
                             reports = ""
-                        }) { Text("Clear") }
+                        }) { Text(stringResource(R.string.clear)) }
                     }
                 }
                 item {

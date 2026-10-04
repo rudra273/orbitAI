@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,34 +47,34 @@ fun ChatSettingsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("Chat", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.chat), style = MaterialTheme.typography.headlineMedium)
             }
             item {
                 SettingSwitch(
-                    title = "Smart titles",
-                    description = "After the first reply, the on-device model names the chat in a few words. Cloud models are never used for this.",
+                    title = stringResource(R.string.smart_titles),
+                    description = stringResource(R.string.after_the_first_reply_the),
                     checked = smartTitles,
                 ) { smartTitles = it; store.smartTitles = it }
             }
             item {
                 SettingSwitch(
-                    title = "Show generation details",
-                    description = "Under each new reply: time to first token, speed, hardware (CPU/GPU) and model.",
+                    title = stringResource(R.string.show_generation_details),
+                    description = stringResource(R.string.under_each_new_reply_time),
                     checked = details,
                 ) { details = it; store.showGenerationDetails = it }
             }
             item {
                 Column {
-                    Text("Translate to", style = MaterialTheme.typography.titleSmall)
-                    Text("Used by Translate when you select text in another app and pick Orbit AI. Type any language; Hindi by default.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.translate_to), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.used_by_translate_when_you), style = MaterialTheme.typography.bodySmall)
                     androidx.compose.foundation.layout.Box {
                         androidx.compose.material3.OutlinedTextField(
                             value = language,
                             onValueChange = { language = it; if (it.isNotBlank()) store.translateLanguage = it },
                             singleLine = true,
                             placeholder = { Text(ChatSettingsStore.DEFAULT_TRANSLATE_LANGUAGE) },
-                            trailingIcon = { TextButton(onClick = { languageMenu = true }) { Text("Pick") } },
+                            trailingIcon = { TextButton(onClick = { languageMenu = true }) { Text(stringResource(R.string.pick)) } },
                         )
                         androidx.compose.material3.DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
                             ChatSettingsStore.TRANSLATE_LANGUAGES.forEach { option ->

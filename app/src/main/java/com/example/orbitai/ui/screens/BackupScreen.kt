@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -87,8 +89,8 @@ fun BackupScreen(onBack: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TextButton(onClick = onBack) { Text("Back") }
-            Text("Backup & restore", style = MaterialTheme.typography.headlineMedium)
+            TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+            Text(stringResource(R.string.backup_restore), style = MaterialTheme.typography.headlineMedium)
             Text(
                 "Orbit keeps everything on this phone, so a new phone or a reinstall starts empty. A backup is one file you keep, " +
                     "locked with a passphrase only you know. Downloaded models aren't included; download them again after restoring.",
@@ -97,7 +99,7 @@ fun BackupScreen(onBack: () -> Unit) {
             OutlinedTextField(
                 value = passphrase,
                 onValueChange = { passphrase = it },
-                label = { Text("Passphrase") },
+                label = { Text(stringResource(R.string.passphrase)) },
                 supportingText = { Text("At least $MIN_PASSPHRASE characters. If you forget it, the backup can't be opened.") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
@@ -107,8 +109,8 @@ fun BackupScreen(onBack: () -> Unit) {
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Include API keys", style = MaterialTheme.typography.titleSmall)
-                    Text("Hugging Face token and Gemini key. Off by default.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.include_api_keys), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.hugging_face_token_and_gemini), style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(includeKeys, { includeKeys = it }, enabled = !busy)
             }
@@ -119,23 +121,23 @@ fun BackupScreen(onBack: () -> Unit) {
                     createLauncher.launch("orbit-$stamp.orbitbackup")
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Create backup") }
+            ) { Text(stringResource(R.string.create_backup)) }
             OutlinedButton(
                 enabled = !busy && passphrase.isNotEmpty(),
                 onClick = { openLauncher.launch(arrayOf("*/*")) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Restore from backup") }
+            ) { Text(stringResource(R.string.restore_from_backup)) }
             Text(
                 "To restore, type the backup's passphrase above, then choose the file. Restoring replaces the chats, memories, modes and settings on this phone.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (busy) Text("Working…", style = MaterialTheme.typography.bodyMedium)
+            if (busy) Text(stringResource(R.string.working), style = MaterialTheme.typography.bodyMedium)
             message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             if (pendingRestore) {
-                Text("A restore is ready and will be applied the next time Orbit starts.", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.a_restore_is_ready_and), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { restartApp(context) }) { Text("Restart now") }
-                    TextButton(onClick = { manager.cancelPendingRestore(); pendingRestore = false }) { Text("Cancel restore") }
+                    Button(onClick = { restartApp(context) }) { Text(stringResource(R.string.restart_now)) }
+                    TextButton(onClick = { manager.cancelPendingRestore(); pendingRestore = false }) { Text(stringResource(R.string.cancel_restore)) }
                 }
             }
         }
@@ -144,19 +146,19 @@ fun BackupScreen(onBack: () -> Unit) {
     staged?.let { preview ->
         AlertDialog(
             onDismissRequest = { manager.cancelPendingRestore(); staged = null },
-            title = { Text("Restore this backup?") },
+            title = { Text(stringResource(R.string.restore_this_backup)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Made ${DateFormat.getDateTimeInstance().format(Date(preview.createdAt))}")
                     Text("${preview.chats} chats · ${preview.memories} memories · ${preview.modes} modes · ${preview.spaces} Spaces")
                     Text(if (preview.includesKeys) "Includes API keys." else "Does not include API keys; yours stay as they are.")
-                    Text("This replaces what is on this phone now. Orbit restarts to finish.")
+                    Text(stringResource(R.string.this_replaces_what_is_on))
                 }
             },
             confirmButton = {
-                TextButton(onClick = { staged = null; pendingRestore = true; restartApp(context) }) { Text("Replace and restart") }
+                TextButton(onClick = { staged = null; pendingRestore = true; restartApp(context) }) { Text(stringResource(R.string.replace_and_restart)) }
             },
-            dismissButton = { TextButton(onClick = { manager.cancelPendingRestore(); staged = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { manager.cancelPendingRestore(); staged = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

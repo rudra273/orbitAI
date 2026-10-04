@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.ChatBubble
@@ -135,37 +138,37 @@ fun SettingsScreen(
         }
     }
 
-    val aiRows = remember {
+    val aiRows = run {
         listOf(
             SettingsRow(
                 icon = Icons.Default.DeveloperBoard,
-                title = "Models",
-                description = "Download, configure & manage",
+                title = stringResource(R.string.models),
+                description = stringResource(R.string.download_configure_manage),
             ),
             SettingsRow(
                 icon = Icons.Default.Psychology,
-                title = "Memory",
-                description = "Stored memories and controls",
+                title = stringResource(R.string.memory),
+                description = stringResource(R.string.stored_memories_and_controls),
             ),
             SettingsRow(
                 icon = Icons.Default.Build,
-                title = "Tools",
-                description = "Tool availability and support",
+                title = stringResource(R.string.tools),
+                description = stringResource(R.string.tool_availability_and_support),
             ),
             SettingsRow(
                 icon = Icons.Default.Bookmarks,
-                title = "Saved prompts",
-                description = "Reusable prompts for the / menu",
+                title = stringResource(R.string.saved_prompts),
+                description = stringResource(R.string.reusable_prompts_for_the_menu),
             ),
             SettingsRow(
                 icon = Icons.Default.Forum,
-                title = "Chat",
-                description = "Smart titles and generation details",
+                title = stringResource(R.string.chat),
+                description = stringResource(R.string.smart_titles_and_generation_details),
             ),
             SettingsRow(
                 icon = Icons.Default.RecordVoiceOver,
-                title = "Voice",
-                description = "Read aloud, speech speed and voice",
+                title = stringResource(R.string.voice),
+                description = stringResource(R.string.read_aloud_speech_speed_and),
             ),
         )
     }
@@ -173,7 +176,7 @@ fun SettingsScreen(
     val aboutRows = listOf(
             SettingsRow(
                 icon = Icons.Default.Tag,
-                title = "Version",
+                title = stringResource(R.string.version),
                 description = versionDescription,
                 showChevron = false,
                 trailing = {
@@ -185,14 +188,14 @@ fun SettingsScreen(
             ),
             SettingsRow(
                 icon = Icons.Default.Gavel,
-                title = "Privacy policy",
-                description = "Read our data and privacy terms",
+                title = stringResource(R.string.privacy_policy),
+                description = stringResource(R.string.read_our_data_and_privacy),
                 onClick = { onNavigate("settings/privacy") },
             ),
             SettingsRow(
                 icon = Icons.Default.BugReport,
-                title = "Diagnostics",
-                description = "Review and send crash reports",
+                title = stringResource(R.string.diagnostics),
+                description = stringResource(R.string.review_and_send_crash_reports),
                 onClick = { onNavigate("settings/diagnostics") },
             ),
         )
@@ -214,7 +217,7 @@ fun SettingsScreen(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "Settings",
+                        text = stringResource(R.string.settings),
                         style = androidx.compose.material3.MaterialTheme.typography.displaySmall.copy(
                             fontSize = 22.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -224,7 +227,7 @@ fun SettingsScreen(
                         fontFamily = SettingsSans,
                     )
                     Text(
-                        text = "OrbitAI · On-device LLM",
+                        text = stringResource(R.string.orbitai_on_device_llm),
                         color = SettingsInk.copy(alpha = 0.35f),
                         fontFamily = SettingsMono,
                         fontSize = 11.sp,
@@ -274,18 +277,35 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.ChatBubble,
-                        title = "Orbit Bubble",
-                        description = "Floating assistant behavior",
+                        title = stringResource(R.string.orbit_bubble),
+                        description = stringResource(R.string.floating_assistant_behavior),
                     ),
                     onClick = { onNavigate("settings/orbit_bubble") },
+                )
+                HairlineDivider()
+                val languageContext = androidx.compose.ui.platform.LocalContext.current
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.Language,
+                        title = stringResource(R.string.app_language),
+                        description = stringResource(R.string.app_language_description),
+                    ),
+                    onClick = {
+                        languageContext.startActivity(
+                            android.content.Intent(
+                                android.provider.Settings.ACTION_APP_LOCALE_SETTINGS,
+                                android.net.Uri.fromParts("package", languageContext.packageName, null),
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    },
                 )
                 HairlineDivider()
                 val assistantContext = androidx.compose.ui.platform.LocalContext.current
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.ChatBubble,
-                        title = "Assistant gesture",
-                        description = "Open Orbit with the power-button or corner swipe: choose Orbit as your default assistant",
+                        title = stringResource(R.string.assistant_gesture),
+                        description = stringResource(R.string.open_orbit_with_the_power),
                     ),
                     onClick = {
                         val open = android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)
@@ -301,7 +321,7 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.NightsStay,
-                        title = "Appearance",
+                        title = stringResource(R.string.appearance),
                         description = "${appearance.mode.label} theme · chat text ${(appearance.chatTextScale * 100).toInt()}%",
                     ),
                     onClick = { onNavigate("settings/appearance") },
@@ -310,8 +330,8 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.Backup,
-                        title = "Backup & restore",
-                        description = "Encrypted file of your chats, memories and settings",
+                        title = stringResource(R.string.backup_restore),
+                        description = stringResource(R.string.encrypted_file_of_your_chats),
                     ),
                     onClick = { onNavigate("settings/backup") },
                 )
@@ -319,8 +339,8 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.Lock,
-                        title = "Privacy center",
-                        description = "What is stored, network activity, permissions, delete everything",
+                        title = stringResource(R.string.privacy_center),
+                        description = stringResource(R.string.what_is_stored_network_activity),
                     ),
                     onClick = { onNavigate("settings/privacy_center") },
                 )
@@ -350,7 +370,7 @@ fun SettingsScreen(
                     row = SettingsRow(
                         icon = Icons.Default.NewReleases,
                         title = "What's new in Orbit ${com.example.orbitai.feature.update.WhatsNew.VERSION}.0",
-                        description = "See the headline features",
+                        description = stringResource(R.string.see_the_headline_features),
                     ),
                     onClick = { showWhatsNew = true },
                 )
@@ -360,7 +380,7 @@ fun SettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = SettingsInk.copy(alpha = 0.20f),
                 fontFamily = SettingsMono,

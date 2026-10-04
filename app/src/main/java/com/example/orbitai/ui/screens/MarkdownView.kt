@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -69,15 +71,15 @@ fun MarkdownMessageText(
     pendingUrl?.let { url ->
         AlertDialog(
             onDismissRequest = { pendingUrl = null },
-            title = { Text("Open link?") },
+            title = { Text(stringResource(R.string.open_link)) },
             text = { Text(url) },
             confirmButton = {
                 TextButton(onClick = {
                     pendingUrl = null
                     runCatching { uriHandler.openUri(url) }
-                }) { Text("Open") }
+                }) { Text(stringResource(R.string.open)) }
             },
-            dismissButton = { TextButton(onClick = { pendingUrl = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { pendingUrl = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 

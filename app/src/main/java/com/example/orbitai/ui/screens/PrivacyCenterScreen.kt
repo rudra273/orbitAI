@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.pm.PackageManager
 import android.provider.Settings
@@ -96,18 +98,18 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text("Back") }
-                Text("Privacy center", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+                Text(stringResource(R.string.privacy_center), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Everything Orbit keeps lives on this phone. Below you can see how much, which network calls the app made, and clear it.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
 
-            item { Text("STORED ON THIS PHONE", style = MaterialTheme.typography.labelSmall) }
+            item { Text(stringResource(R.string.stored_on_this_phone), style = MaterialTheme.typography.labelSmall) }
             item {
                 val r = report
-                if (r == null) Text("Measuring…", style = MaterialTheme.typography.bodyMedium)
+                if (r == null) Text(stringResource(R.string.measuring), style = MaterialTheme.typography.bodyMedium)
                 else Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         StorageRow("Chats", "${r.chats}") {
@@ -134,14 +136,14 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
                 }
             }
 
-            item { Text("NETWORK ACTIVITY, LAST 30 DAYS", style = MaterialTheme.typography.labelSmall) }
+            item { Text(stringResource(R.string.network_activity_last_30_days), style = MaterialTheme.typography.labelSmall) }
             item {
                 Text(
                     "Only the website, the reason and the time are recorded here, on this phone. Never what you typed, keys or addresses with details.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            if (network.isEmpty()) item { Text("Nothing yet. Chats with on-device models make no network calls.", style = MaterialTheme.typography.bodyMedium) }
+            if (network.isEmpty()) item { Text(stringResource(R.string.nothing_yet_chats_with_on), style = MaterialTheme.typography.bodyMedium) }
             items(network.take(50)) { e ->
                 Column {
                     Text("${e.purpose} · ${e.host}", style = MaterialTheme.typography.bodyMedium)
@@ -153,36 +155,36 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
                 }
             }
             if (network.isNotEmpty()) item {
-                TextButton(onClick = { NetworkLog.shared?.clear(); refresh++ }) { Text("Clear network log") }
+                TextButton(onClick = { NetworkLog.shared?.clear(); refresh++ }) { Text(stringResource(R.string.clear_network_log)) }
             }
 
-            item { Text("PERMISSIONS", style = MaterialTheme.typography.labelSmall) }
+            item { Text(stringResource(R.string.permissions), style = MaterialTheme.typography.labelSmall) }
             items(permissions) { p ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(p.name + if (p.granted) " · on" else " · off", style = MaterialTheme.typography.titleSmall)
                         Text(p.why, style = MaterialTheme.typography.bodySmall)
                     }
-                    TextButton(onClick = { context.startActivity(PrivacyCenter.appSettingsIntent(context)) }) { Text("Settings") }
+                    TextButton(onClick = { context.startActivity(PrivacyCenter.appSettingsIntent(context)) }) { Text(stringResource(R.string.settings)) }
                 }
             }
 
             item { HorizontalDivider() }
             item {
-                Text("DELETE EVERYTHING", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.delete_everything), style = MaterialTheme.typography.labelSmall)
                 Text(
                     "Removes chats, memories, Spaces, reminders, settings and saved files, and returns Orbit to how it was when you first installed it.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(wipeModels, { wipeModels = it })
-                    Text("Also delete downloaded models")
+                    Text(stringResource(R.string.also_delete_downloaded_models))
                 }
                 Button(
                     onClick = { confirmWipe = true },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Delete everything") }
+                ) { Text(stringResource(R.string.delete_everything_2)) }
             }
         }
     }
@@ -196,18 +198,18 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
                 TextButton(onClick = {
                     confirm = null
                     scope.launch { action.run(); refresh++ }
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     if (confirmWipe) {
         AlertDialog(
             onDismissRequest = { confirmWipe = false },
-            title = { Text("Delete everything?") },
-            text = { Text("This can't be undone. Orbit closes when it is done. Make a backup first if you want to keep anything.") },
-            confirmButton = { TextButton(onClick = { scope.launch { center.wipeEverything(wipeModels) } }) { Text("Delete everything") } },
-            dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.delete_everything_3)) },
+            text = { Text(stringResource(R.string.this_can_t_be_undone_2)) },
+            confirmButton = { TextButton(onClick = { scope.launch { center.wipeEverything(wipeModels) } }) { Text(stringResource(R.string.delete_everything_2)) } },
+            dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -219,6 +221,6 @@ private fun StorageRow(label: String, value: String, onClear: () -> Unit) {
             Text(label, style = MaterialTheme.typography.titleSmall)
             Text(value, style = MaterialTheme.typography.bodySmall)
         }
-        TextButton(onClick = onClear) { Text("Clear") }
+        TextButton(onClick = onClear) { Text(stringResource(R.string.clear)) }
     }
 }

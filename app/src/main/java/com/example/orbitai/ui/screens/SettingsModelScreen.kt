@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -159,7 +161,7 @@ fun ModelSettingsScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings),
                     color = SettingsInk.copy(alpha = 0.40f),
                     fontFamily = SettingsMono,
                     fontSize = 13.sp,
@@ -173,7 +175,7 @@ fun ModelSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Models",
+                    text = stringResource(R.string.models),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -183,7 +185,7 @@ fun ModelSettingsScreen(
                     fontFamily = SettingsSans,
                 )
                 Text(
-                    text = "Download, configure & manage",
+                    text = stringResource(R.string.download_configure_manage),
                     color = SettingsInk.copy(alpha = 0.35f),
                     fontFamily = SettingsMono,
                     fontSize = 11.sp,
@@ -245,7 +247,7 @@ fun ModelSettingsScreen(
             FlatCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Download large models on Wi-Fi only", color = SettingsInk, fontFamily = SettingsSans, fontSize = 14.sp)
+                        Text(stringResource(R.string.download_large_models_on_wi), color = SettingsInk, fontFamily = SettingsSans, fontSize = 14.sp)
                         Text(
                             "This phone: ${formatModelSize(downloadViewModel.deviceSpecs.totalRamBytes)} RAM · ${formatModelSize(downloadViewModel.deviceSpecs.freeModelStorageBytes())} free",
                             color = SettingsInk.copy(alpha = 0.6f),
@@ -397,7 +399,7 @@ fun ModelSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "HuggingFace Config",
+                        text = stringResource(R.string.huggingface_config),
                         color = SettingsInk,
                         fontFamily = SettingsSans,
                         fontWeight = FontWeight.Medium,
@@ -409,14 +411,14 @@ fun ModelSettingsScreen(
                     ) {
                         if (tokenStore.hasToken()) {
                             Text(
-                                text = "✓ Configured",
+                                text = stringResource(R.string.configured),
                                 color = SettingsGreen,
                                 fontFamily = SettingsMono,
                                 fontSize = 11.sp,
                             )
                         } else {
                             Text(
-                                text = "No Token",
+                                text = stringResource(R.string.no_token),
                                 color = SettingsInk.copy(alpha = 0.45f),
                                 fontFamily = SettingsMono,
                                 fontSize = 11.sp,
@@ -453,14 +455,14 @@ fun ModelSettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
-                                text = "Gemini API",
+                                text = stringResource(R.string.gemini_api),
                                 color = SettingsInk,
                                 fontFamily = SettingsSans,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
                             )
                             Text(
-                                text = "Cloud provider integration",
+                                text = stringResource(R.string.cloud_provider_integration),
                                 color = SettingsInk.copy(alpha = 0.38f),
                                 fontFamily = SettingsSans,
                                 fontSize = 11.sp,
@@ -486,7 +488,7 @@ fun ModelSettingsScreen(
                         ) {
                             CompactInputField(
                                 value = geminiModelName,
-                                placeholder = "gemini-flash-latest",
+                                placeholder = stringResource(R.string.gemini_flash_latest),
                                 onValueChange = {
                                     geminiModelName = it
                                     geminiSaved = false
@@ -494,7 +496,7 @@ fun ModelSettingsScreen(
                             )
                             CompactInputField(
                                 value = geminiApiKey,
-                                placeholder = "api key",
+                                placeholder = stringResource(R.string.api_key),
                                 isPassword = !showGeminiKey,
                                 onValueChange = {
                                     geminiApiKey = it
@@ -523,7 +525,7 @@ fun ModelSettingsScreen(
                                     },
                                 )
                                 SmallOutlineButton(
-                                    label = "Clear",
+                                    label = stringResource(R.string.clear),
                                     color = SettingsRed,
                                     onClick = {
                                         geminiModelName = ""
@@ -545,7 +547,7 @@ fun ModelSettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = SettingsInk.copy(alpha = 0.20f),
                 fontFamily = SettingsMono,
@@ -575,19 +577,19 @@ private fun EmbeddingModelRow(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Model", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            title = { Text(stringResource(R.string.delete_model), fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
             text = { Text("Are you sure you want to delete ${model.displayName}? You will need to re-download it to use it again.", fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f)) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     onDelete()
                 }) {
-                    Text("Delete", color = SettingsRed, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.delete), color = SettingsRed, fontFamily = SettingsSans)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = SettingsInk, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.cancel), color = SettingsInk, fontFamily = SettingsSans)
                 }
             },
             containerColor = SettingsCard,
@@ -659,7 +661,7 @@ private fun EmbeddingModelRow(
                         ),
                     )
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.delete),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -684,7 +686,7 @@ private fun EmbeddingModelRow(
                         fontSize = 9.sp,
                     )
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -737,7 +739,7 @@ private fun ModelRow(
     if (confirmLargeDownload) {
         AlertDialog(
             onDismissRequest = { confirmLargeDownload = false },
-            title = { Text("Model may not run", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            title = { Text(stringResource(R.string.model_may_not_run), fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
             text = {
                 Text(
                     "${model.displayName} probably needs more memory than this phone has. It may fail to load or close Orbit. Download anyway?",
@@ -746,11 +748,11 @@ private fun ModelRow(
             },
             confirmButton = {
                 TextButton(onClick = { confirmLargeDownload = false; onDownload() }) {
-                    Text("Download", color = SettingsRed, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.download), color = SettingsRed, fontFamily = SettingsSans)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmLargeDownload = false }) { Text("Cancel", color = SettingsInk, fontFamily = SettingsSans) }
+                TextButton(onClick = { confirmLargeDownload = false }) { Text(stringResource(R.string.cancel), color = SettingsInk, fontFamily = SettingsSans) }
             },
             containerColor = SettingsCard,
             shape = RoundedCornerShape(14.dp),
@@ -768,19 +770,19 @@ private fun ModelRow(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Model", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            title = { Text(stringResource(R.string.delete_model), fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
             text = { Text("Are you sure you want to delete ${model.displayName}? You will need to re-download it to use it again.", fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f)) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     onDelete()
                 }) {
-                    Text("Delete", color = SettingsRed, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.delete), color = SettingsRed, fontFamily = SettingsSans)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = SettingsInk, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.cancel), color = SettingsInk, fontFamily = SettingsSans)
                 }
             },
             containerColor = SettingsCard,
@@ -816,7 +818,7 @@ private fun ModelRow(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "RECOMMENDED FOR THIS PHONE",
+                            text = stringResource(R.string.recommended_for_this_phone),
                             color = Color(0xFF5B4FE8),
                             fontFamily = SettingsMono,
                             fontSize = 7.sp,
@@ -832,7 +834,7 @@ private fun ModelRow(
                             .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "TOKEN REQ",
+                            text = stringResource(R.string.token_req),
                             color = SettingsInk.copy(alpha = 0.5f),
                             fontFamily = SettingsMono,
                             fontSize = 8.sp,
@@ -895,7 +897,7 @@ private fun ModelRow(
                             .background(SettingsGreen),
                     )
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.delete),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -935,7 +937,7 @@ private fun ModelRow(
                         )
                     }
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
