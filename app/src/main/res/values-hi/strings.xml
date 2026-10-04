@@ -302,4 +302,21 @@
     <string name="got_it">समझ गया</string>
     <string name="app_language">ऐप की भाषा</string>
     <string name="app_language_description">Orbit के लिए अंग्रेज़ी या हिंदी चुनें</string>
+    <string name="digest_title">नोटिफ़िकेशन डाइजेस्ट</string>
+    <string name="digest_intro">आपके चुने ऐप्स की हाल की नोटिफ़िकेशन का छोटा सारांश पाएँ। सारांश आपके फ़ोन का मॉडल लिखता है, क्लाउड मॉडल कभी नहीं।</string>
+    <string name="digest_switch">नोटिफ़िकेशन डाइजेस्ट इस्तेमाल करें</string>
+    <string name="digest_enable_title">नोटिफ़िकेशन डाइजेस्ट चालू करें?</string>
+    <string name="digest_disclosure">Orbit Android नोटिफ़िकेशन एक्सेस से केवल आपके चुने ऐप्स की नोटिफ़िकेशन का शीर्षक और टेक्स्ट पढ़ेगा। ये 24 घंटे तक मेमोरी में रहते हैं, कभी स्टोरेज में सेव नहीं होते या कहीं भेजे नहीं जाते, और इसे बंद करते ही साफ़ हो जाते हैं। वन-टाइम कोड, पासवर्ड या बैंक और पेमेंट अलर्ट जैसे दिखने वाले मैसेज छोड़ दिए जाते हैं। सारांश केवल तब बनता है जब आप डाइजेस्ट बनाएँ दबाते हैं, और इस फ़ोन के मॉडल से बनता है। आप इसे कभी भी बंद कर सकते हैं और एक्सेस वापस ले सकते हैं।</string>
+    <string name="digest_needs_access">नोटिफ़िकेशन पढ़ने के लिए Orbit को Android नोटिफ़िकेशन एक्सेस चाहिए।</string>
+    <string name="digest_open_access">नोटिफ़िकेशन एक्सेस खोलें</string>
+    <string name="digest_collected">इकट्ठी नोटिफ़िकेशन: %1$d।</string>
+    <string name="digest_skipped">छोड़ी गई संवेदनशील: %1$d।</string>
+    <string name="digest_memory_note">ये केवल मेमोरी में रहती हैं, इसलिए Orbit या फ़ोन रीस्टार्ट करने पर खाली हो जाती हैं।</string>
+    <string name="digest_make">डाइजेस्ट बनाएँ</string>
+    <string name="digest_working">डाइजेस्ट लिख रहे हैं…</string>
+    <string name="digest_nothing">अभी कुछ इकट्ठा नहीं हुआ। ऊपर ऐप्स चुनें और नई नोटिफ़िकेशन का इंतज़ार करें।</string>
+    <string name="digest_needs_model">डाइजेस्ट लिखने के लिए डाउनलोड किया हुआ ऑन-डिवाइस मॉडल चाहिए।</string>
+    <string name="digest_failed">पूरा नहीं हो सका: %1$s</string>
+    <string name="digest_clear_collected">इकट्ठी नोटिफ़िकेशन साफ़ करें</string>
+    <string name="digest_open">नोटिफ़िकेशन डाइजेस्ट</string>
 </resources>

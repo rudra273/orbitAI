@@ -8,6 +8,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.example.orbitai.feature.automation.digest.DigestBuffer
+import com.example.orbitai.feature.automation.digest.DigestItem
+import com.example.orbitai.feature.automation.digest.DigestSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -63,6 +66,7 @@ class NotificationReplyListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         clear()
+        DigestBuffer.shared.clear()
         if (connected === this) connected = null
     }
 
@@ -72,6 +76,7 @@ class NotificationReplyListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        collectForDigest(sbn)
         targets.remove(sbn.key)
         if (NotificationReplySettings(this).allows(sbn.packageName)) {
             ReplyTargetParser.parse(sbn, ++revision)?.let { targets[sbn.key] = it }
@@ -82,6 +87,27 @@ class NotificationReplyListener : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         targets.remove(sbn.key)
         publish()
+    }
+
+    /** Adds the notification to the in-memory digest buffer when the digest is on for this app. */
+    private fun collectForDigest(sbn: StatusBarNotification) {
+        val settings = DigestSettings(this)
+        if (!settings.allows(sbn.packageName)) return
+        val notification = sbn.notification
+        if (notification.flags and (Notification.FLAG_GROUP_SUMMARY or Notification.FLAG_ONGOING_EVENT) != 0) return
+        val title = notification.extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            ?: notification.extras.getCharSequence(Notification.EXTRA_TITLE)
+        val text = notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
+            ?: notification.extras.getCharSequence(Notification.EXTRA_TEXT)
+        DigestBuffer.shared.add(
+            DigestItem(
+                key = sbn.key,
+                app = DigestSettings.apps[sbn.packageName] ?: sbn.packageName,
+                title = title?.toString().orEmpty().take(200),
+                text = text?.toString().orEmpty().take(1000),
+                postedAt = sbn.postTime,
+            ),
+        )
     }
 
     private fun clear() {
@@ -98,7 +124,7 @@ class NotificationReplyListener : NotificationListenerService() {
 
     private fun refresh() {
         clear()
-        if (!NotificationReplySettings(this).enabled) return
+        if (!NotificationReplySettings(this).enabled && !DigestSettings(this).enabled) return
         try {
             activeNotifications.orEmpty().forEach(::onNotificationPosted)
         } catch (_: SecurityException) {

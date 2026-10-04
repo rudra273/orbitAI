@@ -33,5 +33,8 @@ A mode is a reusable assistant: instructions, optional model and Spaces, and a c
 - Settings > Backup & restore makes one passphrase-protected file with chats, memories, modes and settings. API keys are left out unless you include them. Downloaded models aren't included. Restoring replaces the data on the phone and restarts Orbit.
 - Settings > Privacy center shows what is stored, a 30-day list of the app's network calls (host and reason only), the permissions in use, and **Delete everything**.
 
+## Notification digest
+Settings > Tools > Notification digest (off by default). Pick messaging or mail apps, allow Android notification access, then tap **Make digest** for a short summary written by the model on your phone. Notification text stays in memory for up to 24 hours, one-time codes and bank or payment messages are skipped, and nothing is saved or sent anywhere.
+
 ## Reminders
 Settings > Tools > Saved reminders lists reminders (daily, weekly, weekday, monthly and every-N repeats). Notifications offer Snooze (10 minutes or 1 hour) and Done.

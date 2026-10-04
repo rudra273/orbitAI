@@ -57,3 +57,9 @@ Run `assembleDebug testDebugUnitTest lintDebug`, then `bundleRelease` with real 
 - Revoke notification access and disable the feature; verify previews clear and sending is blocked.
 - Verify a cloud-only configuration cannot generate notification drafts, and that previews never enter saved chat history.
 - Check choice-only replies, grouped summaries, redacted content, and expired actions; unsupported notifications should not offer a send path.
+
+## Notification digest (f044)
+
+- Uses the existing notification listener (`BIND_NOTIFICATION_LISTENER_SERVICE`). Describe it in the Data safety form and the privacy policy: reads notification title and text from user-selected messaging and mail apps, in memory only, to make an on-device summary on request; nothing is collected or shared.
+- Keep the in-app disclosure (Settings > Tools > Notification digest) and the prominent consent shown before access is requested.
+- If Play review rejects it, remove the feature (see the f044 issue) and keep Message replies.

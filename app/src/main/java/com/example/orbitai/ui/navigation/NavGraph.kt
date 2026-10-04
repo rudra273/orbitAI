@@ -99,6 +99,7 @@ sealed class Screen(val route: String) {
     data object SettingsChat : Screen("settings/chat")
     data object SettingsAppearance : Screen("settings/appearance")
     data object SettingsBackup : Screen("settings/backup")
+    data object SettingsDigest : Screen("settings/digest")
     data object SettingsPrivacyCenter : Screen("settings/privacy_center")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
@@ -383,6 +384,9 @@ fun OrbitNavGraph(
             composable(Screen.SettingsPrivacyCenter.route) {
                 com.example.orbitai.ui.screens.PrivacyCenterScreen(onBack = { navController.popBackStack() })
             }
+            composable(Screen.SettingsDigest.route) {
+                com.example.orbitai.ui.screens.DigestScreen(onBack = { navController.popBackStack() })
+            }
             composable(Screen.SettingsBackup.route) {
                 com.example.orbitai.ui.screens.BackupScreen(onBack = { navController.popBackStack() })
             }
@@ -433,6 +437,7 @@ fun OrbitNavGraph(
                     onBack = { navController.popBackStack() },
                     onOpenReminders = { navController.navigate(Screen.Reminders.route) },
                     onOpenReplies = { navController.navigate(Screen.NotificationReplies.route) },
+                    onOpenDigest = { navController.navigate(Screen.SettingsDigest.route) },
                 )
             }
             composable(Screen.NotificationReplies.route) {

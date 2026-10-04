@@ -27,13 +27,16 @@ class TextActionRunner(private val context: Context) {
         return local.firstOrNull { it.id == tokenStore.lastSelectedModelId } ?: local.firstOrNull()
     }
 
-    fun run(model: LlmModel, action: TextAction, text: String, language: String): Flow<String> = flow {
+    fun run(model: LlmModel, action: TextAction, text: String, language: String): Flow<String> =
+        runInstruction(model, TextActionPrompts.instruction(action, text, language))
+
+    /** Streams the local model's answer to one self-contained instruction. */
+    fun runInstruction(model: LlmModel, instruction: String): Flow<String> = flow {
         val repo = container.llmRepository
         val settings = ModeInferenceSettingsStore(context).get(ORBIT_MODE_ID)
         repo.beginUse()
         try {
             if (!repo.isModelLoaded(model.id, settings)) repo.loadModel(model, settings)
-            val instruction = TextActionPrompts.instruction(action, text, language)
             val input = InferenceInput(
                 prompt = ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle, instruction),
                 structured = ModelPromptBuilder.structuredInstruction(instruction),

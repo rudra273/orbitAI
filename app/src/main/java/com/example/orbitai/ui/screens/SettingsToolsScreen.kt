@@ -69,6 +69,7 @@ fun ToolsSettingsScreen(
     onBack: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenReplies: () -> Unit,
+    onOpenDigest: () -> Unit,
 ) {
 
     LazyColumn(
@@ -164,6 +165,9 @@ fun ToolsSettingsScreen(
         }
         item {
             androidx.compose.material3.TextButton(onClick = onOpenReplies) { Text(stringResource(R.string.message_replies)) }
+        }
+        item {
+            androidx.compose.material3.TextButton(onClick = onOpenDigest) { Text(stringResource(R.string.digest_open)) }
         }
         item { ToolsSectionHeader("NOTES") }
         item {

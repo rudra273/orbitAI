@@ -302,4 +302,21 @@
     <string name="got_it">Got it</string>
     <string name="app_language">App language</string>
     <string name="app_language_description">Choose English or Hindi for Orbit</string>
+    <string name="digest_title">Notification digest</string>
+    <string name="digest_intro">Get a short summary of recent notifications from the apps you choose. The summary is written by the model on your phone, never the cloud model.</string>
+    <string name="digest_switch">Use notification digest</string>
+    <string name="digest_enable_title">Turn on notification digest?</string>
+    <string name="digest_disclosure">Orbit will read the title and text of notifications from only the apps you pick, using Android notification access. They are kept in memory for up to 24 hours, never saved to storage or sent anywhere, and are cleared when you turn this off. Messages that look like one-time codes, passwords or bank and payment alerts are skipped. The summary is made only when you tap Make digest, by a model on this phone. You can turn this off and take back access at any time.</string>
+    <string name="digest_needs_access">Orbit needs Android notification access to read notifications.</string>
+    <string name="digest_open_access">Open notification access</string>
+    <string name="digest_collected">Notifications collected: %1$d.</string>
+    <string name="digest_skipped">Sensitive ones skipped: %1$d.</string>
+    <string name="digest_memory_note">They are held in memory only, so restarting Orbit or your phone empties them.</string>
+    <string name="digest_make">Make digest</string>
+    <string name="digest_working">Writing digest…</string>
+    <string name="digest_nothing">Nothing collected yet. Choose apps above, then wait for new notifications.</string>
+    <string name="digest_needs_model">A downloaded on-device model is needed to write the digest.</string>
+    <string name="digest_failed">Couldn\'t finish: %1$s</string>
+    <string name="digest_clear_collected">Clear collected notifications</string>
+    <string name="digest_open">Notification digest</string>
 </resources>
