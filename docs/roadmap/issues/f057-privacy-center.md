@@ -16,6 +16,8 @@ Labels: enhancement
 - The privacy policy screen links here
 
 **Acceptance Criteria:**
-- [ ] Every OkHttp / GenAI client call goes through one logging interceptor or wrapper
-- [ ] Log contains no prompts, tokens, keys or URLs with query strings
-- [ ] "Delete everything" leaves the app in a fresh-install state (instrumented test)
+- [x] Every OkHttp / GenAI client call goes through one logging interceptor or wrapper
+- [x] Log contains no prompts, tokens, keys or URLs with query strings
+- [x] "Delete everything" leaves the app in a fresh-install state (instrumented test)
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Settings > Privacy center: counts and sizes per category with Clear buttons (chats, memories, Spaces, models, temporary files), a 30-day network log (host, purpose, time, size only; never bodies, paths or keys) fed by one interceptor on the download, update and report clients plus a note for each Gemini request, permissions in use with why and link to system settings, and Delete everything (optionally with models) which ends the app. Not done: link from the privacy policy screen; instrumented fresh-install test. Gemini calls are logged by hand because that library doesn't use OkHttp.

@@ -14,6 +14,7 @@ class OrbitApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         com.example.orbitai.feature.backup.BackupManager.applyPendingRestore(this)
+        com.example.orbitai.feature.privacy.NetworkLog.init(this)
         com.example.orbitai.core.model.CustomModels.init(this)
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->

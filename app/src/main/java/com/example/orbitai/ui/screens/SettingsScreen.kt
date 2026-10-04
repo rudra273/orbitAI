@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Gavel
@@ -291,6 +292,15 @@ fun SettingsScreen(
                         description = "Encrypted file of your chats, memories and settings",
                     ),
                     onClick = { onNavigate("settings/backup") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.Lock,
+                        title = "Privacy center",
+                        description = "What is stored, network activity, permissions, delete everything",
+                    ),
+                    onClick = { onNavigate("settings/privacy_center") },
                 )
             }
         }

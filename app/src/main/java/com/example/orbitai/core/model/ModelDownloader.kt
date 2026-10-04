@@ -38,6 +38,7 @@ class ModelDownloader(private val context: Context) {
     private val tokenStore = TokenStore(context)
 
     private val client = OkHttpClient.Builder()
+        .addInterceptor(com.example.orbitai.feature.privacy.NetworkLogInterceptor("Model download"))
         .followRedirects(true)
         .followSslRedirects(true)
         .connectTimeout(30, TimeUnit.SECONDS)

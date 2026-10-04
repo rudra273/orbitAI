@@ -42,6 +42,7 @@ class GeminiApiEngine(
             )
         }
 
+        com.example.orbitai.feature.privacy.NetworkLog.note("generativelanguage.googleapis.com", "Gemini request")
         val resolvedMaxTokens = maxDecodedTokens.coerceAtLeast(1)
         val config = GenerateContentConfig.builder()
             .temperature(settings.temperature)
