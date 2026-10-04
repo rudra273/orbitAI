@@ -90,6 +90,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) { chatRepo.deleteChat(chatId) }
     }
 
+    suspend fun documentUri(docId: String): String? = chatRepo.documentUri(docId)
+
     fun deleteChats(chatIds: Collection<String>) {
         viewModelScope.launch(Dispatchers.IO) { chatIds.forEach { chatRepo.deleteChat(it) } }
     }

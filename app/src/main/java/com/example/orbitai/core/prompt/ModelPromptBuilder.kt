@@ -83,7 +83,7 @@ object ModelPromptBuilder {
             }
             if (ragContext.isNotEmpty()) {
                 sb.append("Use the following reference documents to answer the question. ")
-                sb.append("If the answer is not in the documents, say so.\n\n")
+                sb.append("If the answer is not in the documents, say so. Cite a document inline by its number, like [1].\n\n")
                 ragContext.forEachIndexed { index, chunk ->
                     sb.append("[Document ${index + 1}]\n$chunk\n\n")
                 }
@@ -211,7 +211,7 @@ object ModelPromptBuilder {
 
         if (ragContext.isNotEmpty()) {
             sections += buildString {
-                append("Reference documents. Use them when relevant, and say so if the answer is not in them:\n")
+                append("Reference documents. Use them when relevant, and say so if the answer is not in them. When you use one, cite it inline by its number, like [1]:\n")
                 ragContext.forEachIndexed { index, chunk ->
                     append("[Document ")
                     append(index + 1)

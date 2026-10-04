@@ -409,15 +409,17 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 }
                 var usedMemories = memories
                 var conversationPrompt: BudgetedPrompt? = null
+                var sources = emptyList<com.example.orbitai.feature.chat.MessageSource>()
                 val (prompt, structuredPrompt) = if (toolInstruction != null) {
                     ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle, toolInstruction) to
                         ModelPromptBuilder.structuredInstruction(toolInstruction)
                 } else {
-                    val ragContext = spaceRepo.searchChunksInSpaces(
+                    val retrievedChunks = spaceRepo.searchChunksInSpaces(
                         trimmedText,
                         activeSpaceIds,
                         limit = 5,
-                    ).map { it.content }
+                    )
+                    val ragContext = retrievedChunks.map { it.content }
                     val budgeted = PromptBudget.fit(
                         messages = history,
                         ragContext = ragContext,
@@ -430,6 +432,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     reportContextTrimming(chatId, budgeted)
                     usedMemories = budgeted.memories
                     conversationPrompt = budgeted
+                    sources = com.example.orbitai.feature.spaces.Citations.sources(retrievedChunks, budgeted.ragContext)
                     ModelPromptBuilder.buildChatPrompt(
                         promptStyle = model.promptStyle,
                         messages = budgeted.messages,
@@ -472,6 +475,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     modeName = activeMode?.name ?: "Orbit",
                     isStreaming = true,
                     usedMemories = usedMemories,
+                    sources = sources,
                 )
                 chatRepo.addMessage(chatId, assistantMsg)
                 _uiState.update { it.copy(isGenerating = true) }

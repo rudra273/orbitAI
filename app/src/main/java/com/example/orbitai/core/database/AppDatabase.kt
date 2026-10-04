@@ -8,7 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class, ReminderEntity::class, MessageFtsEntity::class],
+    entities  = [ChatEntity::class, MessageEntity::class, RagDocumentEntity::class, RagChunkEntity::class, MemoryEntity::class, SpaceEntity::class, ModeEntity::class, ReminderEntity::class, MessageFtsEntity::class, MessageSourceEntity::class],
     version   = AppDatabase.VERSION,
     exportSchema = true,
 )
@@ -20,9 +20,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun spaceDao(): SpaceDao
     abstract fun modeDao(): ModeDao
     abstract fun reminderDao(): ReminderDao
+    abstract fun messageSourceDao(): MessageSourceDao
 
     companion object {
-        const val VERSION = 17
+        const val VERSION = 18
 
         @Volatile private var INSTANCE: AppDatabase? = null
 
@@ -232,6 +233,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `message_sources` (`messageId` TEXT NOT NULL, `rank` INTEGER NOT NULL, `chunkId` TEXT NOT NULL, `docId` TEXT NOT NULL, `docName` TEXT NOT NULL, `page` INTEGER, `excerpt` TEXT NOT NULL, PRIMARY KEY(`messageId`, `rank`), FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_message_sources_messageId` ON `message_sources` (`messageId`)")
+            }
+        }
+
         internal val ALL_MIGRATIONS = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -249,6 +257,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_14_15,
             MIGRATION_15_16,
             MIGRATION_16_17,
+            MIGRATION_17_18,
         )
 
         fun getInstance(context: Context): AppDatabase =

@@ -2,6 +2,7 @@ package com.example.orbitai.feature.chat
 
 import android.content.Context
 import com.example.orbitai.core.database.AppDatabase
+import com.example.orbitai.core.database.MessageSourceEntity
 import com.example.orbitai.core.database.toDomain
 import com.example.orbitai.core.database.toEntity
 import com.example.orbitai.core.common.TokenStore
@@ -29,6 +30,7 @@ class ChatRepository(context: Context) {
     private val db         = AppDatabase.getInstance(context)
     private val chatDao    = db.chatDao()
     private val messageDao = db.messageDao()
+    private val sourceDao  = db.messageSourceDao()
     private val modelDownloader = ModelDownloader(context)
     private val tokenStore = TokenStore(context)
 
@@ -75,10 +77,18 @@ class ChatRepository(context: Context) {
         messageDao.observeMessages(chatId),
         streamingMessageIds,
         streamingContent,
-    ) { entity, messages, streamingIds, liveContent ->
+        sourceDao.observeForChat(chatId),
+    ) { entity, messages, streamingIds, liveContent, sourceRows ->
+        val sources = sourceRows.groupBy({ it.messageId }) {
+            MessageSource(it.rank, "", it.docId, it.docName, it.page, it.excerpt, it.available)
+        }
         entity?.toDomain(messages)?.let { chat ->
             chat.copy(messages = chat.messages.map {
-                it.copy(content = liveContent[it.id] ?: it.content, isStreaming = it.id in streamingIds)
+                it.copy(
+                    content = liveContent[it.id] ?: it.content,
+                    isStreaming = it.id in streamingIds,
+                    sources = sources[it.id].orEmpty(),
+                )
             })
         }
     }
@@ -116,6 +126,11 @@ class ChatRepository(context: Context) {
             return@withContext
         }
         messageDao.insertMessage(message.toEntity(chatId))
+        if (message.sources.isNotEmpty()) {
+            sourceDao.insertAll(message.sources.map {
+                MessageSourceEntity(message.id, it.rank, it.chunkId, it.docId, it.docName, it.page, it.excerpt)
+            })
+        }
         if (message.isStreaming) streamingMessageIds.update { it + message.id }
         // Auto-title from first user message
         if (message.role == Role.USER) {
@@ -195,6 +210,9 @@ class ChatRepository(context: Context) {
         }
         messageDao.updateMessageContentById(messageId, content)
     }
+
+    /** Stored location of a Space document, or null once it was removed. */
+    suspend fun documentUri(docId: String): String? = withContext(Dispatchers.IO) { sourceDao.documentUri(docId) }
 
     /** True unless the user renamed the chat. */
     suspend fun canAutoTitle(chatId: String): Boolean = withContext(Dispatchers.IO) {

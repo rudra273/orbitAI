@@ -15,6 +15,8 @@ When Spaces are active, chunks are silently injected as `[Document N]`. Users ca
 - Ask the model to cite `[1]`, `[2]` inline. Render the markers as tappable superscripts when present; the sources row is the reliable fallback
 
 **Acceptance Criteria:**
-- [ ] Sources survive app restart (migration + test)
-- [ ] Deleting a document shows the source as "Removed document" instead of crashing
-- [ ] No Sources row when no chunk passed the relevance threshold (f032)
+- [x] Sources survive app restart (migration + test)
+- [x] Deleting a document shows the source as "Removed document" instead of crashing
+- [x] No Sources row when no chunk passed the relevance threshold (f032)
+
+**Status:** 🟡 Done, device check pending (2026-10-04). DB v18 (MIGRATION_17_18): message_sources (messageId, rank, chunkId, docId, docName, page, excerpt; cascades with the message). The chunks actually sent after the budget become numbered sources on the reply; the prompt asks the model to cite [1], [2]. Answers show a Sources row (e.g. '2 · Q3-report.pdf · p.12'); tapping opens a sheet with the excerpt and Open document. Sources keep a snapshot, so a deleted document shows as 'Removed document'. Not done: inline [1] markers are plain text, not tappable superscripts. Device check pending: instrumented MigrationTest and the UI.

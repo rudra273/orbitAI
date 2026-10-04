@@ -299,6 +299,26 @@ fun ChatScreen(
     val isTemporary = remember(chatId) { viewModel.isTemporaryChat(chatId) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    var openSource by remember { mutableStateOf<com.example.orbitai.feature.chat.MessageSource?>(null) }
+    openSource?.let { source ->
+        SourceSheet(
+            source = source,
+            onOpenDocument = {
+                scope.launch {
+                    val uri = viewModel.documentUri(source.docId)?.let(Uri::parse)
+                    val opened = uri != null && runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW)
+                                .setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }.isSuccess
+                    if (!opened) Toast.makeText(context, "This file can't be opened anymore.", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { openSource = null },
+        )
+    }
     val voiceSettings = remember { com.example.orbitai.feature.voice.VoiceSettingsStore(context) }
     val speaker = remember { com.example.orbitai.feature.voice.ReplySpeaker(context, voiceSettings) }
     DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
@@ -537,6 +557,7 @@ fun ChatScreen(
                                 onDelete = { viewModel.deleteMessage(msg.id) },
                                 isSpeaking = speakingId == msg.id,
                                 details = if (showGenerationDetails) generationStats[msg.id]?.label() else null,
+                                onSourceClick = { openSource = it },
                                 onReadAloud = {
                                     if (speakingId == msg.id) speaker.stop() else speaker.speakMessage(msg.id, msg.content)
                                 },
@@ -1004,6 +1025,7 @@ private fun MessageBubble(
     onReadAloud: () -> Unit = {},
     /** Optional generation stats line (Settings > Chat > Show generation details). */
     details: String? = null,
+    onSourceClick: (com.example.orbitai.feature.chat.MessageSource) -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -1218,6 +1240,7 @@ private fun MessageBubble(
                         }
                     }
                 }
+                if (msg.sources.isNotEmpty() && !msg.isStreaming) SourcesRow(msg.sources, onSourceClick)
                 details?.let {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = TextMuted, modifier = Modifier.padding(start = 8.dp))
                 }
@@ -1758,6 +1781,79 @@ private suspend fun readAttachmentForPrompt(
             append(content)
         }
     )
+}
+
+/** "Sources" chips under an answer: which document excerpts it was given. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SourcesRow(sources: List<com.example.orbitai.feature.chat.MessageSource>, onClick: (com.example.orbitai.feature.chat.MessageSource) -> Unit) {
+    Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
+        Text("Sources", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            sources.forEach { source ->
+                val label = if (source.available) com.example.orbitai.feature.spaces.Citations.label(source) else "${source.rank} · Removed document"
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (source.available) TextSecondary else TextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SpaceDust)
+                        .border(1.dp, GlassBorder, RoundedCornerShape(8.dp))
+                        .clickable(onClickLabel = "Show source") { onClick(source) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .widthIn(max = 220.dp),
+                )
+            }
+        }
+    }
+}
+
+/** The excerpt an answer was given, with a way to open the document. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceSheet(source: com.example.orbitai.feature.chat.MessageSource, onOpenDocument: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SpaceNebula) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = if (source.available) source.docName else "Removed document",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+            Text(
+                text = listOfNotNull("Source ${source.rank}", source.page?.let { "page $it" }).joinToString(" · "),
+                style = MaterialTheme.typography.labelMedium,
+                color = TextMuted,
+            )
+            Text(
+                text = source.excerpt,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextPrimary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(VioletGlowSoft)
+                    .padding(12.dp),
+            )
+            if (source.available) {
+                OutlinedButton(onClick = onOpenDocument) { Text("Open document") }
+            } else {
+                Text("This document was removed from its Space. The excerpt above is what Orbit used.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        }
+    }
 }
 
 /** "Remember: Lives in Pune?" under the user message, with Save, Edit and dismiss. */

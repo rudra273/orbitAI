@@ -247,3 +247,25 @@ data class ChunkWithDocName(
     val embedding: ByteArray?,
     val docName: String,
 )
+
+@Dao
+interface MessageSourceDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(sources: List<MessageSourceEntity>)
+
+    @Query(
+        """
+        SELECT s.messageId, s.rank, s.docId, s.docName, s.page, s.excerpt,
+            EXISTS(SELECT 1 FROM rag_documents d WHERE d.id = s.docId) AS available
+        FROM message_sources s
+        JOIN messages m ON m.id = s.messageId
+        WHERE m.chatId = :chatId
+        ORDER BY s.messageId, s.rank
+        """
+    )
+    fun observeForChat(chatId: String): Flow<List<MessageSourceRow>>
+
+    @Query("SELECT uri FROM rag_documents WHERE id = :docId")
+    suspend fun documentUri(docId: String): String?
+}

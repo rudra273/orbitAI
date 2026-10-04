@@ -24,6 +24,40 @@ data class ChatEntity(
     @ColumnInfo(defaultValue = "0") val isTitleLocked: Boolean = false,
 )
 
+/** A Spaces excerpt that was sent with an assistant reply (f033). Name, page and text are snapshots. */
+@Entity(
+    tableName = "message_sources",
+    primaryKeys = ["messageId", "rank"],
+    foreignKeys = [ForeignKey(
+        entity        = MessageEntity::class,
+        parentColumns = ["id"],
+        childColumns  = ["messageId"],
+        onDelete      = ForeignKey.CASCADE,
+    )],
+    indices = [Index("messageId")],
+)
+data class MessageSourceEntity(
+    val messageId: String,
+    /** 1-based number the model was given ("[Document 1]"). */
+    val rank: Int,
+    val chunkId: String,
+    val docId: String,
+    val docName: String,
+    val page: Int?,
+    val excerpt: String,
+)
+
+/** A stored source plus whether its document still exists. */
+data class MessageSourceRow(
+    val messageId: String,
+    val rank: Int,
+    val docId: String,
+    val docName: String,
+    val page: Int?,
+    val excerpt: String,
+    val available: Boolean,
+)
+
 /** Full-text index over message content, kept in sync with `messages` by Room's triggers. */
 @Fts4(contentEntity = MessageEntity::class)
 @Entity(tableName = "messages_fts")

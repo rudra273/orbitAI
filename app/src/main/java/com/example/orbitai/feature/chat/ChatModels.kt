@@ -14,6 +14,20 @@ data class Message(
     val timestampMs: Long = System.currentTimeMillis(),
     /** Memories that were sent with this reply (shown as "Memory used"). */
     val usedMemories: List<String> = emptyList(),
+    /** Spaces excerpts sent with this reply, numbered as the model saw them. */
+    val sources: List<MessageSource> = emptyList(),
+)
+
+/** A document excerpt an answer was given (f033). */
+data class MessageSource(
+    val rank: Int,
+    val chunkId: String,
+    val docId: String,
+    val docName: String,
+    val page: Int?,
+    val excerpt: String,
+    /** False once the document was removed from its Space. */
+    val available: Boolean = true,
 )
 
 data class Chat(
