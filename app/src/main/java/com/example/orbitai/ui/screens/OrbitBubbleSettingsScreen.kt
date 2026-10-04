@@ -91,6 +91,7 @@ fun OrbitBubbleSettingsScreen(
     var bubbleIdleAlphaPercent by remember { mutableIntStateOf(toolSettingsStore.bubbleIdleAlphaPercent) }
     var bubbleStyle by remember { mutableStateOf(toolSettingsStore.bubbleStyle) }
     var resultsInOverlay by remember { mutableStateOf(toolSettingsStore.bubbleResultsInOverlay) }
+    var saveHistory by remember { mutableStateOf(toolSettingsStore.saveConversationsToHistory) }
     var bubbleModelId by remember { mutableStateOf(toolSettingsStore.bubbleModelId) }
     var bubbleModeId by remember { mutableStateOf(toolSettingsStore.bubbleModeId) }
     var bubbleResponseAlphaPercent by remember { mutableIntStateOf(toolSettingsStore.bubbleResponseAlphaPercent) }
@@ -387,6 +388,20 @@ fun OrbitBubbleSettingsScreen(
                     onCheckedChange = {
                         resultsInOverlay = it
                         toolSettingsStore.bubbleResultsInOverlay = it
+                    },
+                )
+                HairlineDivider()
+                ToggleRow(
+                    title = "Save bubble conversations to history",
+                    subtitle = if (saveHistory) {
+                        "Every bubble chat is saved in your chat list"
+                    } else {
+                        "Off: a bubble chat is saved only when you tap Continue in app"
+                    },
+                    checked = saveHistory,
+                    onCheckedChange = {
+                        saveHistory = it
+                        toolSettingsStore.saveConversationsToHistory = it
                     },
                 )
                 HairlineDivider()

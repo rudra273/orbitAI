@@ -1,5 +1,9 @@
 package com.example.orbitai.feature.bubble
 
+import com.example.orbitai.appContainer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -68,7 +72,11 @@ class OrbitBubbleService : Service() {
         override val bubbleSizePx: Int get() = this@OrbitBubbleService.bubbleSizePx
         override val edgeDockMarginPx: Int get() = this@OrbitBubbleService.edgeDockMarginPx
         override fun cancelInference() = inference.cancel()
-        override fun openInApp(transcript: String) = launchApp(transcript)
+        override fun openInApp(transcript: String) = continueInApp(transcript)
+        override fun onReply() {
+            followUpPending = true
+            startListening()
+        }
         override fun onRadialAction(transcript: String) = handleTranscript(transcript)
         override fun dismissBubble() = this@OrbitBubbleService.dismissBubble()
     }
@@ -361,7 +369,12 @@ class OrbitBubbleService : Service() {
 
     // ── Transcript routing ────────────────────────────────────────────────────
 
+    /** Set by the card's Reply button: the next thing said continues the answer on screen. */
+    private var followUpPending = false
+
     private fun handleTranscript(transcript: String) {
+        val followUp = followUpPending && overlayUi.isResultVisible
+        followUpPending = false
         var finalTranscript = transcript
         val selectedText = pendingSelectedText
 
@@ -381,7 +394,7 @@ class OrbitBubbleService : Service() {
 
         if (BubbleSettingsStore(this).bubbleResultsInOverlay) {
             overlayUi.hideResultOverlay()
-            inference.run(finalTranscript)
+            inference.run(finalTranscript, followUp)
         } else {
             launchApp(finalTranscript)
         }
@@ -492,6 +505,28 @@ class OrbitBubbleService : Service() {
     private fun dpToPx(dp: Float): Int = (this as Context).dpToPx(dp)
 
     private fun getScreenSize(): Pair<Int, Int> = windowManager!!.screenSize()
+
+    /** Saves the bubble exchange as a chat and opens it; with nothing answered yet, just opens the app with the request. */
+    private fun continueInApp(transcript: String) {
+        if (inference.exchanges.isEmpty()) {
+            launchApp(transcript)
+            return
+        }
+        applicationContext.appContainer.appScope.launch {
+            val chatId = runCatching { inference.saveToHistory() }.getOrNull()
+            withContext(Dispatchers.Main) {
+                if (chatId == null) {
+                    launchApp(transcript)
+                } else {
+                    startActivity(Intent(this@OrbitBubbleService, MainActivity::class.java).apply {
+                        action = MainActivity.ACTION_OPEN_CHAT
+                        putExtra(MainActivity.EXTRA_CHAT_ID, chatId)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    })
+                }
+            }
+        }
+    }
 
     private fun launchApp(transcript: String? = null) {
         val intent = Intent(this, MainActivity::class.java).apply {

@@ -37,6 +37,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import com.example.orbitai.core.engine.PromptTurn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -84,6 +85,23 @@ class BubbleInferenceController(
     @Volatile private var activeSession: ConversationSession? = null
     private var watchdogJob: Job? = null
 
+    private val conversation = BubbleConversation()
+    private val saver = BubbleChatSaver(context)
+    @Volatile private var lastModelId: String = ""
+
+    /** Exchanges of this session, newest last. */
+    val exchanges: List<BubbleConversation.Exchange> get() = conversation.exchanges
+
+    /** Saves this session to chat history and returns the chat's id (null when nothing was asked yet). */
+    suspend fun saveToHistory(): String? = saver.save(conversation.exchanges, lastModelId)
+
+    private fun finished(question: String, answer: String) {
+        conversation.record(question, answer)
+        if (BubbleSettingsStore(context).saveConversationsToHistory) {
+            serviceScope.launch { runCatching { saver.save(conversation.exchanges, lastModelId) } }
+        }
+    }
+
     fun cancel() {
         activeSession?.cancel()
         llmJob?.cancel()
@@ -99,8 +117,12 @@ class BubbleInferenceController(
         context.appContainer.appScope.launch { llmRepository.releaseIfIdle() }
     }
 
-    fun run(initialTranscript: String) {
+    fun run(initialTranscript: String, followUp: Boolean = false) {
         Log.d(logTag, "Starting bubble inference")
+        if (!followUp) {
+            conversation.clear()
+            saver.reset()
+        }
         val isScreenIntent = isLikelyScreenUnderstandingRequest(initialTranscript)
         if (isScreenIntent) {
             Log.d(logTag, "Screen-understanding route selected; requesting user-approved capture when needed")
@@ -132,6 +154,7 @@ class BubbleInferenceController(
                 return@launch
             }
 
+            lastModelId = model.id
             val settings = InferenceSettingsStore(context).get()
 
             llmRepository.beginUse()
@@ -197,6 +220,9 @@ class BubbleInferenceController(
                     systemInstruction = AiSafetyPolicy.withInstructions(systemInstruction),
                     settings = settings,
                     toolSchemas = listOf(OrbitBubbleToolSchema()),
+                    history = conversation.exchanges.flatMap {
+                        listOf(PromptTurn(isUser = true, text = it.question), PromptTurn(isUser = false, text = it.answer))
+                    },
                 ).use { session ->
                     activeSession = session
                     val firstTurn = session.streamTurn(
@@ -216,6 +242,7 @@ class BubbleInferenceController(
                                 ui.updateResultText("I couldn't generate a response.")
                             }
                         }
+                        finished(initialTranscript, firstTurn.text)
                         return@launch
                     }
 
@@ -272,6 +299,8 @@ class BubbleInferenceController(
                                             ui.updateResultText("I couldn't read a useful answer from the current screen.")
                                         }
                                     }
+                                    // Only the words are kept; the screenshot itself is never stored.
+                                    finished(initialTranscript, followUpTurn.text)
                                 }
                             } finally {
                                 if (!bitmap.isRecycled) {
@@ -343,7 +372,7 @@ class BubbleInferenceController(
             input = com.example.orbitai.core.engine.InferenceInput(
                 prompt = ModelPromptBuilder.wrapInstructionPrompt(
                     promptStyle = model.promptStyle,
-                    instruction = initialTranscript,
+                    instruction = conversation.withHistory(initialTranscript),
                 )
             ),
             maxDecodedTokens = settings.maxDecodedTokens,
@@ -359,6 +388,7 @@ class BubbleInferenceController(
                 ui.updateResultText("I couldn't generate a response.")
             }
         }
+        finished(initialTranscript, withContext(Dispatchers.Main) { ui.resultText })
     }
 
     private suspend fun runDedicatedScreenUnderstanding(

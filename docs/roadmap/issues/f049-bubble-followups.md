@@ -15,6 +15,8 @@ The bubble answers one question, then the result card is dismissed. Its exchange
 - Screen-capture answers keep the screenshot only if the user taps Continue in app
 
 **Acceptance Criteria:**
-- [ ] Follow-ups keep context for at least 5 turns
-- [ ] Nothing is persisted unless the user taps Continue in app or enabled the setting
-- [ ] Uses the shared `LlmRepository` (f007): no second model load
+- [x] Follow-ups keep context for at least 5 turns
+- [x] Nothing is persisted unless the user taps Continue in app or enabled the setting
+- [x] Uses the shared `LlmRepository` (f007): no second model load
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Reply button (voice) on the bubble card continues the same session: last 8 exchanges are passed back to the model (conversation history, or written into the prompt for non-LiteRT models), so the model keeps context. Continue in app saves the exchange as a chat titled 'From Orbit Bubble: ...' and opens it. New setting 'Save bubble conversations to history' (off by default). Only text is saved; screenshots are never stored. Not done: a typed follow-up box (voice only). Each follow-up replaces the card text; the earlier turns are visible in the saved chat.

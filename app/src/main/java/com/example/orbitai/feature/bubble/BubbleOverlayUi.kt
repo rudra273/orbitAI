@@ -51,6 +51,7 @@ class BubbleOverlayUi(
         val edgeDockMarginPx: Int
         fun cancelInference()
         fun openInApp(transcript: String)
+        fun onReply()
         fun onRadialAction(transcript: String)
         fun dismissBubble()
     }
@@ -386,6 +387,7 @@ class BubbleOverlayUi(
                 setStroke(1, Color.argb(120, 224, 206, 255))
             }
         }
+        openBtn.text = "Continue in app"
         openBtn.setOnClickListener { hideResultOverlay(); host.openInApp(lastTranscript) }
         if (!compact) {
             header.addView(openBtn)
@@ -507,11 +509,29 @@ class BubbleOverlayUi(
         scrollView.addView(responseText)
         root.addView(scrollView)
 
-        // Small copy icon under the answer
-        root.addView(ImageView(context).apply {
+        val replyBtn = TextView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { setMargins(dp(10), 0, 0, 0) }
+            text = "\uD83C\uDF99 Reply"
+            contentDescription = "Reply by voice"
+            setTextColor(theme.primaryText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            minHeight = dp(36)
+            visibility = if (compact) View.GONE else View.VISIBLE
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(9).toFloat()
+                setColor(Color.argb(52, 188, 150, 255))
+                setStroke(1, Color.argb(120, 224, 206, 255))
+            }
+            setOnClickListener { host.onReply() }
+        }
+        val copyBtn = ImageView(context).apply {
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                gravity = Gravity.END
-                setMargins(0, 0, dp(8), dp(6))
+                setMargins(0, 0, dp(8), 0)
             }
             setPadding(dp(9), dp(9), dp(9), dp(9))
             setImageResource(R.drawable.ic_copy)
@@ -525,6 +545,17 @@ class BubbleOverlayUi(
                     Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+        // Under the answer: reply by voice on the left, copy on the right.
+        root.addView(LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                .apply { bottomMargin = dp(6) }
+            visibility = if (compact) View.GONE else View.VISIBLE
+            addView(replyBtn)
+            addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
+            addView(copyBtn)
         })
         resultStatusView = statusText
         resultTextView = responseText
