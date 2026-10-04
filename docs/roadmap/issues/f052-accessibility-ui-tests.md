@@ -2,6 +2,8 @@
 Labels: enhancement
 **Milestone:** M4 Hardening & Beta · **Priority:** P1 · **Size:** M · **Area:** UI / Quality
 
+**Status:** 🟡 Partly done, device check pending (2026-10-04). Done: every switch row now reads and toggles as one control with a Switch role (Tools, Memory, Bubble, Chat, Appearance, Backup, Digest, Message replies, custom model); show/hide token button has a label; back rows are at least 48 dp tall; a finished reply is announced once politely ("Reply ready") instead of on every word; a Compose UI test for the What's new dialog (run with installDebugAndroidTest). The icons left without a description sit beside their own text and are decorative. Not done: Accessibility Scanner pass and screenshots, 200% font-scale check, contrast audit, bubble overlay accessibility actions, a fake engine, and UI tests for send/stop/mode/Space flows.
+
 **Title:** Make OrbitAI fully usable with TalkBack and protect key flows with UI tests
 
 **Description:**

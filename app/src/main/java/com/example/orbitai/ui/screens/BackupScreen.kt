@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import com.example.orbitai.R
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
@@ -107,12 +109,15 @@ fun BackupScreen(onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !busy,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.toggleable(value = includeKeys, enabled = !busy, role = Role.Switch) { includeKeys = it },
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.include_api_keys), style = MaterialTheme.typography.titleSmall)
                     Text(stringResource(R.string.hugging_face_token_and_gemini), style = MaterialTheme.typography.bodySmall)
                 }
-                Switch(includeKeys, { includeKeys = it }, enabled = !busy)
+                Switch(includeKeys, null, enabled = !busy)
             }
             Button(
                 enabled = !busy && passphrase.length >= MIN_PASSPHRASE,

@@ -1,5 +1,8 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import com.example.orbitai.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
@@ -121,7 +124,8 @@ fun MemorySettingsScreen(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onBack,
-                    ),
+                    )
+                    .heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -338,6 +342,7 @@ private fun MemoryToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

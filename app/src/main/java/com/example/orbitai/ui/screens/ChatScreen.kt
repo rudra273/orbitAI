@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -1184,8 +1186,13 @@ private fun MessageBubble(
                 }
             }
             if (!msg.isStreaming && msg.content.isNotBlank()) {
+                val replyReady = stringResource(R.string.reply_ready)
                 Row(
-                    modifier = Modifier.padding(top = 2.dp),
+                    // Announced politely once, when the reply is complete (not on every streamed word).
+                    modifier = Modifier.padding(top = 2.dp).semantics {
+                        liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
+                        contentDescription = replyReady
+                    },
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     MessageActionIcon(Icons.Outlined.ContentCopy, "Copy reply", onClick = copy)

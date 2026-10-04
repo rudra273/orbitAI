@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import com.example.orbitai.R
 import androidx.compose.ui.res.stringResource
 import android.net.Uri
@@ -126,9 +128,12 @@ fun CustomModelSection() {
                         singleLine = true,
                         enabled = !importing,
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.toggleable(value = vision, enabled = !importing, role = Role.Switch) { vision = it },
+                    ) {
                         Text(stringResource(R.string.understands_images), Modifier.weight(1f))
-                        Switch(vision, { vision = it }, enabled = !importing)
+                        Switch(vision, null, enabled = !importing)
                     }
                     if (importing) {
                         LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())

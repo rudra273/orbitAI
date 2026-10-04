@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -106,17 +108,21 @@ fun DigestScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.digest_intro), style = MaterialTheme.typography.bodyMedium)
             }
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                val toggleDigest: (Boolean) -> Unit = { wanted ->
+                    if (wanted) showDisclosure = true else {
+                        settings.enabled = false
+                        enabled = false
+                        DigestBuffer.shared.clear()
+                        NotificationReplyListener.refreshSettings()
+                        output = ""
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.toggleable(value = enabled, role = Role.Switch, onValueChange = toggleDigest),
+                ) {
                     Text(stringResource(R.string.digest_switch), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    Switch(checked = enabled, onCheckedChange = { wanted ->
-                        if (wanted) showDisclosure = true else {
-                            settings.enabled = false
-                            enabled = false
-                            DigestBuffer.shared.clear()
-                            NotificationReplyListener.refreshSettings()
-                            output = ""
-                        }
-                    })
+                    Switch(checked = enabled, onCheckedChange = null)
                 }
             }
             if (enabled && !hasAccess) {

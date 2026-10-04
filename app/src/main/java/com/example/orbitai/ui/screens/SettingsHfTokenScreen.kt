@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
 import com.example.orbitai.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
@@ -100,7 +101,8 @@ fun SettingsHfTokenScreen(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onBack,
-                    ),
+                    )
+                    .heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -221,7 +223,7 @@ fun SettingsHfTokenScreen(
                                 IconButton(onClick = { showToken = !showToken }) {
                                     Icon(
                                         imageVector = if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = null,
+                                        contentDescription = stringResource(if (showToken) R.string.hide_token else R.string.show_token),
                                         tint = SettingsInk.copy(alpha = 0.55f),
                                         modifier = Modifier.size(18.dp),
                                     )

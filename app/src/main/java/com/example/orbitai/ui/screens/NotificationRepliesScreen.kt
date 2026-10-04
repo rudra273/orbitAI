@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import com.example.orbitai.R
 import androidx.compose.ui.res.stringResource
 import android.app.NotificationManager
@@ -87,15 +89,19 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
             TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_tools)) }
             Text(stringResource(R.string.message_replies), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.review_and_reply_to_active))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = enabled, onCheckedChange = { value ->
-                    if (value) disclosure = true else {
-                        settings.enabled = false
-                        enabled = false
-                        closeReply()
-                        NotificationReplyListener.refreshSettings()
-                    }
-                })
+            val toggleReplies: (Boolean) -> Unit = { value ->
+                if (value) disclosure = true else {
+                    settings.enabled = false
+                    enabled = false
+                    closeReply()
+                    NotificationReplyListener.refreshSettings()
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.toggleable(value = enabled, role = Role.Switch, onValueChange = toggleReplies),
+            ) {
+                Switch(checked = enabled, onCheckedChange = null)
                 Text(stringResource(R.string.enable_message_replies_2), Modifier.padding(start = 12.dp))
             }
             Text("Notification access: ${if (access) "granted" else "not granted"}")

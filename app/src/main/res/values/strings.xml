@@ -349,4 +349,7 @@
     <string name="onboarding_reopen">You can open this again from Settings &gt; About.</string>
     <string name="onboarding_open">Setup and tour</string>
     <string name="onboarding_open_desc">Pick a model and see what Orbit can do</string>
+    <string name="reply_ready">Reply ready</string>
+    <string name="show_token">Show token</string>
+    <string name="hide_token">Hide token</string>
 </resources>

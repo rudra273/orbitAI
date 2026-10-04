@@ -349,4 +349,7 @@
     <string name="onboarding_reopen">आप इसे सेटिंग्स &gt; जानकारी से फिर खोल सकते हैं।</string>
     <string name="onboarding_open">सेटअप और टूर</string>
     <string name="onboarding_open_desc">मॉडल चुनें और देखें Orbit क्या कर सकता है</string>
+    <string name="reply_ready">जवाब तैयार है</string>
+    <string name="show_token">टोकन दिखाएँ</string>
+    <string name="hide_token">टोकन छिपाएँ</string>
 </resources>
