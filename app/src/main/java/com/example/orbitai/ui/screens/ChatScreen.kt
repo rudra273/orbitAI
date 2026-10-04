@@ -50,13 +50,17 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.StopCircle
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -271,6 +275,23 @@ fun ChatScreen(
     val isTemporary = remember(chatId) { viewModel.isTemporaryChat(chatId) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    val voiceSettings = remember { com.example.orbitai.feature.voice.VoiceSettingsStore(context) }
+    val speaker = remember { com.example.orbitai.feature.voice.ReplySpeaker(context, voiceSettings) }
+    DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
+    val speakingId by speaker.speakingId.collectAsState()
+    var voiceMode by rememberSaveable { mutableStateOf(false) }
+    // Auto-read: speak replies that stream in while this chat is open.
+    val autoReadStreams = remember { mutableMapOf<String, com.example.orbitai.feature.voice.SpeechText.Stream>() }
+    val latestReply = messages.lastOrNull()?.takeIf { it.role == Role.ASSISTANT }
+    LaunchedEffect(latestReply?.id, latestReply?.content, latestReply?.isStreaming) {
+        val reply = latestReply ?: return@LaunchedEffect
+        if (voiceMode || !voiceSettings.autoRead) return@LaunchedEffect
+        val stream = autoReadStreams[reply.id]
+            ?: if (reply.isStreaming) com.example.orbitai.feature.voice.SpeechText.Stream().also { autoReadStreams.clear(); autoReadStreams[reply.id] = it }
+            else return@LaunchedEffect
+        speaker.enqueue(reply.id, stream.next(reply.content, final = !reply.isStreaming))
+        if (!reply.isStreaming) autoReadStreams.remove(reply.id)
+    }
     chat?.takeIf { showExport }?.let { current ->
         val modelName = (availableModels + com.example.orbitai.core.model.AVAILABLE_MODELS)
             .find { it.id == current.modelId }?.displayName
@@ -379,6 +400,7 @@ fun ChatScreen(
                             }
                         },
                         onStop       = { viewModel.stopGeneration() },
+                        onStartVoiceMode = { speaker.stop(); voiceMode = true },
                         isGenerating = uiState.isGenerating,
                         isLoading    = uiState.isModelLoading,
                         selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
@@ -443,6 +465,10 @@ fun ChatScreen(
                                 onRegenerate = { viewModel.regenerate(chatId) },
                                 onEditAndResend = { text -> viewModel.editAndResend(chatId, msg.id, text) },
                                 onDelete = { viewModel.deleteMessage(msg.id) },
+                                isSpeaking = speakingId == msg.id,
+                                onReadAloud = {
+                                    if (speakingId == msg.id) speaker.stop() else speaker.speakMessage(msg.id, msg.content)
+                                },
                             )
                             uiState.memorySuggestion?.takeIf { it.chatId == chatId && it.messageId == msg.id }?.let { suggestion ->
                                 MemorySuggestionChip(
@@ -489,6 +515,23 @@ fun ChatScreen(
                     }
                 }
             }
+        }
+        if (voiceMode) {
+            VoiceModeOverlay(
+                messages = messages,
+                isGenerating = uiState.isGenerating || uiState.isModelLoading,
+                speaker = speaker,
+                voiceSettings = voiceSettings,
+                voiceCallPrompt = voiceCallPrompt?.takeIf { it.chatId == chatId },
+                onSend = { viewModel.sendMessage(chatId, it) },
+                onVoiceCall = { viewModel.handleVoiceCall(chatId, it) },
+                onVoiceCallPromptSpoken = viewModel::onVoiceCallPromptSpoken,
+                onStopGeneration = viewModel::stopGeneration,
+                onClose = {
+                    voiceMode = false
+                    viewModel.cancelVoiceCall(chatId)
+                },
+            )
         }
     }
 }
@@ -884,6 +927,8 @@ private fun MessageBubble(
     onRegenerate: () -> Unit,
     onEditAndResend: (String) -> Unit,
     onDelete: () -> Unit,
+    isSpeaking: Boolean = false,
+    onReadAloud: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -1061,6 +1106,11 @@ private fun MessageBubble(
                     if (isLatestReply) {
                         MessageActionIcon(Icons.Outlined.Refresh, "Regenerate reply", enabled = actionsEnabled, onClick = onRegenerate)
                     }
+                    MessageActionIcon(
+                        if (isSpeaking) Icons.Outlined.StopCircle else Icons.AutoMirrored.Outlined.VolumeUp,
+                        if (isSpeaking) "Stop reading" else "Read aloud",
+                        onClick = onReadAloud,
+                    )
                     MessageActionIcon(Icons.Outlined.Share, "Share reply", onClick = share)
                     MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
                     if (msg.usedMemories.isNotEmpty()) {
@@ -1213,6 +1263,7 @@ private fun ChatInputBar(
     cursorRequest: Int? = null,
     onSend:       () -> Unit,
     onStop:       () -> Unit,
+    onStartVoiceMode: () -> Unit,
     isGenerating: Boolean,
     isLoading:    Boolean,
     selectedModelSupportsAttachments: Boolean,
@@ -1428,9 +1479,7 @@ private fun ChatInputBar(
                 voiceState != VoiceState.Idle -> MicButton(isListening = true, onClick = toggleVoice)
                 text.trim().isNotEmpty() || pendingAttachment != null || selectedImageUris.isNotEmpty() ->
                     SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
-                else -> {
-                    // No button — mic is embedded inside field; no external button needed
-                }
+                else -> VoiceModeButton(onClick = onStartVoiceMode)
             }
         }
     }
@@ -1470,6 +1519,20 @@ private fun SendButton(
                 modifier = Modifier.size(20.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun VoiceModeButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(TextPrimary)
+            .clickable(onClickLabel = "Start voice mode", onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Default.GraphicEq, contentDescription = "Voice mode", tint = SpaceDeep, modifier = Modifier.size(22.dp))
     }
 }
 

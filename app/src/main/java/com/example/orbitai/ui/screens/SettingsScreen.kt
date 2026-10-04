@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DeveloperBoard
@@ -150,6 +151,11 @@ fun SettingsScreen(
                 title = "Saved prompts",
                 description = "Reusable prompts for the / menu",
             ),
+            SettingsRow(
+                icon = Icons.Default.RecordVoiceOver,
+                title = "Voice",
+                description = "Read aloud, speech speed and voice",
+            ),
         )
     }
 
@@ -237,6 +243,11 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = aiRows[3],
                     onClick = { onNavigate("settings/saved_prompts") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = aiRows[4],
+                    onClick = { onNavigate("settings/voice") },
                 )
             }
         }

@@ -15,7 +15,9 @@ Voice input exists (`VoiceInput.kt`, the mic button), and `TextToSpeech` is alre
 - Prefer on-device recognition (`EXTRA_PREFER_OFFLINE`); keep the existing disclosure that the device speech provider may be cloud-based
 
 **Acceptance Criteria:**
-- [ ] First sentence is spoken before generation finishes (sentence-chunked TTS queue)
-- [ ] Voice mode survives screen-off with a foreground notification, or explicitly stops (decide in PR)
-- [ ] Existing call voice flow (`handleVoiceCall`) keeps working inside voice mode
-- [ ] TalkBack users can start/stop voice mode with one action
+- [x] First sentence is spoken before generation finishes (sentence-chunked TTS queue)
+- [x] Voice mode survives screen-off with a foreground notification, or explicitly stops (decide in PR)
+- [x] Existing call voice flow (`handleVoiceCall`) keeps working inside voice mode
+- [x] TalkBack users can start/stop voice mode with one action
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Read aloud button on replies (play/stop) and Settings > Voice (auto-read, speed, voice with sample). Voice mode (sound-wave button when the input is empty): listen → send → speak sentence by sentence while the reply streams (SpeechText.Stream) → listen; tap the orb to interrupt. Screen-off decision: voice mode keeps the screen on and ends when the app goes to the background (no foreground service). Call requests go through the existing handleVoiceCall confirmation inside voice mode. No barge-in while speaking (avoids the speaker being heard as speech). Device check pending.
