@@ -450,7 +450,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                         activeSpaceIds,
                         limit = 5,
                     )
-                    val ragContext = retrievedChunks.map { it.content }
+                    val ragContext = listOfNotNull(agendaFor(trimmedText, model)) + retrievedChunks.map { it.content }
                     val budgeted = PromptBudget.fit(
                         messages = history,
                         ragContext = ragContext,
@@ -629,6 +629,18 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     fun release() {
         closeLiveConversation()
         llmRepo.removeBeforeEngineCloseListener(closeLiveBeforeEngine)
+    }
+
+    /** This turn's agenda when the user asked a schedule question and opted in; never for the cloud model. */
+    private suspend fun agendaFor(text: String, model: LlmModel): String? {
+        if (model.provider == ModelProvider.GEMINI) return null
+        if (!com.example.orbitai.feature.automation.AutomationSettingsStore(ctx.app).isCalendarAwarenessEnabled) return null
+        val window = com.example.orbitai.feature.calendar.AgendaQuery.parse(text, java.time.ZonedDateTime.now()) ?: return null
+        return runCatching {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.example.orbitai.feature.calendar.CalendarReader(ctx.app).agenda(window)
+            }
+        }.getOrNull()
     }
 
     /**

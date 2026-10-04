@@ -15,6 +15,8 @@ Orbit can create calendar events (intent handoff) and reminders, but can't answe
 - Events are injected only for the turn that asked, never stored in memory or chat context beyond the answer
 
 **Acceptance Criteria:**
-- [ ] Without permission the tool is not offered to the model
-- [ ] Event data never leaves the device unless the user is on Gemini and accepted the cloud consent for that message (consent text updated to mention calendar data)
-- [ ] Unit tests for date-range parsing ("tomorrow", "this week", "next Monday")
+- [x] Without permission the tool is not offered to the model
+- [x] Event data never leaves the device unless the user is on Gemini and accepted the cloud consent for that message (consent text updated to mention calendar data)
+- [x] Unit tests for date-range parsing ("tomorrow", "this week", "next Monday")
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Opt-in switch in Settings > Tools asks for calendar permission. Schedule questions (today, tomorrow, weekdays, this/next week, weekend) read only that window plus Orbit reminders, add it to that one answer, store nothing, and never go to the Gemini cloud model. Date parsing is unit tested. Not done: a separate read_calendar native tool; the answer path uses the prompt context instead.
