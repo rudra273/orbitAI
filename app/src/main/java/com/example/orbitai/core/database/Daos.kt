@@ -159,6 +159,9 @@ interface RagDocumentDao {
     @Query("SELECT * FROM rag_documents WHERE status IN ('PENDING', 'PROCESSING')")
     suspend fun getUnfinishedDocuments(): List<RagDocumentEntity>
 
+    @Query("UPDATE rag_documents SET name = :name, sizeBytes = :sizeBytes WHERE id = :id")
+    suspend fun renameDocument(id: String, name: String, sizeBytes: Long)
+
     @Query("UPDATE rag_documents SET status = :status, chunkCount = :chunkCount, errorMessage = :errorMessage WHERE id = :id")
     suspend fun updateResult(id: String, status: String, chunkCount: Int, errorMessage: String?)
 

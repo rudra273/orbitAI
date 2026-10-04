@@ -3,7 +3,7 @@ Labels: enhancement
 **Milestone:** M3 Power Features · **Priority:** P2 · **Size:** L · **Area:** Spaces
 **Depends on:** f034
 
-**Status:** 🚧 In progress (2026-10-04). Word (.docx) and e-book (.epub) files are now indexed in Spaces, with unit tests. Still to do: web page by URL, in-app notes.
+**Status:** 🟡 Done except web pages (2026-10-04). Word (.docx) and EPUB files are indexed, and Spaces have in-app notes (Note button: create, tap to edit, saved as text and re-indexed). OCR was dropped and web pages are skipped on purpose (privacy: no new network path). Known limit: a restored backup brings back note text for search but the note file itself is not in the backup, so editing a restored note is unavailable.
 
 **Title:** Broaden what can be added to a Space
 

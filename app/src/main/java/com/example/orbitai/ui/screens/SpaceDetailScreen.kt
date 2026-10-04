@@ -45,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import kotlinx.coroutines.launch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -116,6 +117,8 @@ fun SpaceDetailScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var showDeleteSpaceConfirm by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var noteEditing by remember { mutableStateOf<NoteDraft?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.addDocumentToSpace(it, spaceId) }
@@ -123,6 +126,31 @@ fun SpaceDetailScreen(
 
     val totalSizeBytes = remember(docs) { docs.sumOf { it.sizeBytes } }
     val totalSizeLabel = remember(totalSizeBytes) { formatSize(totalSizeBytes) }
+
+    noteEditing?.let { draft ->
+        var title by remember(draft) { mutableStateOf(draft.title) }
+        var body by remember(draft) { mutableStateOf(draft.text) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { noteEditing = null },
+            title = { Text(if (draft.docId == null) "New note" else "Edit note") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(body, { body = it }, label = { Text("Note") }, minLines = 4, maxLines = 10)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    enabled = body.isNotBlank(),
+                    onClick = {
+                        if (draft.docId == null) viewModel.addNote(spaceId, title, body) else viewModel.updateNote(draft.docId, title, body)
+                        noteEditing = null
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { noteEditing = null }) { Text("Cancel") } },
+        )
+    }
 
     Scaffold(
         containerColor = SpaceDeep,
@@ -152,7 +180,10 @@ fun SpaceDetailScreen(
             }
 
             item {
-                DocumentsHeader(onAdd = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) })
+                DocumentsHeader(
+                    onAdd = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) },
+                    onNote = { noteEditing = NoteDraft(null, "", "") },
+                )
             }
 
             if (docs.isEmpty()) {
@@ -165,6 +196,15 @@ fun SpaceDetailScreen(
                         doc = doc,
                         onDelete = { viewModel.deleteDocument(doc.id) },
                         onRetry = { viewModel.retryDocument(doc.id) },
+                        onOpen = if (doc.name.startsWith(com.example.orbitai.feature.spaces.Notes.NAME_PREFIX)) {
+                            {
+                                scope.launch {
+                                    viewModel.noteText(doc.id)?.let { text ->
+                                        noteEditing = NoteDraft(doc.id, doc.name.removePrefix(com.example.orbitai.feature.spaces.Notes.NAME_PREFIX), text)
+                                    }
+                                }
+                            }
+                        } else null,
                     )
                 }
             }
@@ -356,7 +396,7 @@ private fun StatCard(
 }
 
 @Composable
-private fun DocumentsHeader(onAdd: () -> Unit) {
+private fun DocumentsHeader(onAdd: () -> Unit, onNote: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -372,6 +412,21 @@ private fun DocumentsHeader(onAdd: () -> Unit) {
             color = TextMuted,
         )
 
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(addButtonBg)
+                .combinedClickable(onClick = onNote)
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Note",
+                color = addButtonText,
+                style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
+        }
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
@@ -392,6 +447,7 @@ private fun DocumentsHeader(onAdd: () -> Unit) {
                 )
             }
         }
+        }
     }
 }
 
@@ -401,6 +457,7 @@ private fun SwipeableDocumentRow(
     doc: RagDocument,
     onDelete: () -> Unit,
     onRetry: () -> Unit,
+    onOpen: (() -> Unit)? = null,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -445,6 +502,7 @@ private fun SwipeableDocumentRow(
             doc = doc,
             onLongPressDelete = onDelete,
             onRetry = onRetry,
+            onOpen = onOpen,
         )
     }
 }
@@ -454,6 +512,7 @@ private fun DocumentRowContent(
     doc: RagDocument,
     onLongPressDelete: () -> Unit,
     onRetry: () -> Unit,
+    onOpen: (() -> Unit)? = null,
 ) {
     val dateStr = remember(doc.addedAt) {
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(doc.addedAt))
@@ -466,7 +525,7 @@ private fun DocumentRowContent(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(recessedBg)
-            .combinedClickable(onClick = {}, onLongClick = onLongPressDelete)
+            .combinedClickable(onClick = { onOpen?.invoke() }, onLongClick = onLongPressDelete)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -678,3 +737,5 @@ private fun formatSize(bytes: Long): String = when {
     bytes >= 1_024 -> "%.1f KB".format(bytes / 1_024f)
     else -> "$bytes B"
 }
+
+private data class NoteDraft(val docId: String?, val title: String, val text: String)

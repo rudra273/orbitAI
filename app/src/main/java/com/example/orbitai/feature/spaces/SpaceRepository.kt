@@ -1,5 +1,7 @@
 package com.example.orbitai.feature.spaces
 
+import androidx.core.net.toUri
+import java.io.File
 import com.example.orbitai.feature.spaces.embedding.EmbedKind
 import com.example.orbitai.feature.spaces.embedding.Embedded
 
@@ -107,6 +109,39 @@ class SpaceRepository(private val context: Context) {
         }
     }
 
+    /** Saves a note typed in the app as a text document of the Space and indexes it. */
+    suspend fun addNote(spaceId: String, title: String, text: String) = withContext(Dispatchers.IO) {
+        val docId = UUID.randomUUID().toString()
+        val file = Notes.write(context, docId, text)
+        ragDao.insertDocument(
+            RagDocumentEntity(
+                id = docId,
+                name = Notes.displayName(title),
+                uri = file.toUri().toString(),
+                mimeType = "text/plain",
+                sizeBytes = file.length(),
+                status = RagStatus.PENDING.name,
+                chunkCount = 0,
+                addedAt = System.currentTimeMillis(),
+                spaceId = spaceId,
+            ),
+        )
+        DocumentIngestWorker.enqueue(context, docId)
+    }
+
+    /** The text of a note, or null when [docId] isn't a note made in the app. */
+    suspend fun noteText(docId: String): String? = withContext(Dispatchers.IO) {
+        ragDao.getDocument(docId)?.let { Notes.fileFor(context, it.uri)?.takeIf(File::exists)?.readText() }
+    }
+
+    suspend fun updateNote(docId: String, title: String, text: String) = withContext(Dispatchers.IO) {
+        val doc = ragDao.getDocument(docId) ?: return@withContext
+        val file = Notes.fileFor(context, doc.uri) ?: return@withContext
+        file.writeText(text)
+        ragDao.renameDocument(docId, Notes.displayName(title), file.length())
+        DocumentIngestWorker.enqueue(context, docId)
+    }
+
     /** Re-queues documents left unfinished, e.g. when the process died mid-way. Safe to call on every start. */
     fun resumeUnfinishedIngestion() {
         scope.launch {
@@ -125,6 +160,7 @@ class SpaceRepository(private val context: Context) {
 
     suspend fun deleteDocument(id: String) = withContext(Dispatchers.IO) {
         DocumentIngestWorker.cancel(context, id)
+        ragDao.getDocument(id)?.let { Notes.fileFor(context, it.uri)?.delete() }
         ragDao.deleteDocument(id)
         invalidateIndex()
     }

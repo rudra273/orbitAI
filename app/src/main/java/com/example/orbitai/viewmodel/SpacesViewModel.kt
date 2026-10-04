@@ -47,6 +47,16 @@ class SpacesViewModel(application: Application) : AndroidViewModel(application) 
         repository.addDocumentToSpace(uri, spaceId)
     }
 
+    fun addNote(spaceId: String, title: String, text: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.addNote(spaceId, title, text) }
+    }
+
+    fun updateNote(docId: String, title: String, text: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.updateNote(docId, title, text) }
+    }
+
+    suspend fun noteText(docId: String): String? = repository.noteText(docId)
+
     fun isSemanticModelReady(): Boolean = modelDownloader.isEmbeddingDownloaded(GECKO_EMBEDDING)
 
     fun retryDocument(id: String) = repository.retryDocument(id)
