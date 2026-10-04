@@ -35,3 +35,14 @@ The gated repositories (`litert-community/Gemma3-1B-IT`, `google/gemma-3n-E4B-it
 ## Qwen 3.5 (2026-10-04)
 
 Added `qwen35-0.8b` (text, int8) and `qwen35-0.8b-vl` (with vision encoder). Apache-2.0, not gated; SHA-256 digests from the same pinned revision are in `ModelChecksums.kt`. The model card requires LiteRT-LM 0.15 or newer; Orbit uses 0.17.1. Load and chat on a device have not been tested yet.
+
+## Embedding model: multilingual-e5-small (2026-10-04)
+
+Ungated, MIT license, 100 languages including Hindi. Orbit downloads two files from [Xenova/multilingual-e5-small@761b726d](https://huggingface.co/Xenova/multilingual-e5-small/tree/761b726dd34fb83930e26aab4e9ac3899aa1fa78), a mirror of [intfloat/multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small) with ONNX exports:
+
+| File | Size | SHA-256 |
+| --- | --- | --- |
+| onnx/model_int8.onnx | 118,054,593 B | 4d24e2bc01a447951524466ef533e52944bf48509e6552810bcee1a2711cb02c |
+| tokenizer.json | 17,082,730 B | 0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39 |
+
+Checked on a computer with ONNX Runtime and the Hugging Face tokenizer: it matches English and Hindi questions to the right passage across both languages. Orbit's own tokenizer (`UnigramTokenizer`) reproduces the reference token ids for 23 test texts (English, Hindi, Tamil, Gujarati, Japanese, symbols). It does not reproduce zero-width spaces. The check runs when `ORBIT_E5_TOKENIZER` points at `tokenizer.json`. Not yet run on a phone.

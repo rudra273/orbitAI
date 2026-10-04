@@ -200,10 +200,23 @@ val GECKO_EMBEDDING = EmbeddingModelConfig(
     description      = "On-device semantic search for RAG · Google USE",
 )
 
-val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING)
+/** multilingual-e5-small: ungated (MIT), multilingual, int8 ONNX. Files pinned to a verified revision. */
+val E5_SMALL_EMBEDDING = EmbeddingModelConfig(
+    id                = "multilingual-e5-small",
+    sizeBytes         = 118_054_593L + 17_082_730L,
+    displayName       = "Multilingual E5 Small",
+    fileName          = "multilingual-e5-small-int8.onnx",
+    tokenizerFileName = "multilingual-e5-small-tokenizer.json",
+    description       = "Better search for Spaces and Memory, includes Hindi · MIT license, no sign-in",
+)
+
+val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING, E5_SMALL_EMBEDDING)
 
 val EMBEDDING_DOWNLOAD_URLS = mapOf(
     "gecko-embedding" to "https://storage.googleapis.com/mediapipe-models/text_embedder/universal_sentence_encoder/float32/latest/universal_sentence_encoder.tflite",
+    "multilingual-e5-small" to "https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78/onnx/model_int8.onnx",
 )
 
-val EMBEDDING_TOKENIZER_URLS = mapOf<String, String>()
+val EMBEDDING_TOKENIZER_URLS = mapOf(
+    "multilingual-e5-small" to "https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78/tokenizer.json",
+)

@@ -118,6 +118,8 @@ fun ModelSettingsScreen(
     var showGeminiKey by remember { mutableStateOf(false) }
     var showAllModels by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var activeEmbedderId by remember { mutableStateOf(downloadViewModel.activeEmbeddingModelId) }
+    val reindexRemaining by downloadViewModel.reindexRemaining(activeEmbedderId).collectAsState(0)
 
     val recommendedId = downloadViewModel.recommendedModelId
     val topPickIds = (listOfNotNull(recommendedId) + listOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b"))
@@ -362,11 +364,25 @@ fun ModelSettingsScreen(
                             EmbeddingModelRow(
                                 model = model,
                                 progress = embeddingProgressMap[model.id],
+                                isActive = activeEmbedderId == model.id,
+                                onUse = { downloadViewModel.useEmbeddingModel(model); activeEmbedderId = model.id },
                                 onDownload = { downloadViewModel.startEmbeddingDownload(model) },
-                                onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
+                                onDelete = {
+                                    downloadViewModel.deleteEmbeddingModel(model)
+                                    if (activeEmbedderId == model.id) activeEmbedderId = downloadViewModel.activeEmbeddingModelId
+                                },
                                 onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
                             )
                             if (index != embedModels.lastIndex) HairlineDivider()
+                        }
+                        if (reindexRemaining > 0) {
+                            Text(
+                                text = "Updating search for your documents and memories: $reindexRemaining left. Until then they are found by keywords.",
+                                color = SettingsInk.copy(alpha = 0.55f),
+                                fontFamily = SettingsSans,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
                         }
                     }
                 }
@@ -544,6 +560,8 @@ fun ModelSettingsScreen(
 private fun EmbeddingModelRow(
     model: EmbeddingModelConfig,
     progress: DownloadProgress?,
+    isActive: Boolean,
+    onUse: () -> Unit,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
@@ -627,6 +645,18 @@ private fun EmbeddingModelRow(
                             .size(6.dp)
                             .clip(CircleShape)
                             .background(SettingsGreen),
+                    )
+                    Text(
+                        text = if (isActive) "In use" else "Use",
+                        color = if (isActive) SettingsGreen else SettingsInk,
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                        modifier = Modifier.clickable(
+                            enabled = !isActive,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onUse,
+                        ),
                     )
                     Text(
                         text = "Delete",

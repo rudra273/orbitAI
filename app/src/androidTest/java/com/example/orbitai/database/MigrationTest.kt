@@ -122,6 +122,9 @@ class MigrationTest {
                 it.moveToFirst()
                 assertTrue(it.isNull(0) && it.isNull(1) && it.isNull(2))
             }
+            // Existing vectors are tagged with the model that made them (the original one).
+            db.query("SELECT embeddingModel FROM rag_chunks WHERE id = 'chunk'").use { it.moveToFirst(); assertEquals("gecko-embedding", it.getString(0)) }
+            db.query("SELECT embeddingModel FROM memories WHERE id = 'mem'").use { it.moveToFirst(); assertEquals("gecko-embedding", it.getString(0)) }
             // Sources attach to a reply and go away with it.
             db.execSQL("INSERT INTO message_sources (messageId, rank, chunkId, docId, docName, page, excerpt) VALUES ('msg', 1, 'chunk', 'doc', 'a.txt', NULL, 'Chunk text')")
             assertEquals(1, count("message_sources"))

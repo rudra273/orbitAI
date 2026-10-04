@@ -12,6 +12,7 @@ data class MemoryEntity(
     val createdAt: Long,
     /** Embedding of [content] for relevance search; null until computed. */
     @ColumnInfo(typeAffinity = ColumnInfo.BLOB) val embedding: ByteArray? = null,
+    @ColumnInfo(defaultValue = "'gecko-embedding'") val embeddingModel: String = "gecko-embedding",
     /** How many replies this memory was sent with. */
     @ColumnInfo(defaultValue = "0") val useCount: Int = 0,
     @ColumnInfo(defaultValue = "0") val lastUsedAt: Long = 0,

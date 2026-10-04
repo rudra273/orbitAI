@@ -1,5 +1,8 @@
 package com.example.orbitai.feature.spaces
 
+import com.example.orbitai.feature.spaces.embedding.EmbedKind
+import com.example.orbitai.feature.spaces.embedding.Embedded
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -108,6 +111,7 @@ class SpaceRepository(private val context: Context) {
     fun resumeUnfinishedIngestion() {
         scope.launch {
             ragDao.getUnfinishedDocuments().forEach { DocumentIngestWorker.enqueue(context, it.id) }
+            if (ragDao.countChunksToEmbed(activeEmbeddingModelId) > 0) ReembedWorker.enqueue(context)
         }
     }
 
@@ -129,8 +133,14 @@ class SpaceRepository(private val context: Context) {
     private val indexLock = Mutex()
     @Volatile private var cachedIndex: Pair<Set<String>, RetrievalIndex>? = null
 
-    /** Embeds text with the shared embedding model; null when the model isn't downloaded. */
-    fun embed(text: String): FloatArray? = embedder.embed(text)
+    /** Id of the embedding model in use; vectors from other models are ignored until re-indexed. */
+    val activeEmbeddingModelId: String get() = embedder.activeModelId
+
+    /** Embeds stored text (a document chunk or a memory); null when the model isn't downloaded. */
+    fun embedPassage(text: String): Embedded? = embedder.embed(text, EmbedKind.PASSAGE)
+
+    /** Embeds a question; null when the model isn't downloaded. */
+    fun embedQuery(text: String): FloatArray? = embedder.embed(text, EmbedKind.QUERY)?.vector
 
     /** Drops the retrieval index so the next search rebuilds it (after documents change). */
     fun invalidateIndex() {
@@ -155,14 +165,16 @@ class SpaceRepository(private val context: Context) {
         if (spaceIds.isEmpty() || query.isBlank()) return@withContext emptyList()
         val index = indexFor(spaceIds.toSet())
         if (index.size == 0) return@withContext emptyList()
-        index.search(query, embedder.embed(query), limit)
+        index.search(query, embedQuery(query), limit)
     }
 
     private suspend fun indexFor(spaceIds: Set<String>): RetrievalIndex = indexLock.withLock {
         cachedIndex?.takeIf { it.first == spaceIds }?.second
             ?: RetrievalIndex(
                 spaceDao.getChunksForSpaces(spaceIds.toList()).map {
-                    IndexChunk(it.id, it.docId, it.docName, it.chunkIndex, it.content, it.embedding?.toFloatArray())
+                    // Vectors from another embedding model can't be compared; those chunks are found by keywords until re-indexed.
+                    val usable = it.embeddingModel == activeEmbeddingModelId
+                    IndexChunk(it.id, it.docId, it.docName, it.chunkIndex, it.content, if (usable) it.embedding?.toFloatArray() else null)
                 },
             ).also { cachedIndex = spaceIds to it }
     }

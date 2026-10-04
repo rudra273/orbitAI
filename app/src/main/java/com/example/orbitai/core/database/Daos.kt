@@ -138,6 +138,18 @@ interface RagDocumentDao {
     @Query("SELECT c.* FROM rag_chunks c INNER JOIN rag_documents d ON c.docId = d.id WHERE d.name LIKE '%' || :query || '%' ORDER BY c.chunkIndex ASC LIMIT :limit")
     suspend fun searchChunksByDocName(query: String, limit: Int = 10): List<RagChunkEntity>
 
+    @Query("SELECT * FROM rag_chunks WHERE embeddingModel != :model OR embedding IS NULL LIMIT :limit")
+    suspend fun chunksToEmbed(model: String, limit: Int): List<RagChunkEntity>
+
+    @Query("SELECT COUNT(*) FROM rag_chunks WHERE embeddingModel != :model OR embedding IS NULL")
+    fun observeChunksToEmbed(model: String): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM rag_chunks WHERE embeddingModel != :model OR embedding IS NULL")
+    suspend fun countChunksToEmbed(model: String): Int
+
+    @Query("UPDATE rag_chunks SET embedding = :embedding, embeddingModel = :model WHERE id = :id")
+    suspend fun updateChunkEmbedding(id: String, embedding: ByteArray, model: String)
+
     @Query("SELECT * FROM rag_chunks WHERE embedding IS NOT NULL")
     suspend fun getAllChunksWithEmbeddings(): List<RagChunkEntity>
 
@@ -175,11 +187,17 @@ interface MemoryDao {
     @Query("DELETE FROM memories WHERE id = :id")
     suspend fun deleteMemory(id: String)
 
-    @Query("UPDATE memories SET content = :content, embedding = :embedding WHERE id = :id")
-    suspend fun updateContent(id: String, content: String, embedding: ByteArray?)
+    @Query("UPDATE memories SET content = :content, embedding = :embedding, embeddingModel = :model WHERE id = :id")
+    suspend fun updateContent(id: String, content: String, embedding: ByteArray?, model: String)
 
-    @Query("UPDATE memories SET embedding = :embedding WHERE id = :id")
-    suspend fun updateEmbedding(id: String, embedding: ByteArray)
+    @Query("UPDATE memories SET embedding = :embedding, embeddingModel = :model WHERE id = :id")
+    suspend fun updateEmbedding(id: String, embedding: ByteArray, model: String)
+
+    @Query("SELECT * FROM memories WHERE embeddingModel != :model OR embedding IS NULL LIMIT :limit")
+    suspend fun memoriesToEmbed(model: String, limit: Int): List<MemoryEntity>
+
+    @Query("SELECT COUNT(*) FROM memories WHERE embeddingModel != :model OR embedding IS NULL")
+    suspend fun countMemoriesToEmbed(model: String): Int
 
     @Query("UPDATE memories SET useCount = useCount + 1, lastUsedAt = :now WHERE id IN (:ids)")
     suspend fun markUsed(ids: List<String>, now: Long)
@@ -235,7 +253,7 @@ interface SpaceDao {
 
     /** Every chunk in the given spaces with its document name, for the in-memory retrieval index. */
     @Query("""
-        SELECT c.id, c.docId, c.chunkIndex, c.content, c.embedding, d.name AS docName FROM rag_chunks c
+        SELECT c.id, c.docId, c.chunkIndex, c.content, c.embedding, c.embeddingModel, d.name AS docName FROM rag_chunks c
         INNER JOIN rag_documents d ON c.docId = d.id
         WHERE d.spaceId IN (:spaceIds)
     """)
@@ -248,6 +266,7 @@ data class ChunkWithDocName(
     val chunkIndex: Int,
     val content: String,
     val embedding: ByteArray?,
+    val embeddingModel: String,
     val docName: String,
 )
 

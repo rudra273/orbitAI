@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageSourceDao(): MessageSourceDao
 
     companion object {
-        const val VERSION = 20
+        const val VERSION = 21
 
         @Volatile private var INSTANCE: AppDatabase? = null
 
@@ -248,6 +248,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Vectors now record which embedding model made them, so models can be switched and re-indexed. */
+        internal val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE rag_chunks ADD COLUMN embeddingModel TEXT NOT NULL DEFAULT 'gecko-embedding'")
+                db.execSQL("ALTER TABLE memories ADD COLUMN embeddingModel TEXT NOT NULL DEFAULT 'gecko-embedding'")
+            }
+        }
+
         internal val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE modes ADD COLUMN defaultModelId TEXT")
@@ -276,6 +284,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_17_18,
             MIGRATION_18_19,
             MIGRATION_19_20,
+            MIGRATION_20_21,
         )
 
         fun getInstance(context: Context): AppDatabase =

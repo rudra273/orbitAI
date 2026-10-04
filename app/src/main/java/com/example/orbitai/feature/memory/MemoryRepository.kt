@@ -25,13 +25,15 @@ class MemoryRepository(private val context: Context) {
         val trimmed = content.trim()
         if (trimmed.isBlank()) return@withContext false
 
+        val embedded = spaces.embedPassage(trimmed)
         dao.insertMemory(
             MemoryEntity(
                 id        = UUID.randomUUID().toString(),
                 content   = trimmed,
                 source    = source,
                 createdAt = System.currentTimeMillis(),
-                embedding = spaces.embed(trimmed)?.toByteArray(),
+                embedding = embedded?.vector?.toByteArray(),
+                embeddingModel = embedded?.modelId ?: spaces.activeEmbeddingModelId,
             )
         )
         true
@@ -41,7 +43,8 @@ class MemoryRepository(private val context: Context) {
     suspend fun updateMemory(id: String, content: String) = withContext(Dispatchers.IO) {
         val trimmed = content.trim()
         if (trimmed.isBlank()) return@withContext
-        dao.updateContent(id, trimmed, spaces.embed(trimmed)?.toByteArray())
+        val embedded = spaces.embedPassage(trimmed)
+        dao.updateContent(id, trimmed, embedded?.vector?.toByteArray(), embedded?.modelId ?: spaces.activeEmbeddingModelId)
     }
 
     /**
@@ -50,19 +53,21 @@ class MemoryRepository(private val context: Context) {
      */
     suspend fun selectForPrompt(query: String): List<MemoryEntity> = withContext(Dispatchers.IO) {
         if (!memoryFeatureStore.isEnabled) return@withContext emptyList()
+        val activeModel = spaces.activeEmbeddingModelId
         val all = dao.getAllMemories().map { memory ->
-            if (memory.embedding != null) memory
-            else spaces.embed(memory.content)?.toByteArray()?.let { vector ->
-                dao.updateEmbedding(memory.id, vector)
-                memory.copy(embedding = vector)
-            } ?: memory
+            if (memory.embedding != null && memory.embeddingModel == activeModel) memory
+            else spaces.embedPassage(memory.content)?.let { embedded ->
+                val vector = embedded.vector.toByteArray()
+                dao.updateEmbedding(memory.id, vector, embedded.modelId)
+                memory.copy(embedding = vector, embeddingModel = embedded.modelId)
+            } ?: memory.copy(embedding = null)
         }
         if (all.isEmpty()) return@withContext emptyList()
         val byId = all.associateBy { it.id }
         val selected = MemorySelector.select(
             memories = all.map { MemoryCandidate(it.id, it.content, it.source, it.embedding?.toFloatArray()) },
             query = query,
-            queryEmbedding = spaces.embed(query),
+            queryEmbedding = spaces.embedQuery(query),
         ).mapNotNull { byId[it.id] }
         if (selected.isNotEmpty()) dao.markUsed(selected.map { it.id }, System.currentTimeMillis())
         selected
@@ -74,13 +79,15 @@ class MemoryRepository(private val context: Context) {
         if (trimmed.isBlank()) return@withContext
 
         dao.deleteMemoriesBySource(USER_PROFILE_SOURCE)
+        val embedded = spaces.embedPassage("The user's name is $trimmed.")
         dao.insertMemory(
             MemoryEntity(
                 id = UUID.randomUUID().toString(),
                 content = "The user's name is $trimmed.",
                 source = USER_PROFILE_SOURCE,
                 createdAt = System.currentTimeMillis(),
-                embedding = spaces.embed("The user's name is $trimmed.")?.toByteArray(),
+                embedding = embedded?.vector?.toByteArray(),
+                embeddingModel = embedded?.modelId ?: spaces.activeEmbeddingModelId,
             )
         )
     }

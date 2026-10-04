@@ -52,12 +52,14 @@ class DocumentIngestWorker(
 
             val chunks = texts.mapIndexed { index, text ->
                 if (index % EMBED_BATCH == 0) waitWhileModelBusy()
+                val embedded = spaceRepository.embedPassage(text)
                 RagChunkEntity(
                     id = UUID.randomUUID().toString(),
                     docId = docId,
                     chunkIndex = index,
                     content = text,
-                    embedding = spaceRepository.embed(text)?.toByteArray(),
+                    embedding = embedded?.vector?.toByteArray(),
+                    embeddingModel = embedded?.modelId ?: spaceRepository.activeEmbeddingModelId,
                 )
             }
             if (ragDao.getDocument(docId) == null) return Result.success()

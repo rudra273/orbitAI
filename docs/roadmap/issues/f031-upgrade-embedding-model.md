@@ -2,6 +2,8 @@
 Labels: enhancement
 **Milestone:** M3 Power Features · **Priority:** P1 · **Size:** L · **Area:** Spaces / RAG
 
+**Status:** 🟡 Built, device check pending (2026-10-04). Owner asked for an ungated model, so this uses multilingual-e5-small (MIT, ungated, Hindi included) instead of EmbeddingGemma: Settings > Models > Multilingual E5 Small > Download, then Use. Vectors record their model (DB v21); switching re-indexes Spaces and Memory in the background and unconverted items are found by keywords meanwhile. The old Universal Sentence Encoder stays as the small option. Not done: the 20-question recall@5 comparison (needs sample documents), display rename of `gecko-embedding`.
+
 **Title:** Replace Universal Sentence Encoder with a modern multilingual embedder, with a re-index migration
 
 **Description:**

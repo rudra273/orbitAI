@@ -57,6 +57,8 @@ data class RagChunkEntity(
     val content: String,
     @ColumnInfo(typeAffinity = ColumnInfo.BLOB)
     val embedding: ByteArray? = null,
+    /** Id of the embedding model that made [embedding]. */
+    @ColumnInfo(defaultValue = "'gecko-embedding'") val embeddingModel: String = "gecko-embedding",
 )
 
 // ── Mappers ────────────────────────────────────────────────────────────────

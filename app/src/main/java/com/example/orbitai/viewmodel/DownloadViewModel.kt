@@ -184,6 +184,21 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     )
     val embeddingProgress: StateFlow<Map<String, DownloadProgress>> = _embeddingProgress.asStateFlow()
 
+    private val embedderSettings = com.example.orbitai.feature.spaces.embedding.EmbedderSettings(getApplication<Application>())
+
+    val activeEmbeddingModelId: String get() = embedderSettings.activeModelId
+
+    /** Chunks still holding vectors from another model than [modelId]; 0 when search is up to date. */
+    fun reindexRemaining(modelId: String) = com.example.orbitai.core.database.AppDatabase.getInstance(getApplication<Application>())
+        .ragDocumentDao().observeChunksToEmbed(modelId)
+
+    /** Switches search and Memory to [model] (if downloaded) and re-indexes in the background. */
+    fun useEmbeddingModel(model: EmbeddingModelConfig) {
+        if (!downloader.isEmbeddingDownloaded(model) || embedderSettings.activeModelId == model.id) return
+        embedderSettings.activeModelId = model.id
+        com.example.orbitai.feature.spaces.ReembedWorker.enqueue(getApplication<Application>())
+    }
+
     fun startEmbeddingDownload(model: EmbeddingModelConfig) {
         val url = EMBEDDING_DOWNLOAD_URLS[model.id] ?: return
         jobs[model.id]?.cancel()
@@ -219,6 +234,10 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteEmbeddingModel(model: EmbeddingModelConfig) {
         downloader.deleteEmbeddingModel(model)
+        if (embedderSettings.activeModelId == model.id) {
+            embedderSettings.activeModelId = com.example.orbitai.core.model.GECKO_EMBEDDING.id
+            com.example.orbitai.feature.spaces.ReembedWorker.enqueue(getApplication<Application>())
+        }
         _embeddingProgress.update {
             it + (model.id to DownloadProgress(model.id, status = DownloadStatus.IDLE))
         }
