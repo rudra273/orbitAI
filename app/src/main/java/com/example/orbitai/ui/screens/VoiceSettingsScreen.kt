@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,14 +37,13 @@ import com.example.orbitai.feature.voice.ReplySpeaker
 import com.example.orbitai.feature.voice.VoiceSettingsStore
 import kotlinx.coroutines.delay
 
-/** Auto-read, speech speed and voice for read aloud and voice mode. */
+/** Speech speed and voice for reading replies aloud. */
 @Composable
 fun VoiceSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val store = remember { VoiceSettingsStore(context) }
     val speaker = remember { ReplySpeaker(context, store) }
     DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
-    var autoRead by remember { mutableStateOf(store.autoRead) }
     var rate by remember { mutableFloatStateOf(store.speechRate) }
     var voiceName by remember { mutableStateOf(store.voiceName) }
     var voices by remember { mutableStateOf(emptyList<android.speech.tts.Voice>()) }
@@ -76,23 +73,9 @@ fun VoiceSettingsScreen(onBack: () -> Unit) {
                 TextButton(onClick = onBack) { Text("Back") }
                 Text("Voice", style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    "Tap the speaker icon under a reply to hear it, or the sound-wave button in chat for hands-free voice mode.",
+                    "Tap the speaker icon under a reply to hear it. Talking to Orbit by voice works in the Orbit Bubble.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-            }
-            item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .toggleable(value = autoRead, role = Role.Switch) { autoRead = it; store.autoRead = it },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Auto-read replies", style = MaterialTheme.typography.titleSmall)
-                        Text("Speak each new reply while it's written.", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Switch(checked = autoRead, onCheckedChange = null)
-                }
             }
             item {
                 Text("Speech speed: ${"%.1f".format(rate)}×", style = MaterialTheme.typography.titleSmall)

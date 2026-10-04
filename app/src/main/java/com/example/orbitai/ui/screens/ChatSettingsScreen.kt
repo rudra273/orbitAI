@@ -65,9 +65,15 @@ fun ChatSettingsScreen(onBack: () -> Unit) {
             item {
                 Column {
                     Text("Translate to", style = MaterialTheme.typography.titleSmall)
-                    Text("Used by Translate when you select text in another app and pick Orbit AI.", style = MaterialTheme.typography.bodySmall)
+                    Text("Used by Translate when you select text in another app and pick Orbit AI. Type any language; Hindi by default.", style = MaterialTheme.typography.bodySmall)
                     androidx.compose.foundation.layout.Box {
-                        TextButton(onClick = { languageMenu = true }) { Text(language) }
+                        androidx.compose.material3.OutlinedTextField(
+                            value = language,
+                            onValueChange = { language = it; if (it.isNotBlank()) store.translateLanguage = it },
+                            singleLine = true,
+                            placeholder = { Text(ChatSettingsStore.DEFAULT_TRANSLATE_LANGUAGE) },
+                            trailingIcon = { TextButton(onClick = { languageMenu = true }) { Text("Pick") } },
+                        )
                         androidx.compose.material3.DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
                             ChatSettingsStore.TRANSLATE_LANGUAGES.forEach { option ->
                                 androidx.compose.material3.DropdownMenuItem(

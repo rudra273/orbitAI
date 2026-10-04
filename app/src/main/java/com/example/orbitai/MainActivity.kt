@@ -163,6 +163,14 @@ class MainActivity : ComponentActivity() {
 
     /** Turns a shortcut / tile intent into a [LaunchRequest] for the nav graph. */
     private fun handleLaunchIntent(intent: Intent?) {
+        // Voice runs in the bubble only: start it and step aside, or open its settings below.
+        if (intent?.action == ACTION_VOICE && OrbitBubbleService.isUsable(this)) {
+            androidx.core.content.pm.ShortcutManagerCompat.reportShortcutUsed(this, "voice")
+            OrbitBubbleService.trigger(this)
+            intent.action = Intent.ACTION_MAIN
+            moveTaskToBack(true)
+            return
+        }
         val request = when (intent?.action) {
             ACTION_NEW_CHAT -> LaunchRequest.NewChat
             ACTION_TEMPORARY_CHAT -> LaunchRequest.TemporaryChat

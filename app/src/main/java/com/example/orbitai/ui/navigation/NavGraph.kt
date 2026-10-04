@@ -82,9 +82,9 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
 
     // ── Detail screens (not in bottom nav) ──────────────────────────────────
-    data object ChatDetail : Screen("chat/{chatId}?focus={focus}&voice={voice}") {
-        fun go(chatId: String, focusMessageId: String? = null, voice: Boolean = false) =
-            "chat/$chatId?voice=$voice" + (focusMessageId?.let { "&focus=$it" } ?: "")
+    data object ChatDetail : Screen("chat/{chatId}?focus={focus}") {
+        fun go(chatId: String, focusMessageId: String? = null) =
+            "chat/$chatId" + (focusMessageId?.let { "?focus=$it" } ?: "")
     }
     data object SpaceDetail : Screen("space_detail/{spaceId}") {
         fun go(spaceId: String) = "space_detail/$spaceId"
@@ -207,8 +207,9 @@ fun OrbitNavGraph(
                 navController.navigate(Screen.ChatDetail.go(chatViewModel.createNewChat())) { launchSingleTop = true }
             com.example.orbitai.LaunchRequest.TemporaryChat ->
                 chatViewModel.openTemporaryChat { navController.navigate(Screen.ChatDetail.go(it)) { launchSingleTop = true } }
+            // Voice runs in the Orbit Bubble only; this opens its settings when the bubble can't start.
             com.example.orbitai.LaunchRequest.Voice ->
-                navController.navigate(Screen.ChatDetail.go(chatViewModel.createNewChat(), voice = true)) { launchSingleTop = true }
+                navController.navigate(Screen.SettingsOrbitBubble.route) { launchSingleTop = true }
             com.example.orbitai.LaunchRequest.Reminders -> navController.navigate(Screen.Reminders.route) { launchSingleTop = true }
             com.example.orbitai.LaunchRequest.Settings -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
             is com.example.orbitai.LaunchRequest.OpenChat -> navController.navigate(Screen.ChatDetail.go(request.chatId)) { launchSingleTop = true }
@@ -318,17 +319,14 @@ fun OrbitNavGraph(
                 arguments = listOf(
                     navArgument("chatId") { type = NavType.StringType },
                     navArgument("focus") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("voice") { type = NavType.BoolType; defaultValue = false },
                 ),
             ) { back ->
                 val chatId = back.arguments?.getString("chatId") ?: return@composable
                 val focusMessageId = back.arguments?.getString("focus")
-                val startVoiceMode = back.arguments?.getBoolean("voice") == true
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
                     focusMessageId = focusMessageId,
-                    startVoiceMode = startVoiceMode,
                     initialText = sharedDraftText.takeIf { sharedDraftChatId == chatId }.orEmpty(),
                     initialAttachments = sharedDraftFiles.takeIf { sharedDraftChatId == chatId }.orEmpty(),
                     onInitialTextConsumed = { sharedDraftText = ""; if (sharedDraftFiles.isEmpty()) sharedDraftChatId = "" },

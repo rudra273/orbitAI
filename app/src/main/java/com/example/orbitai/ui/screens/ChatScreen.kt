@@ -126,8 +126,6 @@ fun ChatScreen(
     onInitialAttachmentsConsumed: () -> Unit = {},
     /** A message to scroll to and highlight, e.g. from search. */
     focusMessageId: String? = null,
-    /** Open straight into voice mode (launcher shortcut / Quick Settings tile). */
-    startVoiceMode: Boolean = false,
 ) {
     val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
     val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
@@ -350,19 +348,6 @@ fun ChatScreen(
     }
     val showGenerationDetails = remember { com.example.orbitai.feature.chat.ChatSettingsStore(context).showGenerationDetails }
     val generationStats by viewModel.generationStats.collectAsState()
-    var voiceMode by rememberSaveable { mutableStateOf(startVoiceMode) }
-    // Auto-read: speak replies that stream in while this chat is open.
-    val autoReadStreams = remember { mutableMapOf<String, com.example.orbitai.feature.voice.SpeechText.Stream>() }
-    val latestReply = messages.lastOrNull()?.takeIf { it.role == Role.ASSISTANT }
-    LaunchedEffect(latestReply?.id, latestReply?.content, latestReply?.isStreaming) {
-        val reply = latestReply ?: return@LaunchedEffect
-        if (voiceMode || !voiceSettings.autoRead) return@LaunchedEffect
-        val stream = autoReadStreams[reply.id]
-            ?: if (reply.isStreaming) com.example.orbitai.feature.voice.SpeechText.Stream().also { autoReadStreams.clear(); autoReadStreams[reply.id] = it }
-            else return@LaunchedEffect
-        speaker.enqueue(reply.id, stream.next(reply.content, final = !reply.isStreaming))
-        if (!reply.isStreaming) autoReadStreams.remove(reply.id)
-    }
     chat?.takeIf { showExport }?.let { current ->
         val modelName = (availableModels + com.example.orbitai.core.model.allLocalModels())
             .find { it.id == current.modelId }?.displayName
@@ -483,7 +468,6 @@ fun ChatScreen(
                             }
                         },
                         onStop       = { viewModel.stopGeneration() },
-                        onStartVoiceMode = { speaker.stop(); voiceMode = true },
                         isGenerating = uiState.isGenerating,
                         isLoading    = uiState.isModelLoading,
                         selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
@@ -623,23 +607,6 @@ fun ChatScreen(
                     }
                 }
             }
-        }
-        if (voiceMode) {
-            VoiceModeOverlay(
-                messages = messages,
-                isGenerating = uiState.isGenerating || uiState.isModelLoading,
-                speaker = speaker,
-                voiceSettings = voiceSettings,
-                voiceCallPrompt = voiceCallPrompt?.takeIf { it.chatId == chatId },
-                onSend = { viewModel.sendMessage(chatId, it) },
-                onVoiceCall = { viewModel.handleVoiceCall(chatId, it) },
-                onVoiceCallPromptSpoken = viewModel::onVoiceCallPromptSpoken,
-                onStopGeneration = viewModel::stopGeneration,
-                onClose = {
-                    voiceMode = false
-                    viewModel.cancelVoiceCall(chatId)
-                },
-            )
         }
     }
 }
@@ -1386,7 +1353,6 @@ private fun ChatInputBar(
     cursorRequest: Int? = null,
     onSend:       () -> Unit,
     onStop:       () -> Unit,
-    onStartVoiceMode: () -> Unit,
     isGenerating: Boolean,
     isLoading:    Boolean,
     selectedModelSupportsAttachments: Boolean,
@@ -1611,7 +1577,7 @@ private fun ChatInputBar(
                 voiceState != VoiceState.Idle -> MicButton(isListening = true, onClick = toggleVoice)
                 text.trim().isNotEmpty() || pendingAttachment != null || selectedImageUris.isNotEmpty() ->
                     SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
-                else -> VoiceModeButton(onClick = onStartVoiceMode)
+                else -> Unit
             }
         }
     }
@@ -1651,20 +1617,6 @@ private fun SendButton(
                 modifier = Modifier.size(20.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun VoiceModeButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(TextPrimary)
-            .clickable(onClickLabel = "Start voice mode", onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Icons.Default.GraphicEq, contentDescription = "Voice mode", tint = SpaceDeep, modifier = Modifier.size(22.dp))
     }
 }
 

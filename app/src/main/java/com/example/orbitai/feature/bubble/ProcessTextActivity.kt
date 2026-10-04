@@ -137,7 +137,8 @@ private fun TextActionSheet(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val runner = remember { TextActionRunner(context.applicationContext) }
-    val language = remember { ChatSettingsStore(context).translateLanguage }
+    var language by remember { mutableStateOf(ChatSettingsStore(context).translateLanguage) }
+    var pickingLanguage by remember { mutableStateOf(false) }
     val model = remember { runner.localModel() }
     var action by remember { mutableStateOf<TextAction?>(null) }
     var output by remember { mutableStateOf("") }
@@ -161,6 +162,30 @@ private fun TextActionSheet(
         done = true
     }
 
+    if (pickingLanguage) {
+        var typed by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pickingLanguage = false },
+            title = { Text("Translate to") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = typed,
+                    onValueChange = { typed = it },
+                    singleLine = true,
+                    placeholder = { Text("e.g. Tamil, French, Japanese") },
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = typed.isNotBlank(), onClick = {
+                    language = typed.trim()
+                    pickingLanguage = false
+                    action = TextAction.TRANSLATE
+                }) { Text("Translate") }
+            },
+            dismissButton = { TextButton(onClick = { pickingLanguage = false }) { Text("Cancel") } },
+        )
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -179,6 +204,7 @@ private fun TextActionSheet(
                     TextAction.entries.forEach { option ->
                         val label = if (option == TextAction.TRANSLATE) "Translate to $language" else option.label
                         ActionRow(label) { action = option }
+                        if (option == TextAction.TRANSLATE) ActionRow("Translate to another language…") { pickingLanguage = true }
                     }
                 }
                 ActionRow("Ask Orbit", onAskOrbit)

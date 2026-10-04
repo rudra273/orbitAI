@@ -578,6 +578,11 @@ class OrbitBubbleService : Service() {
 
         fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
 
+        /** The bubble is switched on and has the overlay and microphone permissions it needs. */
+        fun isUsable(context: Context): Boolean =
+            BubbleSettingsStore(context).isFloatingBubbleEnabled && canDrawOverlays(context) &&
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
         fun start(context: Context) {
             val intent = Intent(context, OrbitBubbleService::class.java).setAction(ACTION_START)
             ContextCompat.startForegroundService(context, intent)

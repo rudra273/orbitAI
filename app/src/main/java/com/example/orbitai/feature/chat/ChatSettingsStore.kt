@@ -17,17 +17,15 @@ class ChatSettingsStore(context: Context) {
         get() = prefs.getBoolean("smart_titles", true)
         set(value) = prefs.edit { putBoolean("smart_titles", value) }
 
-    /** Target language for Translate in the text-selection menu. */
+    /** Target language for Translate in the text-selection menu; Hindi unless the user picks another. */
     var translateLanguage: String
-        get() = prefs.getString("translate_language", null) ?: defaultTranslateLanguage()
-        set(value) = prefs.edit { putString("translate_language", value) }
-
-    private fun defaultTranslateLanguage(): String {
-        val device = java.util.Locale.getDefault()
-        return if (device.language == "en") "Hindi" else device.getDisplayLanguage(java.util.Locale.ENGLISH)
-    }
+        get() = prefs.getString("translate_language", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_TRANSLATE_LANGUAGE
+        set(value) = prefs.edit { putString("translate_language", value.trim()) }
 
     companion object {
+        const val DEFAULT_TRANSLATE_LANGUAGE = "Hindi"
+
+        /** Suggestions only; any language the user types works. */
         val TRANSLATE_LANGUAGES = listOf(
             "English", "Hindi", "Odia", "Bengali", "Tamil", "Telugu", "Kannada", "Malayalam", "Marathi", "Gujarati",
             "Punjabi", "Urdu", "Spanish", "French", "German", "Portuguese", "Japanese", "Chinese", "Korean", "Arabic",
