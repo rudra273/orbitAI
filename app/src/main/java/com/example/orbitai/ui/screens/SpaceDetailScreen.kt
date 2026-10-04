@@ -164,6 +164,7 @@ fun SpaceDetailScreen(
                     SwipeableDocumentRow(
                         doc = doc,
                         onDelete = { viewModel.deleteDocument(doc.id) },
+                        onRetry = { viewModel.retryDocument(doc.id) },
                     )
                 }
             }
@@ -399,6 +400,7 @@ private fun DocumentsHeader(onAdd: () -> Unit) {
 private fun SwipeableDocumentRow(
     doc: RagDocument,
     onDelete: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -442,6 +444,7 @@ private fun SwipeableDocumentRow(
         DocumentRowContent(
             doc = doc,
             onLongPressDelete = onDelete,
+            onRetry = onRetry,
         )
     }
 }
@@ -450,6 +453,7 @@ private fun SwipeableDocumentRow(
 private fun DocumentRowContent(
     doc: RagDocument,
     onLongPressDelete: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     val dateStr = remember(doc.addedAt) {
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(doc.addedAt))
@@ -486,13 +490,31 @@ private fun DocumentRowContent(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
+            val isError = doc.status == RagStatus.ERROR
             Text(
-                text = if (isProcessing) "Processing..." else "$sizeStr · $dateStr",
+                text = when {
+                    doc.status == RagStatus.PENDING -> "Waiting to index…"
+                    isProcessing && doc.pagesTotal > 0 && doc.pagesDone < doc.pagesTotal ->
+                        "Reading page ${doc.pagesDone + 1} of ${doc.pagesTotal}…"
+                    isProcessing -> "Indexing…"
+                    isError -> doc.errorMessage ?: "Couldn't index this file."
+                    doc.status == RagStatus.DONE -> "$sizeStr · $dateStr · ${doc.chunkCount} ${if (doc.chunkCount == 1) "section" else "sections"}"
+                    else -> "$sizeStr · $dateStr"
+                },
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = if (isProcessing) processingTint else TextMuted,
+                color = when {
+                    isProcessing -> processingTint
+                    isError -> deleteText
+                    else -> TextMuted
+                },
+                maxLines = if (isError) 3 else 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
+        if (doc.status == RagStatus.ERROR) {
+            androidx.compose.material3.TextButton(onClick = onRetry) { Text("Retry") }
+        }
         DocumentStatusIndicator(status = doc.status)
     }
 }

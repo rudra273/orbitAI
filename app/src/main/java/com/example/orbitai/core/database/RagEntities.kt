@@ -18,6 +18,10 @@ data class RagDocument(
     val chunkCount: Int,
     val addedAt: Long,
     val spaceId: String? = null,
+    /** Why indexing failed, shown to the user; null unless [status] is ERROR. */
+    val errorMessage: String? = null,
+    val pagesDone: Int = 0,
+    val pagesTotal: Int = 0,
 )
 
 @Entity(tableName = "rag_documents")
@@ -31,6 +35,9 @@ data class RagDocumentEntity(
     val chunkCount: Int,
     val addedAt: Long,
     val spaceId: String? = null,
+    val errorMessage: String? = null,
+    @ColumnInfo(defaultValue = "0") val pagesDone: Int = 0,
+    @ColumnInfo(defaultValue = "0") val pagesTotal: Int = 0,
 )
 
 @Entity(
@@ -64,4 +71,7 @@ fun RagDocumentEntity.toDomain() = RagDocument(
     chunkCount = chunkCount,
     addedAt    = addedAt,
     spaceId    = spaceId,
+    errorMessage = errorMessage,
+    pagesDone  = pagesDone,
+    pagesTotal = pagesTotal,
 )

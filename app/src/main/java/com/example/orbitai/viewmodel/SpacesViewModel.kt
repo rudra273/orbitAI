@@ -49,6 +49,8 @@ class SpacesViewModel(application: Application) : AndroidViewModel(application) 
 
     fun isSemanticModelReady(): Boolean = modelDownloader.isEmbeddingDownloaded(GECKO_EMBEDDING)
 
+    fun retryDocument(id: String) = repository.retryDocument(id)
+
     fun deleteDocument(id: String) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteDocument(id)

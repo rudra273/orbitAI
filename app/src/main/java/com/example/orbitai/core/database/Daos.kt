@@ -116,6 +116,21 @@ interface RagDocumentDao {
 
     @Query("SELECT * FROM rag_chunks WHERE embedding IS NOT NULL")
     suspend fun getAllChunksWithEmbeddings(): List<RagChunkEntity>
+
+    @Query("SELECT * FROM rag_documents WHERE id = :id")
+    suspend fun getDocument(id: String): RagDocumentEntity?
+
+    @Query("SELECT * FROM rag_documents WHERE status IN ('PENDING', 'PROCESSING')")
+    suspend fun getUnfinishedDocuments(): List<RagDocumentEntity>
+
+    @Query("UPDATE rag_documents SET status = :status, chunkCount = :chunkCount, errorMessage = :errorMessage WHERE id = :id")
+    suspend fun updateResult(id: String, status: String, chunkCount: Int, errorMessage: String?)
+
+    @Query("UPDATE rag_documents SET pagesDone = :done, pagesTotal = :total WHERE id = :id")
+    suspend fun updateProgress(id: String, done: Int, total: Int)
+
+    @Query("DELETE FROM rag_chunks WHERE docId = :docId")
+    suspend fun deleteChunks(docId: String)
 }
 
 @Dao

@@ -22,7 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
 
     companion object {
-        const val VERSION = 14
+        const val VERSION = 15
 
         @Volatile private var INSTANCE: AppDatabase? = null
 
@@ -199,6 +199,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE rag_documents ADD COLUMN errorMessage TEXT")
+                db.execSQL("ALTER TABLE rag_documents ADD COLUMN pagesDone INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE rag_documents ADD COLUMN pagesTotal INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         internal val ALL_MIGRATIONS = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -213,6 +221,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_11_12,
             MIGRATION_12_13,
             MIGRATION_13_14,
+            MIGRATION_14_15,
         )
 
         fun getInstance(context: Context): AppDatabase =

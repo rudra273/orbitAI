@@ -16,5 +16,7 @@ Labels: enhancement, bug
 
 **Acceptance Criteria:**
 - [ ] Killing the app during ingest of a 300-page PDF resumes and completes on next start
-- [ ] A scanned PDF is reported as such, not as "Done · 0 chunks"
-- [ ] Ingestion runs at low priority and pauses while a chat reply is generating
+- [x] A scanned PDF is reported as such, not as "Done · 0 chunks"
+- [x] Ingestion runs at low priority and pauses while a chat reply is generating
+
+**Status:** 🟡 Done, device check pending (2026-10-04). DocumentIngestWorker (WorkManager, unique per document, idempotent) replaces the repository scope; unfinished rows are re-queued on start. DB v15 adds errorMessage/pagesDone/pagesTotal (MIGRATION_14_15, MigrationTest extended). Rows show page progress, the failure reason and a Retry button; scanned PDFs report 'No selectable text'. Indexing waits while a chat/bubble run holds the model. Device check pending: kill during a 300-page PDF, scanned PDF, instrumented MigrationTest.

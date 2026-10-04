@@ -84,6 +84,10 @@ class LlmRepository(
         activeUses = (activeUses - 1).coerceAtLeast(0)
     }
 
+    /** True while a chat or bubble run holds the model. */
+    @Synchronized
+    fun isInUse(): Boolean = activeUses > 0
+
     /** Frees the model when no chat or bubble run is using it. Returns true if nothing is loaded afterwards. */
     @Synchronized
     fun releaseIfIdle(): Boolean {

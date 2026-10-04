@@ -19,6 +19,7 @@ class OrbitApplication : Application() {
             previousHandler?.uncaughtException(thread, throwable)
         }
         container.appScope.launch { container.diagnostics.recordExitReasons() }
+        container.spaceRepository.resumeUnfinishedIngestion()
 
         if (BuildConfig.DEBUG) {
             StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build())

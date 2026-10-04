@@ -90,6 +90,13 @@ class MigrationTest {
                 it.moveToFirst()
                 assertEquals("DAILY", it.getString(0))
             }
+            db.query("SELECT status, errorMessage, pagesDone, pagesTotal FROM rag_documents WHERE id = 'doc'").use {
+                it.moveToFirst()
+                assertEquals("DONE", it.getString(0))
+                assertNull(it.getString(1))
+                assertEquals(0, it.getInt(2))
+                assertEquals(0, it.getInt(3))
+            }
         }
         context.deleteDatabase(name)
     }
