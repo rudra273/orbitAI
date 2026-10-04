@@ -99,6 +99,7 @@ sealed class Screen(val route: String) {
     data object SettingsChat : Screen("settings/chat")
     data object SettingsAppearance : Screen("settings/appearance")
     data object SettingsBackup : Screen("settings/backup")
+    data object Onboarding : Screen("onboarding")
     data object SettingsDigest : Screen("settings/digest")
     data object SettingsPrivacyCenter : Screen("settings/privacy_center")
     data object SettingsModel     : Screen("settings/model")
@@ -289,7 +290,7 @@ fun OrbitNavGraph(
                     onFinished = {
                         hasCompletedWelcome = true
                         shouldAutoOpenInitialChat = false
-                        navController.navigate(Screen.SettingsModel.route) {
+                        navController.navigate(Screen.Onboarding.route) {
                             popUpTo(Screen.Welcome.route) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -386,6 +387,22 @@ fun OrbitNavGraph(
             }
             composable(Screen.SettingsDigest.route) {
                 com.example.orbitai.ui.screens.DigestScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Onboarding.route) {
+                val tokenStore = remember { TokenStore(context) }
+                com.example.orbitai.ui.screens.OnboardingScreen(
+                    downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
+                    onOpenModels = { navController.navigate(Screen.SettingsModel.route) },
+                    onDone = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Screen.Chat.route) {
+                                popUpTo(Screen.Onboarding.route) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                )
             }
             composable(Screen.SettingsBackup.route) {
                 com.example.orbitai.ui.screens.BackupScreen(onBack = { navController.popBackStack() })

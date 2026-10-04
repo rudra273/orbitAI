@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NewReleases
@@ -365,6 +366,15 @@ fun SettingsScreen(
                 )
                 HairlineDivider()
                 SettingsGroupRow(row = aboutRows[1], onClick = aboutRows[1].onClick)
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.Info,
+                        title = stringResource(R.string.onboarding_open),
+                        description = stringResource(R.string.onboarding_open_desc),
+                    ),
+                    onClick = { onNavigate("onboarding") },
+                )
                 HairlineDivider()
                 SettingsGroupRow(
                     row = SettingsRow(

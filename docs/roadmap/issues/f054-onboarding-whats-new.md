@@ -3,7 +3,7 @@ Labels: enhancement
 **Milestone:** M4 Hardening & Beta · **Priority:** P2 · **Size:** M · **Area:** Onboarding
 **Depends on:** f017, f018
 
-**Status:** 🚧 In progress (2026-10-04). Done: a "What's new in Orbit 2.0" dialog shown once to people who already finished the welcome (new installs skip it), re-openable from Settings > About. Still to do: the onboarding steps (device-aware model pick with background download, Gemini option, tour cards).
+**Status:** 🟡 Done, device check pending (2026-10-04). After the welcome screen, new users get a Setup screen: the model that suits their phone with a one-tap background download (progress, token hint if the model is gated, "choose a different model"), plus five tour cards (Spaces, Modes, Tools, Bubble, text selection). Skippable, and reopenable from Settings > Setup and tour. A "What's new in 2.0" dialog is shown once to existing users. Left out on purpose: the Gemini cloud option (privacy first) and a download progress pill in the chat screen (the download keeps running in the background and shows in Settings > Models).
 
 **Title:** Get new users to a working model in under a minute, and show upgraders what changed
 
