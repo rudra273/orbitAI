@@ -16,6 +16,8 @@ Checked 2026-10-02 against provider repository metadata. Download links are pinn
 | onnx-phi3-mini-4k | 2.73 GB | 10 | [microsoft/Phi-3-mini-4k-instruct-onnx@5f5f794c](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-onnx/tree/5f5f794c1c23c9d5ee142af85df02a6cc52d6945) |
 | onnx-phi4-mini | 4.93 GB | 11 | [microsoft/Phi-4-mini-instruct-onnx@fc04c8f9](https://huggingface.co/microsoft/Phi-4-mini-instruct-onnx/tree/fc04c8f93df696602fd9f300a30d1bf2e3081347) |
 | onnx-phi4 | 10.92 GB | 10 | [microsoft/phi-4-onnx@c4e245b5](https://huggingface.co/microsoft/phi-4-onnx/tree/c4e245b57793e8481e0fa9252b3a45dee44a921b) |
+| qwen35-0.8b | 963.2 MB | 1 | [litert-community/Qwen3.5-0.8B@03d910d3](https://huggingface.co/litert-community/Qwen3.5-0.8B/tree/03d910d3643b5ef29babed32327bdfad39fd1aef) |
+| qwen35-0.8b-vl | 1.30 GB | 1 | [litert-community/Qwen3.5-0.8B@03d910d3](https://huggingface.co/litert-community/Qwen3.5-0.8B/tree/03d910d3643b5ef29babed32327bdfad39fd1aef) |
 | onnx-llama3.2-3b | 3.66 GB | 7 | [onnx-community/Llama-3.2-3B-Instruct-GENAI-ONNX@5db5cdb5](https://huggingface.co/onnx-community/Llama-3.2-3B-Instruct-GENAI-ONNX/tree/5db5cdb5b0c8c440264ca0f16f5ec3351e753add) |
 
 Universal Sentence Encoder: 6.1 MB (6,120,274 bytes), verified from the existing Google Storage download response.
@@ -29,3 +31,7 @@ The reported Gemma 4 E2B failure (`Vision Encoder model must have exactly one si
 SHA-256 digests for 8 of 13 models (Gemma 4, all ONNX models) are stored in `core/model/ModelChecksums.kt`. They come from the Hugging Face `paths-info` LFS metadata of the same pinned revisions, and every API size matched the pinned sizes above. Downloads are verified against them before the file is moved into place.
 
 The gated repositories (`litert-community/Gemma3-1B-IT`, `google/gemma-3n-E4B-it-litert-lm`, `google/gemma-3n-E2B-it-litert-lm`, `litert-community/Gemma2-2B-IT`) need an authenticated request even for metadata, so they are verified by exact size only. Add their digests by running the same `paths-info` query with a Hugging Face token that has accepted the licenses.
+
+## Qwen 3.5 (2026-10-04)
+
+Added `qwen35-0.8b` (text, int8) and `qwen35-0.8b-vl` (with vision encoder). Apache-2.0, not gated; SHA-256 digests from the same pinned revision are in `ModelChecksums.kt`. The model card requires LiteRT-LM 0.15 or newer; Orbit uses 0.17.1. Load and chat on a device have not been tested yet.

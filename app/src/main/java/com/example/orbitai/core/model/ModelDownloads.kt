@@ -101,6 +101,22 @@ val MODEL_DOWNLOAD_SPECS = mapOf(
         sizeBytes = 2_588_147_712L,
         revision = "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
     ),
+    "qwen35-0.8b" to singleFileSpec(
+        repo = "litert-community/Qwen3.5-0.8B",
+        remotePath = "Qwen3.5-0.8B_int8.litertlm",
+        localPath = "Qwen3.5-0.8B_int8.litertlm",
+        requiresAuth = false,
+        sizeBytes = 963_184_864L,
+        revision = "03d910d3643b5ef29babed32327bdfad39fd1aef",
+    ),
+    "qwen35-0.8b-vl" to singleFileSpec(
+        repo = "litert-community/Qwen3.5-0.8B",
+        remotePath = "Qwen3.5-0.8B-VL_int8.litertlm",
+        localPath = "Qwen3.5-0.8B-VL_int8.litertlm",
+        requiresAuth = false,
+        sizeBytes = 1_302_262_448L,
+        revision = "03d910d3643b5ef29babed32327bdfad39fd1aef",
+    ),
     "gemma4-e4b" to singleFileSpec(
         repo = "litert-community/gemma-4-E4B-it-litert-lm",
         remotePath = "gemma-4-E4B-it.litertlm",

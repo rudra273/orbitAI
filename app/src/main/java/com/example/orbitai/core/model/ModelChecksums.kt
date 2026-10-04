@@ -7,6 +7,12 @@ package com.example.orbitai.core.model
  * request; those downloads are verified by exact size only.
  */
 val MODEL_FILE_SHA256: Map<String, Map<String, String>> = mapOf(
+    "qwen35-0.8b" to mapOf(
+        "Qwen3.5-0.8B_int8.litertlm" to "64ed396fcdae75e5158945c77a08142b1322ce1bbf1be4d2198783119a1169e8",
+    ),
+    "qwen35-0.8b-vl" to mapOf(
+        "Qwen3.5-0.8B-VL_int8.litertlm" to "e3360b658c929ff35ab740a21f5e4b688096a72e351b8d347e26ccda314121b7",
+    ),
     "gemma4-e2b" to mapOf(
         "gemma-4-E2B-it-int4.litertlm" to "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
     ),
