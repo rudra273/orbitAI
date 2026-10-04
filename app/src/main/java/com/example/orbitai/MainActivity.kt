@@ -57,27 +57,34 @@ class MainActivity : ComponentActivity() {
 
         val themeStore = ThemeSettingsStore(this)
         val darkWindowBg = android.graphics.Color.parseColor("#141413")
+        val blackWindowBg = android.graphics.Color.BLACK
         val lightWindowBg = android.graphics.Color.parseColor("#F7F6F3")
+        val systemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        fun windowBg(appearance: com.example.orbitai.core.common.Appearance, dark: Boolean) = when {
+            !dark -> lightWindowBg
+            appearance.mode == com.example.orbitai.core.common.ThemeMode.BLACK -> blackWindowBg
+            else -> darkWindowBg
+        }
 
         // Let the app draw behind status bar and navigation bar
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         // Sync the native window before Compose draws to avoid a light flash
         // when the app's stored theme differs from the system theme bucket.
-        window.setBackgroundDrawable(
-            ColorDrawable(if (themeStore.isDarkTheme) darkWindowBg else lightWindowBg)
-        )
+        themeStore.appearance.let { window.setBackgroundDrawable(ColorDrawable(windowBg(it, it.isDark(systemDark)))) }
 
         setContent {
-            var isDarkTheme by remember { mutableStateOf(themeStore.isDarkTheme) }
+            var appearance by remember { mutableStateOf(themeStore.appearance) }
+            val isDarkTheme = appearance.isDark(androidx.compose.foundation.isSystemInDarkTheme())
 
-            OrbitAITheme(isDarkTheme = isDarkTheme) {
+            OrbitAITheme(appearance = appearance) {
 
                 // ── Window background — keep native layer in sync with Compose theme ─
                 // Without this, toggling theme shows a white flash from the AppCompat
                 // window background for one frame before Compose repaints.
                 SideEffect {
-                    window.decorView.setBackgroundColor(if (isDarkTheme) darkWindowBg else lightWindowBg)
+                    window.decorView.setBackgroundColor(windowBg(appearance, isDarkTheme))
                 }
 
                 // ── System bar colours ─────────────────────────────────────
@@ -104,10 +111,10 @@ class MainActivity : ComponentActivity() {
                     memoryViewModel   = memoryViewModel,
                     overlayPromptRequest = pendingOverlayPrompt,
                     onOverlayPromptConsumed = { pendingOverlayPrompt = null },
-                    isDarkTheme       = isDarkTheme,
-                    onThemeChanged    = { enabled ->
-                        isDarkTheme = enabled
-                        themeStore.isDarkTheme = enabled
+                    appearance        = appearance,
+                    onAppearanceChanged = { updated ->
+                        appearance = updated
+                        themeStore.appearance = updated
                     },
                 )
             }

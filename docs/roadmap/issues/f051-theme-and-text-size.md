@@ -14,6 +14,8 @@ Labels: enhancement, good first issue
 - Message density: comfortable / compact
 
 **Acceptance Criteria:**
-- [ ] Existing users keep their current explicit choice (migrate `is_dark_theme` → explicit Light/Dark)
+- [x] Existing users keep their current explicit choice (migrate `is_dark_theme` → explicit Light/Dark)
 - [ ] Bubble overlay theme follows the same setting (`BubbleThemeConfig`)
 - [ ] All screens checked for contrast in all four themes (f052)
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Settings > Appearance: System / Light / Dark / Pure black (OLED), dynamic colour (wallpaper accents replace Orbit violet), chat text size 90-130% (messages only, including code), compact messages. Fresh installs follow the system; the old is_dark_theme flag becomes an explicit Light/Dark choice (ThemeSettingsTest). Not done: the bubble keeps its own theme picker (BubbleThemeConfig) and doesn't follow this setting yet. Device check pending: contrast in all four themes.

@@ -493,11 +493,20 @@ fun ChatScreen(
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    // Chat text size and density (Settings > Appearance) apply to messages only.
+                    val appearance = com.example.orbitai.ui.theme.LocalAppearance.current
+                    val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+                            baseDensity.density,
+                            baseDensity.fontScale * appearance.chatTextScale,
+                        ),
+                    ) {
                     LazyColumn(
                         state               = listState,
                         modifier            = Modifier.fillMaxSize(),
                         contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (appearance.compactMessages) 4.dp else 12.dp),
                     ) {
                         val latestReplyId = messages.lastOrNull { it.role == Role.ASSISTANT }?.id
                         val actionsEnabled = !uiState.isGenerating && !uiState.isModelLoading
@@ -529,6 +538,7 @@ fun ChatScreen(
                             }
                           }
                         }
+                    }
                     }
 
                     if (messages.isEmpty() && !uiState.isGenerating && !uiState.isModelLoading) {

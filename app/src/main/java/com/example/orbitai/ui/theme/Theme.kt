@@ -148,14 +148,43 @@ private val LightPalette = OrbitPalette(
     onDevicePillText= Color(0xFF2E7D32),
 )
 
-private var currentPalette by mutableStateOf(DarkPalette)
+/** OLED black: the dark palette with true-black backgrounds. */
+private val BlackPalette = DarkPalette.copy(
+    spaceVoid   = Color.Black,
+    spaceDeep   = Color.Black,
+    spaceNebula = Color(0xFF0E0E0D),
+    spaceDust   = Color(0xFF1A1A19),
+    spaceCloud  = Color(0xFF1A1A19),
+    spaceMist   = Color(0xFF262624),
+)
 
-fun setOrbitThemeMode(isDarkTheme: Boolean) {
-    currentPalette = if (isDarkTheme) DarkPalette else LightPalette
+private var currentPalette by mutableStateOf(DarkPalette)
+private var currentIsDark by mutableStateOf(true)
+
+fun setOrbitThemeMode(isDarkTheme: Boolean, pureBlack: Boolean = false, accent: androidx.compose.material3.ColorScheme? = null) {
+    val base = when {
+        !isDarkTheme -> LightPalette
+        pureBlack -> BlackPalette
+        else -> DarkPalette
+    }
+    // Dynamic colour (Material You) replaces the violet accents with the wallpaper colours.
+    currentPalette = if (accent == null) base else base.copy(
+        violetCore = accent.primary,
+        violetBright = accent.primary,
+        violetDim = accent.primaryContainer,
+        violetGlow = accent.secondaryContainer,
+        violetGlowSoft = accent.primary.copy(alpha = 0.12f),
+        violetFrost = accent.outline,
+        textAccent = accent.primary,
+    )
+    currentIsDark = isDarkTheme
 }
 
-/** true when the current Orbit palette is the dark variant */
-val IsOrbitDarkTheme: Boolean get() = currentPalette == DarkPalette
+/** true when the current Orbit palette is a dark variant (dark or pure black) */
+val IsOrbitDarkTheme: Boolean get() = currentIsDark
+
+/** Chat-only appearance (text size and density), provided by [OrbitAITheme]. */
+val LocalAppearance = androidx.compose.runtime.staticCompositionLocalOf { com.example.orbitai.core.common.Appearance() }
 
 // Backgrounds
 val SpaceVoid: Color get() = currentPalette.spaceVoid
@@ -417,13 +446,20 @@ private fun orbitTypography() = Typography(
 
 @Composable
 fun OrbitAITheme(
-    isDarkTheme: Boolean = true,
+    appearance: com.example.orbitai.core.common.Appearance = com.example.orbitai.core.common.Appearance(),
     content: @Composable () -> Unit,
 ) {
-    setOrbitThemeMode(isDarkTheme)
-    MaterialTheme(
-        colorScheme = orbitColorScheme(isDarkTheme),
-        typography = orbitTypography(),
-        content = content,
-    )
+    val isDarkTheme = appearance.isDark(androidx.compose.foundation.isSystemInDarkTheme())
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dynamic = if (appearance.dynamicColor) {
+        if (isDarkTheme) androidx.compose.material3.dynamicDarkColorScheme(context) else androidx.compose.material3.dynamicLightColorScheme(context)
+    } else null
+    setOrbitThemeMode(isDarkTheme, pureBlack = appearance.mode == com.example.orbitai.core.common.ThemeMode.BLACK, accent = dynamic)
+    androidx.compose.runtime.CompositionLocalProvider(LocalAppearance provides appearance) {
+        MaterialTheme(
+            colorScheme = orbitColorScheme(isDarkTheme),
+            typography = orbitTypography(),
+            content = content,
+        )
+    }
 }

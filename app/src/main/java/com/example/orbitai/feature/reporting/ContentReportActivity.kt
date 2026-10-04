@@ -16,7 +16,7 @@ class ContentReportActivity : ComponentActivity() {
             return
         }
         setContent {
-            OrbitAITheme(isDarkTheme = ThemeSettingsStore(this).isDarkTheme) {
+            OrbitAITheme(appearance = ThemeSettingsStore(this).appearance) {
                 ContentReportDialog(response, "bubble", onDismiss = { finish() })
             }
         }

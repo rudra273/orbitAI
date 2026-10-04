@@ -96,6 +96,7 @@ sealed class Screen(val route: String) {
     data object SettingsSavedPrompts : Screen("settings/saved_prompts")
     data object SettingsVoice : Screen("settings/voice")
     data object SettingsChat : Screen("settings/chat")
+    data object SettingsAppearance : Screen("settings/appearance")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
@@ -135,8 +136,8 @@ fun OrbitNavGraph(
     memoryViewModel:   MemoryViewModel,
     overlayPromptRequest: OverlayPromptRequest?,
     onOverlayPromptConsumed: () -> Unit,
-    isDarkTheme:       Boolean,
-    onThemeChanged:    (Boolean) -> Unit,
+    appearance:        com.example.orbitai.core.common.Appearance,
+    onAppearanceChanged: (com.example.orbitai.core.common.Appearance) -> Unit,
 ) {
     var sharedDraftText by rememberSaveable { mutableStateOf("") }
     var sharedDraftChatId by rememberSaveable { mutableStateOf("") }
@@ -284,8 +285,7 @@ fun OrbitNavGraph(
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
                     appUpdateViewModel = appUpdateViewModel,
-                    isDarkTheme       = isDarkTheme,
-                    onThemeChanged    = onThemeChanged,
+                    appearance        = appearance,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },
                 )
@@ -334,6 +334,13 @@ fun OrbitNavGraph(
 
             composable(Screen.SettingsPrivacy.route) {
                 com.example.orbitai.ui.screens.PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsAppearance.route) {
+                com.example.orbitai.ui.screens.AppearanceScreen(
+                    appearance = appearance,
+                    onChange = onAppearanceChanged,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Screen.SettingsChat.route) {
                 com.example.orbitai.ui.screens.ChatSettingsScreen(onBack = { navController.popBackStack() })

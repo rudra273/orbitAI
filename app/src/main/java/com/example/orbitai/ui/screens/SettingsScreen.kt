@@ -84,8 +84,7 @@ private data class SettingsRow(
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
     appUpdateViewModel: AppUpdateViewModel,
-    isDarkTheme: Boolean,
-    onThemeChanged: (Boolean) -> Unit,
+    appearance: com.example.orbitai.core.common.Appearance,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -278,17 +277,10 @@ fun SettingsScreen(
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.NightsStay,
-                        title = "Dark mode",
-                        description = "App theme preference",
-                        showChevron = false,
-                        trailing = {
-                            InkToggle(
-                                checked = isDarkTheme,
-                                onCheckedChange = onThemeChanged,
-                            )
-                        },
+                        title = "Appearance",
+                        description = "${appearance.mode.label} theme · chat text ${(appearance.chatTextScale * 100).toInt()}%",
                     ),
-                    onClick = { onThemeChanged(!isDarkTheme) },
+                    onClick = { onNavigate("settings/appearance") },
                 )
             }
         }
