@@ -178,8 +178,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun draftNotificationReply(preview: ReplyNotification, instruction: String) =
         notificationReplies.draftNotificationReply(preview, instruction)
 
+    /** The chat screen closed or went to the background: free its open model conversation. */
+    fun onChatHidden(chatId: String) = generation.closeLiveConversation(chatId)
+
     override fun onCleared() {
         super.onCleared()
+        generation.release()
         // The model is shared with the bubble; free it only if nothing else is using it.
         ctx.container.appScope.launch { ctx.container.llmRepository.releaseIfIdle() }
     }

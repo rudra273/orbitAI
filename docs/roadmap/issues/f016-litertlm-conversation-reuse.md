@@ -16,6 +16,8 @@ Labels: enhancement
 
 **Acceptance Criteria:**
 - [ ] Time-to-first-token on turn 10 of a chat is within ~20% of turn 1 (numbers in the PR)
-- [ ] Switching chats or modes never leaks one chat's history into another
-- [ ] Session is closed on chat exit, model switch and `onCleared()`
-- [ ] Works with image input on vision models
+- [x] Switching chats or modes never leaks one chat's history into another
+- [x] Session is closed on chat exit, model switch and `onCleared()`
+- [x] Works with image input on vision models
+
+**Status:** 🟡 Done, device check pending (2026-10-04). LiteRT chats keep one live ConversationSession (keyed by chat, model, settings and system prompt) and send only the new message plus that turn's Spaces excerpts and memories. ConversationReuse rebuilds from history after an edit, regenerate, deleted message, trimmed history, a tool call, a stopped/failed turn, or when the session nears 75% of the context window (unit-tested). Closed on chat exit, app background (so the bubble never overlaps), model unload (LlmRepository close listener) and onCleared; a session mid-turn closes when the turn ends. Images go into the turn as ImageBytes. Device check pending: time-to-first-token on turn 1 vs turn 10.

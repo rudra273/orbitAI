@@ -6,7 +6,10 @@ import android.net.Uri
 import com.example.orbitai.core.common.ModeInferenceSettingsStore
 import com.example.orbitai.core.common.TokenStore
 import com.example.orbitai.core.database.ORBIT_MODE_ID
+import com.example.orbitai.core.engine.ConversationReuse
+import com.example.orbitai.core.engine.ConversationSession
 import com.example.orbitai.core.engine.InferenceInput
+import com.example.orbitai.core.engine.PromptTurn
 import com.example.orbitai.core.engine.StructuredPrompt
 import com.example.orbitai.core.engine.TurnResult
 import com.example.orbitai.core.model.DeviceFit
@@ -405,6 +408,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     null -> null
                 }
                 var usedMemories = memories
+                var conversationPrompt: BudgetedPrompt? = null
                 val (prompt, structuredPrompt) = if (toolInstruction != null) {
                     ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle, toolInstruction) to
                         ModelPromptBuilder.structuredInstruction(toolInstruction)
@@ -425,6 +429,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     )
                     reportContextTrimming(chatId, budgeted)
                     usedMemories = budgeted.memories
+                    conversationPrompt = budgeted
                     ModelPromptBuilder.buildChatPrompt(
                         promptStyle = model.promptStyle,
                         messages = budgeted.messages,
@@ -486,9 +491,9 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                         accumulated += token
                         chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = true)
                     }
-                    val toolTurn = if (toolRequest == null && bitmaps.isEmpty()) {
-                        streamWithTools(structuredPrompt, settings, onToken)
-                    } else null
+                    val toolTurn = conversationPrompt?.let { budgeted ->
+                        streamConversation(chatId, model, settings, systemPrompt, budgeted, bitmaps, assistantMsg.id, onToken)
+                    }
                     if (toolTurn != null) {
                         toolAction = toolTurn.toolCalls.firstNotNullOfOrNull { ChatToolActions.from(it.name, it.arguments) }
                         if (accumulated.isBlank()) accumulated = toolTurn.text
@@ -550,33 +555,134 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     }
 
 
+    /** A LiteRT conversation kept open for one chat so each turn only prefills the new message (f016). */
+    private class LiveConversation(
+        val key: String,
+        val session: ConversationSession,
+        /** Ids of the chat messages the session has seen, in order. */
+        val messageIds: MutableList<String>,
+        var tokens: Int,
+    ) {
+        /** True while a turn is streaming; closing then waits until the turn ends. */
+        var busy = false
+        var closeAfterTurn = false
+    }
+
+    private val liveLock = Any()
+    private var live: LiveConversation? = null
+    // The engine is going away, so the session must close now even if a turn is stuck in it.
+    private val closeLiveBeforeEngine: () -> Unit = { closeLiveConversation(force = true) }
+
+    init {
+        llmRepo.addBeforeEngineCloseListener(closeLiveBeforeEngine)
+    }
+
     /**
-     * Streams one reply through a LiteRT conversation that offers [OrbitChatToolSchema].
-     * Returns null when the loaded model has no conversation support or can't start one
-     * with tools, so the caller falls back to plain streaming.
+     * Closes the open conversation (chat closed, app in background, model unloading). A session in
+     * the middle of a turn is closed when that turn ends, unless [force]d.
      */
-    private suspend fun streamWithTools(
-        structured: StructuredPrompt,
+    fun closeLiveConversation(chatId: String? = null, force: Boolean = false) {
+        synchronized(liveLock) {
+            val current = live ?: return
+            if (chatId != null && !current.key.startsWith("$chatId|")) return
+            live = null
+            if (current.busy && !force) current.closeAfterTurn = true
+            else runCatching { current.session.close() }
+        }
+    }
+
+    fun release() {
+        closeLiveConversation()
+        llmRepo.removeBeforeEngineCloseListener(closeLiveBeforeEngine)
+    }
+
+    /**
+     * Streams one reply through a LiteRT conversation that offers [OrbitChatToolSchema], reusing
+     * the chat's open conversation when it already holds the earlier messages; otherwise a new one
+     * is started from the history. This turn's Spaces excerpts and memories go with the new message.
+     * Returns null when the loaded model has no conversation support or can't start one, so the
+     * caller falls back to plain streaming.
+     */
+    private suspend fun streamConversation(
+        chatId: String,
+        model: LlmModel,
         settings: com.example.orbitai.core.common.InferenceSettings,
+        systemPrompt: String?,
+        budgeted: BudgetedPrompt,
+        images: List<Bitmap>,
+        replyId: String,
         onToken: suspend (String) -> Unit,
     ): TurnResult? {
         val engine = llmRepo.conversationEngine() ?: return null
-        val turns = structured.turns.filter { it.text.isNotBlank() }
-        val latest = turns.lastOrNull()?.takeIf { it.isUser } ?: return null
-        val session = try {
-            engine.createConversation(
-                systemInstruction = structured.systemInstruction + "\n\n" + ChatToolActions.INSTRUCTION,
-                settings = settings,
-                toolSchemas = listOf(OrbitChatToolSchema()),
-                history = turns.dropLast(1),
-            )
-        } catch (e: Exception) {
-            android.util.Log.w("ChatGeneration", "Tool conversation unavailable; using plain streaming", e)
-            return null
+        val turns = budgeted.messages.filter { it.content.isNotBlank() }
+        val latest = turns.lastOrNull()?.takeIf { it.role == Role.USER } ?: return null
+        val history = turns.dropLast(1)
+        val systemInstruction = com.example.orbitai.core.prompt.AiSafetyPolicy.withInstructions(systemPrompt) + "\n\n" + ChatToolActions.INSTRUCTION
+        val key = "$chatId|${model.id}|$settings|${systemInstruction.hashCode()}"
+
+        val context = ModelPromptBuilder.buildSystemContext(budgeted.memories, budgeted.ragContext, null)
+        val text = if (context.isBlank()) latest.content else "$context\n\nUser message:\n${latest.content}"
+
+        val conversation = synchronized(liveLock) {
+            val current = live
+            if (current != null && ConversationReuse.canReuse(current.key, current.messageIds, current.tokens, key, history.map { it.id }, model.contextTokens)) {
+                current
+            } else {
+                current?.let { runCatching { it.session.close() } }
+                live = null
+                val session = try {
+                    engine.createConversation(
+                        systemInstruction = systemInstruction,
+                        settings = settings,
+                        toolSchemas = listOf(OrbitChatToolSchema()),
+                        history = history.map { PromptTurn(isUser = it.role == Role.USER, text = it.content) },
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("ChatGeneration", "Conversation unavailable; using plain streaming", e)
+                    return null
+                }
+                LiveConversation(
+                    key = key,
+                    session = session,
+                    messageIds = history.map { it.id }.toMutableList(),
+                    tokens = ConversationReuse.estimateTokens(systemInstruction) + history.sumOf { ConversationReuse.estimateTokens(it.content) },
+                ).also { live = it }
+            }
         }
-        return session.use {
-            it.streamTurn(com.google.ai.edge.litertlm.Contents.of(latest.text), settings.maxDecodedTokens, onToken)
+
+        val contents = com.google.ai.edge.litertlm.Contents.of(
+            images.map { bitmap ->
+                val bytes = java.io.ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
+                com.google.ai.edge.litertlm.Content.ImageBytes(bytes) as com.google.ai.edge.litertlm.Content
+            } + com.google.ai.edge.litertlm.Content.Text(text),
+        )
+        synchronized(liveLock) { conversation.busy = true }
+        val result = try {
+            conversation.session.streamTurn(contents, settings.maxDecodedTokens, onToken)
+        } catch (e: Throwable) {
+            // A stopped or failed turn leaves the session in an unknown state.
+            synchronized(liveLock) {
+                conversation.busy = false
+                if (live === conversation) live = null
+                runCatching { conversation.session.close() }
+            }
+            throw e
         }
+        synchronized(liveLock) {
+            conversation.busy = false
+            if (conversation.closeAfterTurn) {
+                runCatching { conversation.session.close() }
+            } else if (live === conversation) {
+                if (result.toolCalls.isNotEmpty()) {
+                    // The stored reply will describe the action, not the model's tool call; start fresh next time.
+                    closeLiveConversation()
+                } else {
+                    conversation.messageIds += listOf(latest.id, replyId)
+                    conversation.tokens += ConversationReuse.estimateTokens(text) + ConversationReuse.estimateTokens(result.text) + images.size * 260
+                }
+            }
+        }
+        return result
     }
 
     /**

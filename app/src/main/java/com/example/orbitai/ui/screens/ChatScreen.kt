@@ -303,6 +303,18 @@ fun ChatScreen(
     val speaker = remember { com.example.orbitai.feature.voice.ReplySpeaker(context, voiceSettings) }
     DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
     val speakingId by speaker.speakingId.collectAsState()
+    // Free the chat's open model conversation when leaving the chat or the app.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(chatId, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) viewModel.onChatHidden(chatId)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.onChatHidden(chatId)
+        }
+    }
     val showGenerationDetails = remember { com.example.orbitai.feature.chat.ChatSettingsStore(context).showGenerationDetails }
     val generationStats by viewModel.generationStats.collectAsState()
     var voiceMode by rememberSaveable { mutableStateOf(false) }

@@ -26,11 +26,26 @@ class LlmRepository(
     private var currentModelId: String? = null
     private var currentSettings: InferenceSettings? = null
     private var activeUses = 0
+    private val beforeEngineClose = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+
+    /** Runs [listener] just before the loaded engine is closed, so open conversations can be closed first. */
+    fun addBeforeEngineCloseListener(listener: () -> Unit) {
+        beforeEngineClose += listener
+    }
+
+    fun removeBeforeEngineCloseListener(listener: () -> Unit) {
+        beforeEngineClose -= listener
+    }
+
+    private fun notifyEngineClosing() {
+        beforeEngineClose.forEach { runCatching(it) }
+    }
 
     @Synchronized
     fun loadModel(model: LlmModel, settings: InferenceSettings) {
         if (currentModelId == model.id && currentSettings == settings && engine != null) return
 
+        if (engine != null) notifyEngineClosing()
         engine?.close()
         // If the engine we just closed was the same object as conversationEngine, avoid double-close.
         if (conversationEngine != null && conversationEngine !== engine) {
@@ -108,7 +123,10 @@ class LlmRepository(
 
     @Synchronized
     fun close() {
-        if (engine != null) onModelStateChanged(null)
+        if (engine != null) {
+            onModelStateChanged(null)
+            notifyEngineClosing()
+        }
         engine?.close()
         // conversationEngine is the same object as engine for LiteRT, no double-close needed.
         engine = null

@@ -185,7 +185,7 @@ object ModelPromptBuilder {
         return sb.toString()
     }
 
-    private fun buildSystemContext(
+    internal fun buildSystemContext(
         memories: List<String>,
         ragContext: List<String>,
         systemPrompt: String?,
