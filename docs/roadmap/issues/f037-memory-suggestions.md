@@ -20,6 +20,8 @@ These junk memories are then injected into **every** prompt (see f038), which de
 - Dedupe against existing memories (case-insensitive + similarity)
 
 **Acceptance Criteria:**
-- [ ] Unit tests: a negative set of 30 everyday sentences produces zero suggestions; a positive set produces correct facts
-- [ ] Nothing saved without a tap (except explicit remember commands)
-- [ ] Temporary chats (f027) never suggest
+- [x] Unit tests: a negative set of 30 everyday sentences produces zero suggestions; a positive set produces correct facts
+- [x] Nothing saved without a tap (except explicit remember commands)
+- [x] Temporary chats (f027) never suggest
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Regex auto-save removed. MemorySuggester recognises a few high-precision phrasings (name, location, job, birthday, age, favourite, diet/allergy, reply language) and skips questions, hypotheticals and facts about others; a 'Remember: …?' chip under the message offers Save / Edit / dismiss. Settings > Memory > Suggest memories toggle; explicit 'remember …' still saves directly; duplicates and temporary chats are skipped. 30-sentence negative set and 15 positives in MemorySuggesterTest.

@@ -18,6 +18,14 @@ data class ChatUiState(
     val isGenerating: Boolean = false,
     val loadError: String? = null,
     val infoMessage: String? = null,
+    val memorySuggestion: MemorySuggestion? = null,
+)
+
+/** A fact found in a user message that Orbit offers to remember. */
+data class MemorySuggestion(
+    val chatId: String,
+    val messageId: String,
+    val fact: String,
 )
 
 data class CloudSendRequest(

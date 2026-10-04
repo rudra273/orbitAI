@@ -63,7 +63,7 @@ The largest orchestration surface — read this to understand the end-to-end mes
 1. Cancels any in-flight generation (uses a monotonic `activeGenerationToken` to ignore stale streams; also closes the engine so the backend tears down cleanly).
 2. Routes the input through `AutomationRouter` → either a tool request or normal chat.
 3. Resolves the model (chat's model → last-selected → first available), validates vision support for image input.
-4. Persists the user message, optionally auto-extracts memory facts (regex patterns in `extractMemoryFacts`).
+4. Persists the user message, may offer a "Remember …?" suggestion (`MemorySuggester`, saved only on tap).
 5. Builds the prompt: for normal chat, pulls RAG chunks from active spaces + memories + the active mode's system prompt; for tool requests, uses the corresponding draft prompt builder.
 6. Streams the response into a placeholder assistant message, then (for tool requests) parses the model output and executes the automation.
 

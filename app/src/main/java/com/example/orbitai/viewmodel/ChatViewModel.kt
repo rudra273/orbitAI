@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -110,6 +111,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         imageUris: List<Uri> = emptyList(),
         approvedCloudModelId: String? = null,
     ) = generation.sendMessage(chatId, userText, imageUris, approvedCloudModelId)
+
+    // ── Memory suggestions ────────────────────────────────────────────────────
+    fun saveMemorySuggestion(fact: String) {
+        ctx.uiState.update { it.copy(memorySuggestion = null) }
+        viewModelScope.launch { memoryRepo.addMemory(fact, source = "suggested") }
+    }
+
+    fun dismissMemorySuggestion() {
+        ctx.uiState.update { it.copy(memorySuggestion = null) }
+    }
 
     // ── Reminders ─────────────────────────────────────────────────────────────
     val reminderReview: StateFlow<ReminderReviewRequest?> = reminderFlow.reminderReview

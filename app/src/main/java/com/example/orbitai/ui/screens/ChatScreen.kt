@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -443,6 +444,13 @@ fun ChatScreen(
                                 onEditAndResend = { text -> viewModel.editAndResend(chatId, msg.id, text) },
                                 onDelete = { viewModel.deleteMessage(msg.id) },
                             )
+                            uiState.memorySuggestion?.takeIf { it.chatId == chatId && it.messageId == msg.id }?.let { suggestion ->
+                                MemorySuggestionChip(
+                                    fact = suggestion.fact,
+                                    onSave = viewModel::saveMemorySuggestion,
+                                    onDismiss = viewModel::dismissMemorySuggestion,
+                                )
+                            }
                         }
                     }
 
@@ -1571,6 +1579,50 @@ private suspend fun readAttachmentForPrompt(
             append(content)
         }
     )
+}
+
+/** "Remember: Lives in Pune?" under the user message, with Save, Edit and dismiss. */
+@Composable
+private fun MemorySuggestionChip(fact: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var editing by remember(fact) { mutableStateOf(false) }
+    var edited by remember(fact) { mutableStateOf(fact) }
+    if (editing) {
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("Remember") },
+            text = { OutlinedTextField(value = edited, onValueChange = { edited = it }, maxLines = 3) },
+            confirmButton = {
+                TextButton(enabled = edited.isNotBlank(), onClick = { editing = false; onSave(edited.trim()) }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 48.dp, top = 2.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(VioletGlowSoft)
+            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+            .padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Psychology, contentDescription = null, tint = TextAccent, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Remember: $fact?",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextPrimary,
+            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = { onSave(fact) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Save") }
+        TextButton(onClick = { editing = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Edit") }
+        IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Filled.Close, contentDescription = "Don't remember", tint = TextMuted, modifier = Modifier.size(16.dp))
+        }
+    }
 }
 
 @Composable

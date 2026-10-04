@@ -29,7 +29,7 @@ import com.example.orbitai.feature.automation.prompt.WhatsAppDraftPromptBuilder
 import com.example.orbitai.feature.chat.Chat
 import com.example.orbitai.feature.chat.Message
 import com.example.orbitai.feature.chat.Role
-import com.example.orbitai.feature.memory.MemoryFactExtractor
+import com.example.orbitai.feature.memory.MemorySuggester
 import com.example.orbitai.feature.memory.MemoryFeatureStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -336,14 +336,10 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
 
                 // 1. Add user message (already present when regenerating or resending an edit)
                 if (!resendExisting) {
-                    chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText, imageUris = uriStrings))
-                }
-
-                // 1b. Auto-detect and save memorable facts from user message
-                if (memoryEnabled && !resendExisting && !com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId)) {
-                    MemoryFactExtractor.extract(trimmedText).forEach { fact ->
-                        memoryRepo.addMemory(fact, source = "auto")
-                    }
+                    val userMessage = Message(role = Role.USER, content = trimmedText, imageUris = uriStrings)
+                    chatRepo.addMessage(chatId, userMessage)
+                    // 1b. Offer to remember a personal fact from the message; nothing is saved without a tap.
+                    suggestMemory(chatId, userMessage.id, trimmedText, memoryEnabled)
                 }
 
                 // 2. Load model if settings or model changed
@@ -542,6 +538,16 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         return session.use {
             it.streamTurn(com.google.ai.edge.litertlm.Contents.of(latest.text), settings.maxDecodedTokens, onToken)
         }
+    }
+
+    private suspend fun suggestMemory(chatId: String, messageId: String, text: String, memoryEnabled: Boolean) {
+        // An unanswered suggestion goes away once the user moves on.
+        _uiState.update { it.copy(memorySuggestion = null) }
+        if (!memoryEnabled || !memoryFeatureStore.suggestionsEnabled) return
+        if (com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId)) return
+        val fact = MemorySuggester.suggest(text) ?: return
+        if (MemorySuggester.isDuplicate(fact, memoryRepo.getAllMemories().map { it.content })) return
+        _uiState.update { it.copy(memorySuggestion = MemorySuggestion(chatId, messageId, fact)) }
     }
 
     /** Stops a reply that runs longer than [MAX_GENERATION_MS] (e.g. stuck native inference). */

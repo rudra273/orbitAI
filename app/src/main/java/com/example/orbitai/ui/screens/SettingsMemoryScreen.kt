@@ -73,6 +73,7 @@ fun MemorySettingsScreen(
     onBack: () -> Unit,
 ) {
     var enabled by remember { mutableStateOf(memoryStore.isEnabled) }
+    var suggest by remember { mutableStateOf(memoryStore.suggestionsEnabled) }
     val memories by memoryViewModel.memories.collectAsState()
 
     LazyColumn(
@@ -140,7 +141,7 @@ fun MemorySettingsScreen(
                 MemoryToggleRow(
                     title = "Use memory",
                     description = if (enabled) {
-                        "OrbitAI saves and uses memories from conversations."
+                        "OrbitAI uses the memories you save in conversations."
                     } else {
                         "Memory is off for new conversations."
                     },
@@ -150,6 +151,18 @@ fun MemorySettingsScreen(
                         memoryStore.isEnabled = it
                     },
                 )
+                if (enabled) {
+                    MemoryHairlineDivider()
+                    MemoryToggleRow(
+                        title = "Suggest memories",
+                        description = "When you share a personal fact, like where you live, Orbit asks before remembering it.",
+                        checked = suggest,
+                        onCheckedChange = {
+                            suggest = it
+                            memoryStore.suggestionsEnabled = it
+                        },
+                    )
+                }
             }
         }
 
