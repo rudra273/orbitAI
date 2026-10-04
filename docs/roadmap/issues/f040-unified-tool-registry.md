@@ -3,6 +3,8 @@ Labels: enhancement, question
 **Milestone:** M3 Power Features · **Priority:** P1 · **Size:** XL · **Area:** Automation / Architecture
 **Depends on:** f008, f016
 
+**Status:** 🚧 Partly done (2026-10-04). Native tool calling is the main path on LiteRT-LM models in chat (`OrbitChatToolSchema`, `ChatToolActions`), regex commands stay as the fast path and for other engines, and every side-effecting action waits for a confirmation. Not done: one registry class per tool that generates the LiteRT schema, Gemini function declarations and the "/" menu from a single definition (the schema and mapping are still written by hand), and the bubble still has its own small schema.
+
 **Title:** One tool system for chat and bubble: native LiteRT-LM tool calls, with the regex router as fallback
 
 **Description:**
