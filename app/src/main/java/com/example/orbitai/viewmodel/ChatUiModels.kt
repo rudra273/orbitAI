@@ -19,6 +19,14 @@ data class ChatUiState(
     val loadError: String? = null,
     val infoMessage: String? = null,
     val memorySuggestion: MemorySuggestion? = null,
+    val deviceActionRequest: DeviceActionRequest? = null,
+)
+
+/** A phone action waiting for the user's OK. [replyMessageId] is the reply to update (tool calls). */
+data class DeviceActionRequest(
+    val chatId: String,
+    val action: com.example.orbitai.feature.automation.device.DeviceAction,
+    val replyMessageId: String? = null,
 )
 
 /** A fact found in a user message that Orbit offers to remember. */

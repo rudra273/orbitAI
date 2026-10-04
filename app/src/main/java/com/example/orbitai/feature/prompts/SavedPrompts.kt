@@ -70,9 +70,11 @@ object CommandPalette {
     fun query(input: String): String? =
         input.takeIf { it.startsWith("/") && it.none(Char::isWhitespace) }?.drop(1)
 
-    fun items(query: String, prompts: List<SavedPrompt>): List<PaletteItem> {
+    /** [enabledCommands]: command names whose tool is on (Settings > Tools); null shows all. */
+    fun items(query: String, prompts: List<SavedPrompt>, enabledCommands: Set<String>? = null): List<PaletteItem> {
         val q = query.lowercase()
         val commands = OrbitCommands.all
+            .filter { cmd -> enabledCommands == null || cmd.name in enabledCommands }
             .filter { cmd -> (listOf(cmd.name) + cmd.aliases).any { it.startsWith(q) } || cmd.title.lowercase().contains(q) }
             .map(PaletteItem::Command)
         val saved = prompts

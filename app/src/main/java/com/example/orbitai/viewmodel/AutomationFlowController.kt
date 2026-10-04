@@ -36,13 +36,35 @@ internal class AutomationFlowController(
     private val chatRepo = ctx.container.chatRepository
     private val memoryRepo = ctx.container.memoryRepository
     private val automationExecutor = AutomationExecutor(ctx.app)
+    private val deviceExecutor = com.example.orbitai.feature.automation.device.DeviceActionExecutor(ctx.app)
+    private val toolSettings = com.example.orbitai.feature.automation.AutomationSettingsStore(ctx.app)
+
+    fun isToolEnabled(tool: com.example.orbitai.feature.automation.OrbitTool) = toolSettings.isEnabled(tool)
+
+    private fun commandTool(command: com.example.orbitai.feature.automation.parser.DeviceCommand?) = when (command) {
+        is com.example.orbitai.feature.automation.parser.DeviceCommand.Call -> com.example.orbitai.feature.automation.OrbitTool.CALLS
+        is com.example.orbitai.feature.automation.parser.DeviceCommand.Remember -> com.example.orbitai.feature.automation.OrbitTool.MEMORY
+        null -> null
+    }
     private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
 
     fun handleDeviceCommand(chatId: String, text: String): Boolean {
         val normalized = com.example.orbitai.feature.automation.parser.DeviceCommandParser.normalize(text)
         val command = com.example.orbitai.feature.automation.parser.DeviceCommandParser.parse(text)
-        val reminder = com.example.orbitai.feature.automation.parser.AutomationCommandParser.parse(normalized) as? AutomationRequest.CreateReminder
-        if (command == null && reminder == null) return false
+            ?.takeIf { toolSettings.isEnabled(commandTool(it)!!) }
+        val reminder = (com.example.orbitai.feature.automation.parser.AutomationCommandParser.parse(normalized) as? AutomationRequest.CreateReminder)
+            ?.takeIf { toolSettings.isEnabled(com.example.orbitai.feature.automation.OrbitTool.REMINDERS) }
+        if (command == null && reminder == null) {
+            val action = com.example.orbitai.feature.automation.device.DeviceActionParser.parse(text)
+                ?.takeIf { toolSettings.isEnabled(it.tool) } ?: return false
+            stopGeneration()
+            _uiState.update { it.copy(loadError = null, infoMessage = null) }
+            viewModelScope.launch {
+                chatRepo.addMessage(chatId, Message(role = Role.USER, content = text))
+                _uiState.update { it.copy(deviceActionRequest = DeviceActionRequest(chatId, action)) }
+            }
+            return true
+        }
         stopGeneration()
         _uiState.update { it.copy(loadError = null, infoMessage = null) }
         viewModelScope.launch {
@@ -77,7 +99,36 @@ internal class AutomationFlowController(
     fun isDeviceCommand(text: String): Boolean {
         val normalized = com.example.orbitai.feature.automation.parser.DeviceCommandParser.normalize(text)
         return com.example.orbitai.feature.automation.parser.DeviceCommandParser.parse(text) != null ||
-            com.example.orbitai.feature.automation.parser.AutomationCommandParser.parse(normalized) is AutomationRequest.CreateReminder
+            com.example.orbitai.feature.automation.parser.AutomationCommandParser.parse(normalized) is AutomationRequest.CreateReminder ||
+            com.example.orbitai.feature.automation.device.DeviceActionParser.parse(text) != null
+    }
+
+    /** Runs the confirmed phone action and reports the outcome in the chat. */
+    fun confirmDeviceAction() {
+        val request = _uiState.value.deviceActionRequest ?: return
+        _uiState.update { it.copy(deviceActionRequest = null) }
+        viewModelScope.launch {
+            val reply = try {
+                deviceExecutor.execute(request.action)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.message ?: "Couldn't complete this action."
+            }
+            postDeviceReply(request, reply)
+        }
+    }
+
+    fun cancelDeviceAction() {
+        val request = _uiState.value.deviceActionRequest ?: return
+        _uiState.update { it.copy(deviceActionRequest = null) }
+        viewModelScope.launch { postDeviceReply(request, "Cancelled.") }
+    }
+
+    private suspend fun postDeviceReply(request: DeviceActionRequest, reply: String) {
+        val replyId = request.replyMessageId
+        if (replyId != null) chatRepo.updateMessage(replyId, reply, isStreaming = false)
+        else chatRepo.addMessage(request.chatId, Message(role = Role.ASSISTANT, content = reply))
     }
 
     /** Parses a finished tool-draft reply and hands it to the matching Android intent or review dialog. */
@@ -143,7 +194,15 @@ internal class AutomationFlowController(
      * assistant placeholder [assistantMessageId] with what Orbit did.
      */
     suspend fun handleToolAction(chatId: String, assistantMessageId: String, action: ChatToolAction) {
+        if (!toolSettings.isEnabled(action.tool)) {
+            chatRepo.updateMessage(assistantMessageId, "That tool is turned off. You can turn it on in Settings > Tools.", isStreaming = false)
+            return
+        }
         val reply = when (action) {
+            is ChatToolAction.Device -> {
+                _uiState.update { it.copy(deviceActionRequest = DeviceActionRequest(chatId, action.action, assistantMessageId)) }
+                "Waiting for you to confirm: ${action.action.confirmation()}"
+            }
             is ChatToolAction.SendWhatsApp -> {
                 executeWhatsApp(
                     AutomationRequest.DraftWhatsApp(action.message),

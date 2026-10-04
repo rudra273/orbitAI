@@ -5,6 +5,7 @@ import com.example.orbitai.feature.automation.parser.AutomationCommandParser
 import com.example.orbitai.feature.automation.parser.AutomationRequest
 import com.example.orbitai.feature.automation.parser.DeviceCommand
 import com.example.orbitai.feature.automation.parser.DeviceCommandParser
+import com.example.orbitai.feature.prompts.PaletteItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -15,15 +16,17 @@ class CommandPaletteTest {
     @Test fun everyRegistryNameAndAliasIsUnderstoodByTheParsers() {
         for (cmd in OrbitCommands.all) {
             for (name in listOf(cmd.name) + cmd.aliases) {
-                val input = "/$name something"
+                // Use the menu's own example, with this alias in place of the command name.
+                val input = "/$name " + cmd.example.substringAfter(' ')
                 val parsed: Any? = AutomationCommandParser.parse(input) ?: DeviceCommandParser.parse(input)
+                    ?: com.example.orbitai.feature.automation.device.DeviceActionParser.parse(input)
                 val ok = when (cmd.name) {
                     "mail" -> parsed is AutomationRequest.DraftEmail
                     "whatsapp" -> parsed is AutomationRequest.DraftWhatsApp
                     "remind" -> parsed is AutomationRequest.CreateReminder
                     "call" -> parsed is DeviceCommand.Call
                     "remember" -> parsed is DeviceCommand.Remember
-                    else -> false
+                    else -> (parsed as? com.example.orbitai.feature.automation.device.DeviceAction)?.tool?.command == cmd.name
                 }
                 assertTrue("/$name not parsed as ${cmd.name}: $parsed", ok)
             }
@@ -52,5 +55,12 @@ class CommandPaletteTest {
             CommandPalette.insertion(PaletteItem.Prompt(SavedPrompt("x", "t", "Translate {{input}} to Hindi"))),
         )
         assertEquals(Insertion("Explain simply", 14), CommandPalette.insertion(PaletteItem.Prompt(SavedPrompt("y", "t", "Explain simply"))))
+    }
+
+    @Test
+    fun disabledToolsAreHidden() {
+        val names = CommandPalette.items("", emptyList(), enabledCommands = setOf("mail", "timer"))
+            .filterIsInstance<PaletteItem.Command>().map { it.command.name }
+        assertEquals(listOf("mail", "timer"), names)
     }
 }

@@ -178,6 +178,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Automation ────────────────────────────────────────────────────────────
     fun onContactsPermissionResult(granted: Boolean) = automationFlow.onContactsPermissionResult(granted)
+    fun confirmDeviceAction() = automationFlow.confirmDeviceAction()
+    fun cancelDeviceAction() = automationFlow.cancelDeviceAction()
+
+    /** "/" menu command names whose tool is on in Settings > Tools. */
+    fun enabledCommandNames(): Set<String> =
+        com.example.orbitai.feature.automation.AutomationSettingsStore(getApplication()).enabledTools().mapNotNull { it.command }.toSet()
 
     // ── Message replies ───────────────────────────────────────────────────────
     val notificationReplyDraft: StateFlow<NotificationReplyDraftState> = notificationReplies.notificationReplyDraft

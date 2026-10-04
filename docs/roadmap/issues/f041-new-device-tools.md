@@ -22,8 +22,10 @@ Current device actions: email draft, WhatsApp draft, reminders, calls, memory. T
 | Flashlight on/off | `CameraManager.setTorchMode` | none |
 
 **Acceptance Criteria:**
-- [ ] Each tool has a deterministic command form and works via native tool calling
-- [ ] Each tool shows a confirmation card before launching
-- [ ] Parser unit tests per tool (English; Hinglish phrasing where cheap)
-- [ ] Settings → Tools lists each tool with an enable toggle
-- [ ] No tool sends a message or places a call without the user's final tap in the target app (current safety model kept)
+- [x] Each tool has a deterministic command form and works via native tool calling
+- [x] Each tool shows a confirmation card before launching
+- [x] Parser unit tests per tool (English; Hinglish phrasing where cheap)
+- [x] Settings → Tools lists each tool with an enable toggle
+- [x] No tool sends a message or places a call without the user's final tap in the target app (current safety model kept)
+
+**Status:** 🟡 Done, device check pending (2026-10-04). DeviceActionParser (English + common Hinglish, unit-tested) and native tools (OrbitChatToolSchema) for timer, alarm, SMS draft, navigate, open app (fuzzy AppMatcher over launcher apps, <queries> added), web search, calendar event and flashlight. Every action shows a confirmation dialog first; SMS only opens the SMS app with the text, so Send is always the user's tap. OrbitTool registry with an on/off switch per tool in Settings > Tools (also covers email, WhatsApp, reminders, calls, memory); disabled tools are skipped by parsers, refused as tool calls and hidden from the / menu. Each new tool has a / command. f040's full registry refactor is still open. Device check pending.

@@ -34,4 +34,20 @@ class ChatToolActionsTest {
         assertNull(ChatToolActions.from("call_contact", mapOf("name" to null)))
         assertNull(ChatToolActions.from("draft_email", emptyMap()))
     }
+
+    @Test
+    fun mapsDeviceTools() {
+        val now = java.time.ZonedDateTime.parse("2026-10-03T18:15:00+05:30[Asia/Kolkata]")
+        fun device(name: String, vararg args: Pair<String, Any?>) =
+            (ChatToolActions.from(name, args.toMap(), now) as ChatToolAction.Device).action
+        assertEquals(com.example.orbitai.feature.automation.device.DeviceAction.SetTimer(600, null), device("set_timer", "minutes" to 10.0, "label" to ""))
+        assertEquals(com.example.orbitai.feature.automation.device.DeviceAction.SetAlarm(6, 30, "gym"), device("set_alarm", "time" to "6:30 am", "label" to "gym"))
+        assertEquals(com.example.orbitai.feature.automation.device.DeviceAction.Flashlight(true), device("flashlight", "state" to "on"))
+        assertEquals(com.example.orbitai.feature.automation.device.DeviceAction.OpenApp("Spotify"), device("open_app", "app_name" to "Spotify"))
+        val event = device("add_calendar_event", "title" to "Dentist", "time" to "tomorrow at 4 pm") as com.example.orbitai.feature.automation.device.DeviceAction.CalendarEvent
+        assertEquals("2026-10-04T16:00+05:30[Asia/Kolkata]", java.time.Instant.ofEpochMilli(event.startMillis).atZone(now.zone).toString())
+        assertEquals(com.example.orbitai.feature.automation.OrbitTool.ALARM, ChatToolActions.from("set_alarm", mapOf("time" to "7 am"), now)!!.tool)
+        assertNull(ChatToolActions.from("set_timer", mapOf("minutes" to 0), now))
+        assertNull(ChatToolActions.from("flashlight", mapOf("state" to "dim"), now))
+    }
 }

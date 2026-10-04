@@ -128,32 +128,32 @@ fun ToolsSettingsScreen(
             }
         }
 
-        item { ToolsSectionHeader("AVAILABLE") }
+        item { ToolsSectionHeader("TOOLS") }
+        item {
+            Text(
+                text = "Orbit asks before every action. Messages and calls always need your final tap in the other app.",
+                color = ToolsInk.copy(alpha = 0.5f),
+                fontFamily = ToolsSans,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
         item {
             ToolsGroupedCard {
-                ToolInfoRow(
-                    icon = Icons.Default.MailOutline,
-                    title = "Gmail",
-                    description = "Available tool. Opens Gmail compose flow with manual handoff.",
-                )
-                ToolsHairlineDivider()
-                ToolInfoRow(
-                    icon = Icons.AutoMirrored.Filled.Message,
-                    title = "WhatsApp",
-                    description = "Available tool. Opens WhatsApp compose flow with manual handoff.",
-                )
-                ToolsHairlineDivider()
-                ToolInfoRow(
-                    icon = Icons.Default.Event,
-                    title = "Orbit reminders",
-                    description = "Save, edit, repeat, snooze, and complete reminders on this device. Calendar is optional.",
-                )
-                ToolsHairlineDivider()
-                ToolInfoRow(
-                    icon = Icons.Default.Build,
-                    title = "Calls and memory",
-                    description = "Ask ‘Call Alex’ or ‘Remember that…’. These actions work without a model.",
-                )
+                com.example.orbitai.feature.automation.OrbitTool.entries.forEachIndexed { index, tool ->
+                    var enabled by remember { mutableStateOf(toolSettingsStore.isEnabled(tool)) }
+                    ToolToggleRow(
+                        icon = Icons.Default.Build,
+                        title = tool.title + (tool.command?.let { "  ·  /$it" } ?: ""),
+                        description = tool.description,
+                        checked = enabled,
+                        onCheckedChange = {
+                            enabled = it
+                            toolSettingsStore.setEnabled(tool, it)
+                        },
+                    )
+                    if (index != com.example.orbitai.feature.automation.OrbitTool.entries.lastIndex) ToolsHairlineDivider()
+                }
             }
         }
 

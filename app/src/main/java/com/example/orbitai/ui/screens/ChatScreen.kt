@@ -302,6 +302,16 @@ fun ChatScreen(
     val isTemporary = remember(chatId) { viewModel.isTemporaryChat(chatId) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    val enabledCommands = remember { viewModel.enabledCommandNames() }
+    uiState.deviceActionRequest?.takeIf { it.chatId == chatId }?.let { request ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelDeviceAction,
+            title = { Text(request.action.tool.title) },
+            text = { Text(request.action.confirmation()) },
+            confirmButton = { TextButton(onClick = viewModel::confirmDeviceAction) { Text("Do it") } },
+            dismissButton = { TextButton(onClick = viewModel::cancelDeviceAction) { Text("Cancel") } },
+        )
+    }
     var openSource by remember { mutableStateOf<com.example.orbitai.feature.chat.MessageSource?>(null) }
     openSource?.let { source ->
         SourceSheet(
@@ -434,7 +444,7 @@ fun ChatScreen(
                 key(chatId) {
                     Column {
                     CommandPalette.query(inputText)?.let { query ->
-                        CommandPaletteMenu(CommandPalette.items(query, savedPrompts)) { item ->
+                        CommandPaletteMenu(CommandPalette.items(query, savedPrompts, enabledCommands)) { item ->
                             val insertion = CommandPalette.insertion(item)
                             cursorRequest = insertion.cursor
                             inputText = insertion.text

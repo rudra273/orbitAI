@@ -272,7 +272,16 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         if (trimmedText.isEmpty()) return
 
         val route = AutomationRouter.route(trimmedText)
-        val toolRequest = (route as? AutomationRoute.ToolOnly)?.request
+        // A request for a tool that is turned off in Settings > Tools goes to the model as normal chat.
+        val toolRequest = (route as? AutomationRoute.ToolOnly)?.request?.takeIf { request ->
+            automation.isToolEnabled(
+                when (request) {
+                    is AutomationRequest.DraftEmail -> com.example.orbitai.feature.automation.OrbitTool.EMAIL
+                    is AutomationRequest.DraftWhatsApp -> com.example.orbitai.feature.automation.OrbitTool.WHATSAPP
+                    is AutomationRequest.CreateReminder -> com.example.orbitai.feature.automation.OrbitTool.REMINDERS
+                },
+            )
+        }
 
         val preferredModelId = when {
             chat.modelId.isNotBlank() -> chat.modelId
