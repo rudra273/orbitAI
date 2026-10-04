@@ -2,6 +2,8 @@
 Labels: enhancement
 **Milestone:** M4 Hardening & Beta · **Priority:** P2 · **Size:** M · **Area:** Performance
 
+**Status:** ⏭ Later, not in this build (owner decision 2026-10-04). Needs a second Gradle module and a benchmark run on a real phone; revisit after 2.0.
+
 **Title:** Faster cold start and smoother scrolling via a Baseline Profile
 
 **Description:**
