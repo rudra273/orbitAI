@@ -45,17 +45,18 @@ class LiteRtLmEngine(
     val activeBackend: String get() = backendLabel
 
     init {
-        engine = try {
-            Log.d(TAG, "Initializing LiteRT-LM on GPU for $modelPath")
-            createEngine(Backend.GPU(), Backend.GPU()).also {
-                backendLabel = "GPU"
+        // NPU → GPU → CPU (#40). NPU works only with models compiled for this phone's NPU; others fail fast and are skipped next time.
+        val (created, backend) = BackendCascade(context, java.io.File(modelPath).name)
+            .firstWorking(listOf(HardwareBackend.NPU, HardwareBackend.GPU, HardwareBackend.CPU)) { backend ->
+                Log.d(TAG, "Initializing LiteRT-LM on ${backend.label} for $modelPath")
+                when (backend) {
+                    HardwareBackend.NPU -> createEngine(Backend.NPU(context.applicationInfo.nativeLibraryDir), Backend.GPU())
+                    HardwareBackend.GPU -> createEngine(Backend.GPU(), Backend.GPU())
+                    HardwareBackend.CPU -> createEngine(Backend.CPU(), Backend.CPU())
+                }
             }
-        } catch (gpuError: Exception) {
-            Log.w(TAG, "GPU init failed, falling back to CPU", gpuError)
-            createEngine(Backend.CPU(), Backend.CPU()).also {
-                backendLabel = "CPU"
-            }
-        }
+        engine = created
+        backendLabel = backend.label
     }
 
     // ── LlmInferenceEngine (simple single-turn streaming) ─────────────────────

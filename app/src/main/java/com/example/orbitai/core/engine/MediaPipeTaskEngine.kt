@@ -17,14 +17,24 @@ class MediaPipeTaskEngine(
 
     private var engine: LlmInference? = null
 
+    /** The backend this engine runs on ("GPU" or "CPU"). */
+    var activeBackend: String = "CPU"
+        private set
+
     init {
-        val engineOptions = LlmInference.LlmInferenceOptions.builder()
-            .setModelPath(modelPath)
-            .setMaxTokens(4096)
-            .setMaxNumImages(3) // Enable vision modality for multimodal support
-            .setPreferredBackend(LlmInference.Backend.CPU)
-            .build()
-        engine = LlmInference.createFromOptions(context, engineOptions)
+        // GPU first, CPU if the GPU delegate can't run this model (#41).
+        val (created, backend) = BackendCascade(context, java.io.File(modelPath).name)
+            .firstWorking(listOf(HardwareBackend.GPU, HardwareBackend.CPU)) { backend ->
+                val engineOptions = LlmInference.LlmInferenceOptions.builder()
+                    .setModelPath(modelPath)
+                    .setMaxTokens(4096)
+                    .setMaxNumImages(3) // Enable vision modality for multimodal support
+                    .setPreferredBackend(if (backend == HardwareBackend.GPU) LlmInference.Backend.GPU else LlmInference.Backend.CPU)
+                    .build()
+                LlmInference.createFromOptions(context, engineOptions)
+            }
+        engine = created
+        activeBackend = backend.label
     }
 
     override fun generateResponseStream(input: InferenceInput, maxDecodedTokens: Int): Flow<String> = callbackFlow {

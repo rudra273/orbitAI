@@ -101,7 +101,9 @@ class LlmRepository(
     fun activeBackendLabel(): String? = when (val current = engine) {
         null -> null
         is LiteRtLmEngine -> current.activeBackend
-        else -> current.javaClass.simpleName
+        is MediaPipeTaskEngine -> current.activeBackend
+        is GeminiApiEngine -> "Cloud"
+        else -> "CPU"
     }
 
     @Synchronized

@@ -211,7 +211,7 @@ class BubbleInferenceController(
                     val firstToolCall = firstTurn.toolCalls.firstOrNull()
                     if (firstToolCall == null) {
                         withContext(Dispatchers.Main) {
-                            ui.updateResultStatus("Done in ${formatElapsed(startedAt)}")
+                            ui.updateResultStatus(doneStatus(startedAt))
                             if (firstTurn.text.isBlank()) {
                                 ui.updateResultText("I couldn't generate a response.")
                             }
@@ -267,7 +267,7 @@ class BubbleInferenceController(
                                     handleCopyToolCall(followUpToolCall, startedAt)
                                 } else {
                                     withContext(Dispatchers.Main) {
-                                        ui.updateResultStatus("Done in ${formatElapsed(startedAt)}")
+                                        ui.updateResultStatus(doneStatus(startedAt))
                                         if (followUpTurn.text.isBlank()) {
                                             ui.updateResultText("I couldn't read a useful answer from the current screen.")
                                         }
@@ -354,7 +354,7 @@ class BubbleInferenceController(
         }
 
         withContext(Dispatchers.Main) {
-            ui.updateResultStatus("Done in ${formatElapsed(startedAt)}")
+            ui.updateResultStatus(doneStatus(startedAt))
             if (ui.resultText.isBlank()) {
                 ui.updateResultText("I couldn't generate a response.")
             }
@@ -417,7 +417,7 @@ class BubbleInferenceController(
                 }
 
                 withContext(Dispatchers.Main) {
-                    ui.updateResultStatus("Done in ${formatElapsed(startedAt)}")
+                    ui.updateResultStatus(doneStatus(startedAt))
                     if (analysisTurn.text.isBlank()) {
                         ui.updateResultText("I couldn't read a useful answer from the current screen.")
                     }
@@ -692,4 +692,8 @@ class BubbleInferenceController(
             }
         }
     }
+
+    /** "Done in 3.2s · GPU": elapsed time plus the hardware the model ran on (#42). */
+    private fun doneStatus(startedAt: Long): String =
+        listOfNotNull("Done in ${formatElapsed(startedAt)}", llmRepository.activeBackendLabel()).joinToString(" · ")
 }
