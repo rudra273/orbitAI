@@ -81,7 +81,18 @@ class DocumentIngestWorker(
     private suspend fun extractTextBlocks(docId: String, uri: Uri, mimeType: String): List<String> = when {
         mimeType == "application/pdf" -> extractPdfPages(docId, uri)
         isTextLikeDocument(mimeType) -> extractPlainTextBlocks(docId, uri)
+        ArchiveText.isArchiveDocument(mimeType) -> extractArchiveBlocks(docId, uri, mimeType)
         else -> throw IngestException(IngestFailure.UNSUPPORTED)
+    }
+
+    private suspend fun extractArchiveBlocks(docId: String, uri: Uri, mimeType: String): List<String> {
+        val input = applicationContext.contentResolver.openInputStream(uri)
+            ?: throw java.io.FileNotFoundException(uri.toString())
+        val blocks = input.use {
+            if (mimeType == ArchiveText.DOCX_MIME) ArchiveText.docxParagraphs(it) else ArchiveText.epubChapters(it)
+        }
+        ragDao.updateProgress(docId, 1, 1)
+        return blocks.map(DocumentChunker::normalize).filter { it.isNotBlank() }
     }
 
     private suspend fun extractPlainTextBlocks(docId: String, uri: Uri): List<String> {

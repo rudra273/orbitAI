@@ -3,6 +3,8 @@ Labels: enhancement
 **Milestone:** M3 Power Features · **Priority:** P2 · **Size:** L · **Area:** Spaces
 **Depends on:** f034
 
+**Status:** 🚧 In progress (2026-10-04). Word (.docx) and e-book (.epub) files are now indexed in Spaces, with unit tests. Still to do: web page by URL, image/scanned-PDF OCR (needs a library decision), in-app notes.
+
 **Title:** Broaden what can be added to a Space
 
 **Description:**

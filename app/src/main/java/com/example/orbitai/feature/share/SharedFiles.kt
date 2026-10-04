@@ -17,7 +17,7 @@ import java.util.UUID
 data class SharedFile(val uri: Uri, val name: String, val mimeType: String) {
     val isImage: Boolean get() = isImageDocument(mimeType)
     /** PDFs and text files, which Spaces can index. */
-    val isDocument: Boolean get() = mimeType == "application/pdf" || isTextLikeDocument(mimeType)
+    val isDocument: Boolean get() = mimeType == "application/pdf" || isTextLikeDocument(mimeType) || com.example.orbitai.feature.spaces.ArchiveText.isArchiveDocument(mimeType)
 }
 
 data class SharedImport(val files: List<SharedFile>, val skipped: List<String>)
@@ -33,7 +33,8 @@ object SharedFileNames {
     }
 
     fun isSupported(mimeType: String): Boolean =
-        isImageDocument(mimeType) || mimeType == "application/pdf" || isTextLikeDocument(mimeType)
+        isImageDocument(mimeType) || mimeType == "application/pdf" || isTextLikeDocument(mimeType) ||
+            com.example.orbitai.feature.spaces.ArchiveText.isArchiveDocument(mimeType)
 }
 
 /**

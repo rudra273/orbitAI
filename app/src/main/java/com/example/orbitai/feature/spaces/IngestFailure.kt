@@ -10,7 +10,7 @@ object IngestFailure {
 
     const val SCANNED_PDF = "No selectable text (scanned PDF). Orbit can't read text inside images yet."
     const val EMPTY_FILE = "The file has no text to index."
-    const val UNSUPPORTED = "This file type can't be indexed. Use PDF or a text file."
+    const val UNSUPPORTED = "This file type can't be indexed. Use PDF, Word (.docx), e-book (.epub) or a text file."
 
     fun reasonFor(error: Throwable): String = when {
         error is IngestException -> error.message.orEmpty()
