@@ -14,6 +14,8 @@ Labels: enhancement, good first issue
 - Token count from the engine where available; fall back to a chars/4 estimate labelled "≈"
 
 **Acceptance Criteria:**
-- [ ] Stats stored with the message (nullable columns + migration) or shown only for the current session (decide in PR)
-- [ ] Backend label comes from the same `LlmRepository.activeBackendLabel()` introduced for #42
-- [ ] Hidden by default; no layout change when off
+- [x] Stats stored with the message (nullable columns + migration) or shown only for the current session (decide in PR)
+- [x] Backend label comes from the same `LlmRepository.activeBackendLabel()` introduced for #42
+- [x] Hidden by default; no layout change when off
+
+**Status:** 🟡 Done, device check pending (2026-10-04). Settings > Chat > Show generation details (off by default). Under new replies: time to first token, ≈tok/s (chars/4 estimate, marked ≈), backend from LlmRepository.activeBackendLabel() (Cloud for Gemini) and model. Decision: stats are kept for the current session only (no migration).

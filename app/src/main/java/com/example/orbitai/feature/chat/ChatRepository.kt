@@ -196,6 +196,17 @@ class ChatRepository(context: Context) {
         messageDao.updateMessageContentById(messageId, content)
     }
 
+    /** True unless the user renamed the chat. */
+    suspend fun canAutoTitle(chatId: String): Boolean = withContext(Dispatchers.IO) {
+        chatDao.getChatById(chatId)?.isTitleLocked == false
+    }
+
+    /** Sets a generated title unless the user has renamed the chat. */
+    suspend fun setGeneratedTitle(chatId: String, title: String) = withContext(Dispatchers.IO) {
+        val chat = chatDao.getChatById(chatId) ?: return@withContext
+        if (!chat.isTitleLocked) chatDao.updateTitle(chatId, title)
+    }
+
     /** Renames a chat; later automatic titles won't replace the name. */
     suspend fun renameChat(chatId: String, title: String) = withContext(Dispatchers.IO) {
         val trimmed = title.trim()

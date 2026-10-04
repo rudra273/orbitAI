@@ -114,6 +114,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val activeModeId: StateFlow<String> = generation.activeModeId
     val availableModels: StateFlow<List<LlmModel>> = generation.availableModels
     val cloudSendRequest: StateFlow<CloudSendRequest?> = generation.cloudSendRequest
+    val generationStats: StateFlow<Map<String, com.example.orbitai.feature.chat.GenerationStats>> = generation.generationStats
 
     fun toggleSpace(id: String) = generation.toggleSpace(id)
     fun selectMode(id: String) = generation.selectMode(id)

@@ -14,6 +14,8 @@ Labels: enhancement, good first issue
 - Never overwrite a user-renamed title (f025)
 
 **Acceptance Criteria:**
-- [ ] Title generation doesn't delay or block the next user message
-- [ ] Output sanitised (no quotes, no trailing punctuation, ≤ 48 chars)
-- [ ] Unit test for the sanitiser
+- [x] Title generation doesn't delay or block the next user message
+- [x] Output sanitised (no quotes, no trailing punctuation, ≤ 48 chars)
+- [x] Unit test for the sanitiser
+
+**Status:** 🟡 Done, device check pending (2026-10-04). After a chat's first reply the loaded local model writes a 3-6 word title (16 tokens max, 20 s timeout) in its own job that any new message cancels; never on Gemini or temporary chats, never over a renamed chat (f025). ChatTitles.sanitize strips labels, quotes, markdown and trailing punctuation and caps at 48 chars (tested). Settings > Chat > Smart titles.

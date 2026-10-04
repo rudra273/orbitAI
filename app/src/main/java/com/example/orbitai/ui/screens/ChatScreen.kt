@@ -250,6 +250,28 @@ fun ChatScreen(
         scope.launch { attachFile(uri) }
     }
 
+    // Camera and photo picker for vision models. The camera writes to an app-private file, so no permission is needed.
+    var pendingPhotoUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val uri = pendingPhotoUri?.let(Uri::parse)
+        pendingPhotoUri = null
+        if (saved && uri != null) scope.launch { attachFile(uri) }
+    }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { attachFile(uri) }
+    }
+    fun launchCamera() {
+        val file = java.io.File(context.filesDir, "shared/camera/${java.util.UUID.randomUUID()}.jpg").apply { parentFile?.mkdirs() }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        pendingPhotoUri = uri.toString()
+        try {
+            takePicture.launch(uri)
+        } catch (_: android.content.ActivityNotFoundException) {
+            pendingPhotoUri = null
+            attachmentError = "No camera app found on this phone."
+        }
+    }
+
     // Files shared to Orbit from another app: pick a model that can read them, then attach.
     LaunchedEffect(initialAttachments, availableModels.isNotEmpty()) {
         if (initialAttachments.isEmpty() || availableModels.isEmpty()) return@LaunchedEffect
@@ -281,6 +303,8 @@ fun ChatScreen(
     val speaker = remember { com.example.orbitai.feature.voice.ReplySpeaker(context, voiceSettings) }
     DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
     val speakingId by speaker.speakingId.collectAsState()
+    val showGenerationDetails = remember { com.example.orbitai.feature.chat.ChatSettingsStore(context).showGenerationDetails }
+    val generationStats by viewModel.generationStats.collectAsState()
     var voiceMode by rememberSaveable { mutableStateOf(false) }
     // Auto-read: speak replies that stream in while this chat is open.
     val autoReadStreams = remember { mutableMapOf<String, com.example.orbitai.feature.voice.SpeechText.Stream>() }
@@ -425,6 +449,12 @@ fun ChatScreen(
                             attachmentInfo = null
                             documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
                         },
+                        visionAvailable = selectedModel?.supportsVision == true,
+                        onTakePhoto = { attachmentError = null; launchCamera() },
+                        onPickPhoto = {
+                            attachmentError = null
+                            pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
                         onClearAttachment = {
                             pendingAttachment = null
                             attachmentInfo = null
@@ -485,6 +515,7 @@ fun ChatScreen(
                                 onEditAndResend = { text -> viewModel.editAndResend(chatId, msg.id, text) },
                                 onDelete = { viewModel.deleteMessage(msg.id) },
                                 isSpeaking = speakingId == msg.id,
+                                details = if (showGenerationDetails) generationStats[msg.id]?.label() else null,
                                 onReadAloud = {
                                     if (speakingId == msg.id) speaker.stop() else speaker.speakMessage(msg.id, msg.content)
                                 },
@@ -949,6 +980,8 @@ private fun MessageBubble(
     onDelete: () -> Unit,
     isSpeaking: Boolean = false,
     onReadAloud: () -> Unit = {},
+    /** Optional generation stats line (Settings > Chat > Show generation details). */
+    details: String? = null,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -1163,6 +1196,9 @@ private fun MessageBubble(
                         }
                     }
                 }
+                details?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = TextMuted, modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
     }
@@ -1290,6 +1326,9 @@ private fun ChatInputBar(
     pendingAttachment: PendingAttachment?,
     selectedImageUris: List<Uri>,
     onPickAttachment: () -> Unit,
+    visionAvailable: Boolean,
+    onTakePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
     onClearAttachment: () -> Unit,
     onClearImage: (Uri) -> Unit,
 ) {
@@ -1410,7 +1449,8 @@ private fun ChatInputBar(
                     .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Attach icon
+                // Attach icon: Camera / Photos / Files for vision models, otherwise straight to Files.
+                var attachMenu by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -1418,10 +1458,15 @@ private fun ChatInputBar(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication        = null,
-                            onClick           = onPickAttachment,
+                            onClick           = { if (visionAvailable) attachMenu = true else onPickAttachment() },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
+                    DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
+                        DropdownMenuItem(text = { Text("Camera") }, onClick = { attachMenu = false; onTakePhoto() })
+                        DropdownMenuItem(text = { Text("Photos") }, onClick = { attachMenu = false; onPickPhoto() })
+                        DropdownMenuItem(text = { Text("Files") }, onClick = { attachMenu = false; onPickAttachment() })
+                    }
                     Icon(
                         Icons.Default.AttachFile,
                         contentDescription = "Attach file",

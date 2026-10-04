@@ -27,6 +27,8 @@ import com.example.orbitai.feature.automation.prompt.EmailDraftPromptBuilder
 import com.example.orbitai.feature.automation.prompt.ReminderPromptBuilder
 import com.example.orbitai.feature.automation.prompt.WhatsAppDraftPromptBuilder
 import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.ChatTitles
+import com.example.orbitai.feature.chat.GenerationStats
 import com.example.orbitai.feature.chat.Message
 import com.example.orbitai.feature.chat.Role
 import com.example.orbitai.feature.memory.MemorySuggester
@@ -91,6 +93,13 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     val cloudSendRequest: StateFlow<CloudSendRequest?> = _cloudSendRequest.asStateFlow()
     private var engineCloseJob: Job? = null
     private var generationJob: Job? = null
+    /** Background title generation after a chat's first reply; cancelled by any new run. */
+    private var titleJob: Job? = null
+    private val chatSettings = com.example.orbitai.feature.chat.ChatSettingsStore(ctx.app)
+
+    private val _generationStats = MutableStateFlow<Map<String, GenerationStats>>(emptyMap())
+    /** Stats of replies generated in this session, by message id. */
+    val generationStats: StateFlow<Map<String, GenerationStats>> = _generationStats.asStateFlow()
     private var activeGenerationToken: Long = 0L
 
     init {
@@ -116,6 +125,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     fun isGenerationTokenActive(token: Long): Boolean = activeGenerationToken == token
 
     fun stopGeneration() {
+        titleJob?.cancel()
         beginNewGenerationToken()
         val stoppedGeneration = generationJob
         stoppedGeneration?.cancel()
@@ -148,6 +158,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
      * Returns the new generation token.
      */
     fun launchExclusive(block: suspend CoroutineScope.(token: Long) -> Unit): Long {
+        val previousTitle = titleJob
         stopGeneration()
         val closingEngine = engineCloseJob
         val token = beginNewGenerationToken()
@@ -155,6 +166,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
             llmRepo.beginUse()
             try {
                 closingEngine?.join()
+                previousTitle?.join()
                 block(token)
             } finally {
                 llmRepo.endUse()
@@ -309,6 +321,8 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         }
         val previousGeneration = generationJob
         previousGeneration?.cancel()
+        val previousTitle = titleJob
+        previousTitle?.cancel()
         val closingEngine = engineCloseJob
         val activeModeId = _activeModeId.value
         val activeSpaceIds = _activeSpaceIds.value.toList()
@@ -323,6 +337,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
             try {
                 closingEngine?.join()
                 awaitStopped(previousGeneration)
+                previousTitle?.join()
                 _uiState.update { it.copy(loadError = null, infoMessage = null) }
 
                 if (chat.modelId != model.id) {
@@ -430,8 +445,13 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 for (uri in imageUris) {
                     try {
                         val source = ImageDecoder.createSource(ctx.app.contentResolver, uri)
-                        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE // Models often require software bitmaps
+                            // Camera photos are 12+ MP; models only use a small input, so downscale to save memory.
+                            val scale = MAX_IMAGE_SIDE.toFloat() / maxOf(info.size.width, info.size.height)
+                            if (scale < 1f) {
+                                decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1), (info.size.height * scale).toInt().coerceAtLeast(1))
+                            }
                         }
                         bitmaps.add(bitmap)
                     } catch (e: Exception) {
@@ -455,11 +475,14 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                 var accumulated = ""
                 var wasCancelled = false
                 var toolAction: ChatToolAction? = null
+                val streamStartedAt = System.currentTimeMillis()
+                var firstTokenAt: Long? = null
                 try {
                     val onToken: suspend (String) -> Unit = { token ->
                         if (!isGenerationTokenActive(generationToken)) {
                             throw CancellationException("Stale generation request")
                         }
+                        if (firstTokenAt == null) firstTokenAt = System.currentTimeMillis()
                         accumulated += token
                         chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = true)
                     }
@@ -487,6 +510,19 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     bitmaps.forEach { if (!it.isRecycled) it.recycle() }
 
                     if (isActiveRequest && !wasCancelled && !accumulated.startsWith("Error:")) {
+                        val finishedAt = System.currentTimeMillis()
+                        _generationStats.update {
+                            it + (assistantMsg.id to GenerationStats(
+                                firstTokenMs = firstTokenAt?.let { first -> first - streamStartedAt },
+                                streamingMs = firstTokenAt?.let { first -> finishedAt - first } ?: 0,
+                                approxTokens = GenerationStats.estimateTokens(accumulated),
+                                backend = if (model.provider == ModelProvider.GEMINI) "Cloud" else llmRepo.activeBackendLabel(),
+                                modelName = model.displayName,
+                            ))
+                        }
+                        if (toolRequest == null && toolAction == null) {
+                            maybeGenerateTitle(chatId, model, settings, accumulated)
+                        }
                         val action = toolAction
                         if (action != null) automation.handleToolAction(chatId, assistantMsg.id, action)
                         else automation.handleDraftResult(chatId, toolRequest, accumulated)
@@ -543,6 +579,45 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         }
     }
 
+    /**
+     * After a chat's first reply, asks the local model for a 3–6 word title. Runs as its own job
+     * so a new message cancels it; the first-message title stays if it fails or is cancelled.
+     */
+    private fun maybeGenerateTitle(
+        chatId: String,
+        model: LlmModel,
+        settings: com.example.orbitai.core.common.InferenceSettings,
+        reply: String,
+    ) {
+        if (!chatSettings.smartTitles || model.provider == ModelProvider.GEMINI) return
+        if (com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId) || reply.isBlank()) return
+        titleJob = viewModelScope.launch(Dispatchers.IO) {
+            llmRepo.beginUse()
+            try {
+                val chat = chatRepo.getChat(chatId) ?: return@launch
+                val userMessages = chat.messages.filter { it.role == Role.USER }
+                if (userMessages.size != 1 || !chatRepo.canAutoTitle(chatId)) return@launch
+                if (!llmRepo.isModelLoaded(model.id, settings)) return@launch
+                val instruction = ChatTitles.prompt(userMessages.single().content, reply)
+                val input = InferenceInput(
+                    prompt = ModelPromptBuilder.wrapInstructionPrompt(model.promptStyle, instruction),
+                    structured = ModelPromptBuilder.structuredInstruction(instruction),
+                )
+                val raw = StringBuilder()
+                kotlinx.coroutines.withTimeoutOrNull(TITLE_TIMEOUT_MS) {
+                    llmRepo.generateResponseStream(input, TITLE_MAX_TOKENS).collect { raw.append(it) }
+                }
+                ChatTitles.sanitize(raw.toString())?.let { chatRepo.setGeneratedTitle(chatId, it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("ChatGeneration", "Title generation failed", e)
+            } finally {
+                llmRepo.endUse()
+            }
+        }
+    }
+
     private suspend fun suggestMemory(chatId: String, messageId: String, text: String, memoryEnabled: Boolean) {
         // An unanswered suggestion goes away once the user moves on.
         _uiState.update { it.copy(memorySuggestion = null) }
@@ -583,5 +658,8 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     private companion object {
         const val MAX_GENERATION_MS = 5 * 60_000L
         const val STOP_GRACE_MS = 10_000L
+        const val MAX_IMAGE_SIDE = 1024
+        const val TITLE_MAX_TOKENS = 16
+        const val TITLE_TIMEOUT_MS = 20_000L
     }
 }

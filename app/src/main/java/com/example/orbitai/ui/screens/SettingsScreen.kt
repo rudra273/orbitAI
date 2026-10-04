@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
@@ -152,6 +153,11 @@ fun SettingsScreen(
                 description = "Reusable prompts for the / menu",
             ),
             SettingsRow(
+                icon = Icons.Default.Forum,
+                title = "Chat",
+                description = "Smart titles and generation details",
+            ),
+            SettingsRow(
                 icon = Icons.Default.RecordVoiceOver,
                 title = "Voice",
                 description = "Read aloud, speech speed and voice",
@@ -247,6 +253,11 @@ fun SettingsScreen(
                 HairlineDivider()
                 SettingsGroupRow(
                     row = aiRows[4],
+                    onClick = { onNavigate("settings/chat") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = aiRows[5],
                     onClick = { onNavigate("settings/voice") },
                 )
             }
