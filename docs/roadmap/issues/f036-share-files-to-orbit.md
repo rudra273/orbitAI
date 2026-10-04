@@ -14,6 +14,8 @@ Labels: enhancement
 - Text sharing keeps today's "Create reminder" / "Ask Orbit" options
 
 **Acceptance Criteria:**
-- [ ] Persistable URI permission taken when possible; otherwise the file is copied to app storage
+- [x] Persistable URI permission taken when possible; otherwise the file is copied to app storage
 - [ ] Sharing 5 PDFs to a Space ingests all of them
 - [ ] Works from Files, Gmail attachments and Google Photos
+
+**Status:** 🟡 Done, device check pending (2026-10-04). ShareReceiverActivity takes PDFs, images and text files (single or multiple): Ask Orbit opens a new chat with them attached and switches to a model that can read them; Add to Space picks or creates a Space and indexes the documents. Shared links are always copied to app storage (files/shared) because share grants are temporary. Device check pending: Files, Gmail, Google Photos, 5 PDFs to a Space.

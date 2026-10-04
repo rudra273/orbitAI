@@ -116,6 +116,8 @@ fun ChatScreen(
     onNavigateToSettings: () -> Unit = {},
     initialText: String = "",
     onInitialTextConsumed: () -> Unit = {},
+    initialAttachments: List<String> = emptyList(),
+    onInitialAttachmentsConsumed: () -> Unit = {},
 ) {
     val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
     val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
@@ -188,6 +190,43 @@ fun ChatScreen(
         )
     }
 
+    /**
+     * Attaches an image (vision input) or a document (its text goes into the prompt).
+     * With [combine], a document is added to the one already attached instead of replacing it.
+     */
+    suspend fun attachFile(uri: Uri, combine: Boolean = false) {
+        val mimeType = normalizeDocumentMimeType(context.contentResolver.getType(uri), "file")
+        if (isImageDocument(mimeType)) {
+            if (selectedImageUris.size >= 3) {
+                attachmentError = "You can only attach up to 3 images."
+            } else {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                    // Some document providers grant access only for the current session.
+                }
+                selectedImageUris = selectedImageUris + uri
+                attachmentError = null
+            }
+        } else {
+            val attachment = readAttachmentForPrompt(context, uri)
+            if (attachment == null) {
+                if (!combine) {
+                    pendingAttachment = null
+                    attachmentInfo = null
+                }
+                attachmentError = "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
+            } else {
+                val combined = pendingAttachment?.takeIf { combine }?.let {
+                    PendingAttachment("${it.name}, ${attachment.name}", it.promptText + "\n\n" + attachment.promptText)
+                } ?: attachment
+                pendingAttachment = combined
+                attachmentError = null
+                attachmentInfo = "${combined.name} attached"
+            }
+        }
+    }
+
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -201,35 +240,30 @@ fun ChatScreen(
             return@rememberLauncherForActivityResult
         }
 
-        scope.launch {
-            val mimeType = normalizeDocumentMimeType(
-                context.contentResolver.getType(uri),
-                "file"
-            )
-            if (isImageDocument(mimeType)) {
-                if (selectedImageUris.size >= 3) {
-                    attachmentError = "You can only attach up to 3 images."
-                } else {
-                    try {
-                        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    } catch (_: SecurityException) {
-                        // Some document providers grant access only for the current session.
-                    }
-                    selectedImageUris = selectedImageUris + uri
-                    attachmentError = null
-                }
+        scope.launch { attachFile(uri) }
+    }
+
+    // Files shared to Orbit from another app: pick a model that can read them, then attach.
+    LaunchedEffect(initialAttachments, availableModels.isNotEmpty()) {
+        if (initialAttachments.isEmpty() || availableModels.isEmpty()) return@LaunchedEffect
+        val uris = initialAttachments.map(Uri::parse)
+        onInitialAttachmentsConsumed()
+        val needsVision = uris.any { isImageDocument(normalizeDocumentMimeType(context.contentResolver.getType(it), "file")) }
+        fun fits(model: LlmModel) = model.supportsDocumentAttachments() && (!needsVision || model.supportsVision)
+        val current = selectedModel
+        val target = current?.takeIf(::fits) ?: availableModels.firstOrNull(::fits)
+        if (target == null) {
+            attachmentError = if (needsVision) {
+                "Shared images need a model that can see images. Download one in Settings > Models."
             } else {
-                val attachment = readAttachmentForPrompt(context, uri)
-                if (attachment == null) {
-                    pendingAttachment = null
-                    attachmentInfo = null
-                    attachmentError = "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
-                } else {
-                    pendingAttachment = attachment
-                    attachmentError = null
-                    attachmentInfo = "${attachment.name} attached"
-                }
+                "Shared files need Gemma 3 or Gemini. Download one in Settings > Models."
             }
+            return@LaunchedEffect
+        }
+        if (target.id != current?.id) viewModel.selectModel(chatId, target)
+        uris.forEach { attachFile(it, combine = true) }
+        if (target.id != current?.id && attachmentError == null) {
+            attachmentInfo = listOfNotNull(attachmentInfo, "Using ${target.displayName} to read it").joinToString(" · ")
         }
     }
 

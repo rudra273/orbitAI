@@ -23,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -43,6 +44,9 @@ class SpaceRepository(private val context: Context) {
     fun observeDocumentsInSpace(spaceId: String): Flow<List<RagDocument>> =
         spaceDao.observeDocumentsInSpace(spaceId)
             .map { list -> list.map { it.toDomain() } }
+
+    /** Spaces read straight from the database (for screens that open before [spaces] has loaded). */
+    suspend fun currentSpaces(): List<Space> = spaceDao.observeSpaces().first().map { it.toDomain() }
 
     suspend fun createSpace(name: String): Space {
         val entity = SpaceEntity(

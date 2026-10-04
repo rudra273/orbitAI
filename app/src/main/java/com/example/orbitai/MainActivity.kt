@@ -37,6 +37,8 @@ data class OverlayPromptRequest(
     val prompt: String,
     val id: Long = System.currentTimeMillis(),
     val autoSend: Boolean = true,
+    /** Files shared to Orbit, attached to the new chat's input. */
+    val attachments: List<String> = emptyList(),
 )
 
 class MainActivity : ComponentActivity() {
@@ -140,19 +142,22 @@ class MainActivity : ComponentActivity() {
     private fun handleOverlayIntent(intent: Intent?) {
         val sharedText = intent?.getStringExtra(EXTRA_SHARED_TEXT)?.trim().orEmpty()
         val transcript = intent?.getStringExtra(EXTRA_OVERLAY_TRANSCRIPT)?.trim().orEmpty()
+        val sharedFiles = intent?.getStringArrayListExtra(EXTRA_SHARED_FILES).orEmpty()
         val prompt = sharedText.ifBlank { transcript }
-        if (prompt.isBlank()) return
+        if (prompt.isBlank() && sharedFiles.isEmpty()) return
 
-        val autoSend = sharedText.isBlank()
+        val autoSend = sharedText.isBlank() && sharedFiles.isEmpty()
         lifecycleScope.launch {
             pendingOverlayPrompt = OverlayPromptRequest(
                 chatId = chatViewModel.createNewChat(),
                 prompt = prompt,
                 autoSend = autoSend,
+                attachments = sharedFiles,
             )
         }
         intent?.removeExtra(EXTRA_OVERLAY_TRANSCRIPT)
         intent?.removeExtra(EXTRA_SHARED_TEXT)
+        intent?.removeExtra(EXTRA_SHARED_FILES)
     }
 
     private fun syncBubbleService() {
@@ -173,5 +178,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_SHARED_TEXT = "shared_text_draft"
         const val EXTRA_OVERLAY_TRANSCRIPT = "overlay_transcript"
+        const val EXTRA_SHARED_FILES = "shared_files"
     }
 }

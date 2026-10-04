@@ -137,6 +137,7 @@ fun OrbitNavGraph(
 ) {
     var sharedDraftText by rememberSaveable { mutableStateOf("") }
     var sharedDraftChatId by rememberSaveable { mutableStateOf("") }
+    var sharedDraftFiles by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val context = LocalContext.current
     val onboardingStore = remember { OnboardingSettingsStore(context) }
     val bubbleSettingsStore = remember { BubbleSettingsStore(context) }
@@ -201,6 +202,7 @@ fun OrbitNavGraph(
         } else {
             sharedDraftChatId = request.chatId
             sharedDraftText = request.prompt
+            sharedDraftFiles = request.attachments
         }
         onOverlayPromptConsumed()
     }
@@ -296,7 +298,9 @@ fun OrbitNavGraph(
                     chatId    = chatId,
                     viewModel = chatViewModel,
                     initialText = sharedDraftText.takeIf { sharedDraftChatId == chatId }.orEmpty(),
-                    onInitialTextConsumed = { sharedDraftText = ""; sharedDraftChatId = "" },
+                    initialAttachments = sharedDraftFiles.takeIf { sharedDraftChatId == chatId }.orEmpty(),
+                    onInitialTextConsumed = { sharedDraftText = ""; if (sharedDraftFiles.isEmpty()) sharedDraftChatId = "" },
+                    onInitialAttachmentsConsumed = { sharedDraftFiles = emptyList(); if (sharedDraftText.isEmpty()) sharedDraftChatId = "" },
                     onNavigateToSettings = { navController.navigate(Screen.SettingsModel.route) },
                     onBack    = {
                         navController.navigate(Screen.Chat.route) {
