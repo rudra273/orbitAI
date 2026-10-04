@@ -2,7 +2,7 @@
 Labels: enhancement
 **Milestone:** M3 Power Features · **Priority:** P2 · **Size:** M · **Area:** Models
 
-**Status:** 🚧 In progress (2026-10-04). Registry (CustomModels), importer (storage check, copy, test load, cleanup) and lookups in chat, bubble and modes are done; the Settings > Models import screen is not built yet.
+**Status:** 🟡 Done, device check pending (2026-10-04). Registry, importer (storage check, copy, test load, cleanup) and the Settings > Models "Import model file" screen (name, prompt style, context size, vision, progress, error, delete, Custom tag).
 
 **Title:** Let power users add their own `.litertlm` / `.task` model from device storage
 

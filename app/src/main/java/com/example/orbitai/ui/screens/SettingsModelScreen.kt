@@ -524,6 +524,8 @@ fun ModelSettingsScreen(
             }
         }
 
+        item { CustomModelSection() }
+
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
