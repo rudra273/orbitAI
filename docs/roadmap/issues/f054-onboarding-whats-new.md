@@ -3,6 +3,8 @@ Labels: enhancement
 **Milestone:** M4 Hardening & Beta · **Priority:** P2 · **Size:** M · **Area:** Onboarding
 **Depends on:** f017, f018
 
+**Status:** 🚧 In progress (2026-10-04). Done: a "What's new in Orbit 2.0" dialog shown once to people who already finished the welcome (new installs skip it), re-openable from Settings > About. Still to do: the onboarding steps (device-aware model pick with background download, Gemini option, tour cards).
+
 **Title:** Get new users to a working model in under a minute, and show upgraders what changed
 
 **Description:**

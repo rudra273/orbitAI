@@ -151,6 +151,20 @@ fun OrbitNavGraph(
     val bubbleSettingsStore = remember { BubbleSettingsStore(context) }
     var hasCompletedWelcome by rememberSaveable { mutableStateOf(onboardingStore.hasCompletedWelcome) }
     var shouldAutoOpenInitialChat by rememberSaveable { mutableStateOf(onboardingStore.hasCompletedWelcome) }
+    // People who already finished the welcome see what changed once; new installs start up to date.
+    var showWhatsNew by rememberSaveable {
+        mutableStateOf(
+            (onboardingStore.hasCompletedWelcome && onboardingStore.lastSeenWhatsNew < com.example.orbitai.feature.update.WhatsNew.VERSION).also {
+                if (!onboardingStore.hasCompletedWelcome) onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.VERSION
+            },
+        )
+    }
+    if (showWhatsNew) {
+        com.example.orbitai.feature.update.WhatsNewDialog {
+            onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.VERSION
+            showWhatsNew = false
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES

@@ -1,6 +1,7 @@
 package com.example.orbitai.core.common
 
 import android.content.Context
+import androidx.core.content.edit
 
 class OnboardingSettingsStore(context: Context) {
     private val prefs = context.getSharedPreferences("orbitai_onboarding_prefs", Context.MODE_PRIVATE)
@@ -15,5 +16,12 @@ class OnboardingSettingsStore(context: Context) {
         get() = prefs.getString("user_name", "") ?: ""
         set(value) {
             prefs.edit().putString("user_name", value.trim()).apply()
+        }
+
+    /** The "What's new" version the user has seen; new installs start at the current one. */
+    var lastSeenWhatsNew: Int
+        get() = prefs.getInt("last_seen_whats_new", 0)
+        set(value) {
+            prefs.edit { putInt("last_seen_whats_new", value) }
         }
 }

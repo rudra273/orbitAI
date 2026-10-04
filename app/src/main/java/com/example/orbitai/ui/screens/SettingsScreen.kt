@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Gavel
@@ -41,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +92,8 @@ fun SettingsScreen(
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
+    var showWhatsNew by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    if (showWhatsNew) com.example.orbitai.feature.update.WhatsNewDialog { showWhatsNew = false }
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
     val context = LocalContext.current
     val updateState by appUpdateViewModel.uiState.collectAsState()
@@ -323,6 +327,15 @@ fun SettingsScreen(
                 )
                 HairlineDivider()
                 SettingsGroupRow(row = aboutRows[1], onClick = aboutRows[1].onClick)
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.NewReleases,
+                        title = "What's new in Orbit ${com.example.orbitai.feature.update.WhatsNew.VERSION}.0",
+                        description = "See the headline features",
+                    ),
+                    onClick = { showWhatsNew = true },
+                )
             }
         }
 
