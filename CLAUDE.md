@@ -85,7 +85,7 @@ Single Room DB `orbitai.db` (`AppDatabase`, version in `AppDatabase.VERSION`, cu
 
 ### RAG & Spaces (`feature/spaces`)
 
-"Spaces" are user knowledge bases. Documents (PDF via PDFBox, text) are indexed by `DocumentIngestWorker` (WorkManager, one unique job per document, re-queued on app start, waits while a model run is active; failures store a user-facing `errorMessage`): chunked, embedded with the on-device `EmbeddingModel` (Universal Sentence Encoder `.tflite`), and stored as BLOBs in `rag_chunks`. `SpaceRepository.searchChunksInSpaces()` does cosine-similarity retrieval scoped to the active space ids, feeding the top-K chunks into the chat prompt.
+"Spaces" are user knowledge bases. Documents (PDF via PDFBox, text) are indexed by `DocumentIngestWorker` (WorkManager, one unique job per document, re-queued on app start, waits while a model run is active; failures store a user-facing `errorMessage`): chunked, embedded with the on-device `EmbeddingModel` (Universal Sentence Encoder `.tflite`), and stored as BLOBs in `rag_chunks`. `SpaceRepository.searchChunksInSpaces()` uses an in-memory `RetrievalIndex` (BM25 + cosine merged by reciprocal-rank fusion, deduped, with a relevance cutoff) over the active space ids, cached until documents change; the embedder is shared (`SharedEmbedder`), feeding the top-K chunks into the chat prompt.
 
 ### Settings stores (`core/common`)
 

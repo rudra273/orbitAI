@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.example.orbitai.core.database.AppDatabase
-import com.example.orbitai.core.database.RagChunkEntity
 import com.example.orbitai.core.database.RagDocument
 import com.example.orbitai.core.database.RagDocumentEntity
 import com.example.orbitai.core.database.RagStatus
@@ -23,6 +22,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -58,6 +59,7 @@ class SpaceRepository(private val context: Context) {
         // Delete all documents in the space first (chunks cascade via FK on rag_chunks.docId)
         spaceDao.deleteDocumentsBySpaceId(id)
         spaceDao.deleteSpace(id)
+        invalidateIndex()
     }
 
     suspend fun renameSpace(id: String, name: String) {
@@ -120,72 +122,48 @@ class SpaceRepository(private val context: Context) {
     suspend fun deleteDocument(id: String) = withContext(Dispatchers.IO) {
         DocumentIngestWorker.cancel(context, id)
         ragDao.deleteDocument(id)
+        invalidateIndex()
+    }
+
+    private val embedder = SharedEmbedder(context)
+    private val indexLock = Mutex()
+    @Volatile private var cachedIndex: Pair<Set<String>, RetrievalIndex>? = null
+
+    /** Embeds text with the shared embedding model; null when the model isn't downloaded. */
+    fun embed(text: String): FloatArray? = embedder.embed(text)
+
+    /** Drops the retrieval index so the next search rebuilds it (after documents change). */
+    fun invalidateIndex() {
+        cachedIndex = null
+    }
+
+    /** Frees the embedding model and the retrieval index; both are rebuilt on next use. */
+    fun releaseMemory() {
+        cachedIndex = null
+        embedder.release()
     }
 
     /**
-     * Search chunks across all specified spaces.
-     * Uses semantic (cosine) search if the embedding model is available,
-     * otherwise falls back to keyword search.
+     * Finds the chunks in [spaceIds] most relevant to [query], combining keyword (BM25) and
+     * semantic ranking. Returns nothing when no chunk is relevant (e.g. small talk).
      */
     suspend fun searchChunksInSpaces(
         query: String,
         spaceIds: List<String>,
         limit: Int = 5,
-    ): List<RagChunkEntity> = withContext(Dispatchers.IO) {
-        if (spaceIds.isEmpty()) return@withContext emptyList()
-
-        val embedder = EmbeddingModel.create(context)
-        if (embedder != null) {
-            val queryVec = embedder.embed(query)
-            embedder.close()
-            if (queryVec != null) {
-                val allChunks = spaceDao.getAllChunksWithEmbeddingsForSpaces(spaceIds)
-                if (allChunks.isNotEmpty()) {
-                    return@withContext allChunks
-                        .mapNotNull { chunk ->
-                            val cv = chunk.embedding?.toFloatArray() ?: return@mapNotNull null
-                            Pair(chunk, cosineSimilarity(queryVec, cv))
-                        }
-                        .sortedByDescending { it.second }
-                        .take(limit)
-                        .map { it.first }
-                }
-            }
-        }
-
-        keywordSearchInSpaces(query, spaceIds, limit)
+    ): List<IndexChunk> = withContext(Dispatchers.IO) {
+        if (spaceIds.isEmpty() || query.isBlank()) return@withContext emptyList()
+        val index = indexFor(spaceIds.toSet())
+        if (index.size == 0) return@withContext emptyList()
+        index.search(query, embedder.embed(query), limit)
     }
 
-    private val stopWords = setOf(
-        "a","an","the","is","are","was","were","be","been","being",
-        "have","has","had","do","does","did","will","would","shall","should",
-        "may","might","must","can","could","i","me","my","mine","we","our",
-        "you","your","he","him","his","she","her","it","its","they","them",
-        "their","this","that","these","those","what","which","who","whom",
-        "how","when","where","why","of","in","to","for","with","on","at",
-        "from","by","about","as","into","through","during","before","after",
-        "and","but","or","nor","not","so","if","then","than","too","very",
-        "just","also","tell","give","show","get","find","know","let","make",
-    )
-
-    private suspend fun keywordSearchInSpaces(
-        query: String,
-        spaceIds: List<String>,
-        limit: Int,
-    ): List<RagChunkEntity> {
-        val keywords = query.lowercase()
-            .split(Regex("[^a-zA-Z0-9]+"))
-            .filter { it.length > 1 && it !in stopWords }
-        if (keywords.isEmpty()) return emptyList()
-
-        val hitMap = mutableMapOf<String, Pair<RagChunkEntity, Int>>()
-        for (kw in keywords) {
-            val hits = spaceDao.searchChunksInSpaces(spaceIds, kw, 20) +
-                       spaceDao.searchChunksByDocNameInSpaces(spaceIds, kw, 20)
-            for (chunk in hits) {
-                hitMap[chunk.id] = Pair(chunk, (hitMap[chunk.id]?.second ?: 0) + 1)
-            }
-        }
-        return hitMap.values.sortedByDescending { it.second }.take(limit).map { it.first }
+    private suspend fun indexFor(spaceIds: Set<String>): RetrievalIndex = indexLock.withLock {
+        cachedIndex?.takeIf { it.first == spaceIds }?.second
+            ?: RetrievalIndex(
+                spaceDao.getChunksForSpaces(spaceIds.toList()).map {
+                    IndexChunk(it.id, it.docId, it.docName, it.chunkIndex, it.content, it.embedding?.toFloatArray())
+                },
+            ).also { cachedIndex = spaceIds to it }
     }
 }

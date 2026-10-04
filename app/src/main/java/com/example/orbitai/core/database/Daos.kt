@@ -197,30 +197,20 @@ interface SpaceDao {
     @Query("DELETE FROM rag_documents WHERE spaceId = :spaceId")
     suspend fun deleteDocumentsBySpaceId(spaceId: String)
 
-    /** All embedded chunks whose parent document belongs to one of the given spaces. */
+    /** Every chunk in the given spaces with its document name, for the in-memory retrieval index. */
     @Query("""
-        SELECT c.* FROM rag_chunks c
+        SELECT c.id, c.docId, c.chunkIndex, c.content, c.embedding, d.name AS docName FROM rag_chunks c
         INNER JOIN rag_documents d ON c.docId = d.id
-        WHERE d.spaceId IN (:spaceIds) AND c.embedding IS NOT NULL
+        WHERE d.spaceId IN (:spaceIds)
     """)
-    suspend fun getAllChunksWithEmbeddingsForSpaces(spaceIds: List<String>): List<RagChunkEntity>
-
-    /** Keyword search in chunks across the given spaces. */
-    @Query("""
-        SELECT c.* FROM rag_chunks c
-        INNER JOIN rag_documents d ON c.docId = d.id
-        WHERE d.spaceId IN (:spaceIds) AND c.content LIKE '%' || :query || '%'
-        LIMIT :limit
-    """)
-    suspend fun searchChunksInSpaces(spaceIds: List<String>, query: String, limit: Int = 20): List<RagChunkEntity>
-
-    /** Keyword search by document name across the given spaces. */
-    @Query("""
-        SELECT c.* FROM rag_chunks c
-        INNER JOIN rag_documents d ON c.docId = d.id
-        WHERE d.spaceId IN (:spaceIds) AND d.name LIKE '%' || :query || '%'
-        ORDER BY c.chunkIndex ASC
-        LIMIT :limit
-    """)
-    suspend fun searchChunksByDocNameInSpaces(spaceIds: List<String>, query: String, limit: Int = 20): List<RagChunkEntity>
+    suspend fun getChunksForSpaces(spaceIds: List<String>): List<ChunkWithDocName>
 }
+
+data class ChunkWithDocName(
+    val id: String,
+    val docId: String,
+    val chunkIndex: Int,
+    val content: String,
+    val embedding: ByteArray?,
+    val docName: String,
+)

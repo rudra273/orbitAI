@@ -16,6 +16,8 @@ Labels: enhancement
 
 **Acceptance Criteria:**
 - [ ] Query latency over 5,000 chunks < 150 ms after warm-up (numbers in the PR)
-- [ ] Exact-term queries (names, IDs, error codes) find the right chunk even when semantic similarity is low
-- [ ] No prompt injection of irrelevant chunks for small-talk messages
-- [ ] Unit tests for rank fusion and dedupe
+- [x] Exact-term queries (names, IDs, error codes) find the right chunk even when semantic similarity is low
+- [x] No prompt injection of irrelevant chunks for small-talk messages
+- [x] Unit tests for rank fusion and dedupe
+
+**Status:** 🟡 Done, device check pending (2026-10-04). SharedEmbedder (one model, released on onTrimMemory) used by search and indexing; RetrievalIndex keeps the active Spaces' chunks in memory until documents change, ranks with BM25 (in memory instead of SQLite FTS, so no migration) plus cosine, merges by reciprocal-rank fusion, drops near-duplicates and returns nothing below the relevance cutoff (cosine 0.3 or no keyword match). 5,000 chunks: 1.8 ms per query on the JVM; device timing pending.

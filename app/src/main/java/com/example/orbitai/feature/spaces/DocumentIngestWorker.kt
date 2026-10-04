@@ -35,12 +35,14 @@ class DocumentIngestWorker(
 
     private val ragDao = AppDatabase.getInstance(context).ragDocumentDao()
     private val llmRepository = context.appContainer.llmRepository
+    private val spaceRepository = context.appContainer.spaceRepository
 
     override suspend fun doWork(): Result {
         val docId = inputData.getString(KEY_DOC_ID) ?: return Result.failure()
         val doc = ragDao.getDocument(docId) ?: return Result.success() // Deleted meanwhile.
 
         ragDao.deleteChunks(docId)
+        spaceRepository.invalidateIndex()
         ragDao.updateResult(docId, RagStatus.PROCESSING.name, 0, null)
         ragDao.updateProgress(docId, 0, 0)
         return try {
@@ -48,24 +50,20 @@ class DocumentIngestWorker(
             val texts = DocumentChunker.chunk(blocks)
             if (texts.isEmpty()) throw IngestException(if (doc.mimeType == "application/pdf") IngestFailure.SCANNED_PDF else IngestFailure.EMPTY_FILE)
 
-            val embedder = EmbeddingModel.create(applicationContext)
-            val chunks = try {
-                texts.mapIndexed { index, text ->
-                    if (index % EMBED_BATCH == 0) waitWhileModelBusy()
-                    RagChunkEntity(
-                        id = UUID.randomUUID().toString(),
-                        docId = docId,
-                        chunkIndex = index,
-                        content = text,
-                        embedding = embedder?.embed(text)?.toByteArray(),
-                    )
-                }
-            } finally {
-                embedder?.close()
+            val chunks = texts.mapIndexed { index, text ->
+                if (index % EMBED_BATCH == 0) waitWhileModelBusy()
+                RagChunkEntity(
+                    id = UUID.randomUUID().toString(),
+                    docId = docId,
+                    chunkIndex = index,
+                    content = text,
+                    embedding = spaceRepository.embed(text)?.toByteArray(),
+                )
             }
             if (ragDao.getDocument(docId) == null) return Result.success()
             ragDao.insertChunks(chunks)
             ragDao.updateResult(docId, RagStatus.DONE.name, chunks.size, null)
+            spaceRepository.invalidateIndex()
             Result.success()
         } catch (e: CancellationException) {
             throw e

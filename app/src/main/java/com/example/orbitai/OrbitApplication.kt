@@ -31,7 +31,10 @@ class OrbitApplication : Application() {
         super.onTrimMemory(level)
         // The app is in the background list: free the model unless a chat or bubble run is using it.
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
-            container.appScope.launch { container.llmRepository.releaseIfIdle() }
+            container.appScope.launch {
+                container.llmRepository.releaseIfIdle()
+                container.spaceRepository.releaseMemory()
+            }
         }
     }
 }
