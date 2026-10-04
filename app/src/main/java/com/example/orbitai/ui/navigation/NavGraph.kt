@@ -97,6 +97,7 @@ sealed class Screen(val route: String) {
     data object SettingsVoice : Screen("settings/voice")
     data object SettingsChat : Screen("settings/chat")
     data object SettingsAppearance : Screen("settings/appearance")
+    data object SettingsBackup : Screen("settings/backup")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
@@ -362,6 +363,9 @@ fun OrbitNavGraph(
                     onChange = onAppearanceChanged,
                     onBack = { navController.popBackStack() },
                 )
+            }
+            composable(Screen.SettingsBackup.route) {
+                com.example.orbitai.ui.screens.BackupScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.SettingsChat.route) {
                 com.example.orbitai.ui.screens.ChatSettingsScreen(onBack = { navController.popBackStack() })

@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +49,7 @@ fun CustomModelSection() {
 
     var picked by remember { mutableStateOf<Uri?>(null) }
     var pickedName by remember { mutableStateOf("") }
-    var pickedSize by remember { mutableStateOf(-1L) }
+    var pickedSize by remember { mutableLongStateOf(-1L) }
     var name by remember { mutableStateOf("") }
     var style by remember { mutableStateOf(PromptStyle.GEMMA) }
     var vision by remember { mutableStateOf(false) }

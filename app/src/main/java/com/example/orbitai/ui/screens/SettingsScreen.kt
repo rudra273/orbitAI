@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Gavel
@@ -281,6 +282,15 @@ fun SettingsScreen(
                         description = "${appearance.mode.label} theme · chat text ${(appearance.chatTextScale * 100).toInt()}%",
                     ),
                     onClick = { onNavigate("settings/appearance") },
+                )
+                HairlineDivider()
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.Backup,
+                        title = "Backup & restore",
+                        description = "Encrypted file of your chats, memories and settings",
+                    ),
+                    onClick = { onNavigate("settings/backup") },
                 )
             }
         }
