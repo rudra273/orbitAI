@@ -280,6 +280,24 @@ fun SettingsScreen(
                     onClick = { onNavigate("settings/orbit_bubble") },
                 )
                 HairlineDivider()
+                val assistantContext = androidx.compose.ui.platform.LocalContext.current
+                SettingsGroupRow(
+                    row = SettingsRow(
+                        icon = Icons.Default.ChatBubble,
+                        title = "Assistant gesture",
+                        description = "Open Orbit with the power-button or corner swipe: choose Orbit as your default assistant",
+                    ),
+                    onClick = {
+                        val open = android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { assistantContext.startActivity(open) }.onFailure {
+                            assistantContext.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
+                )
+                HairlineDivider()
                 SettingsGroupRow(
                     row = SettingsRow(
                         icon = Icons.Default.NightsStay,

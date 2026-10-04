@@ -131,6 +131,24 @@
             </intent-filter>
         </service>
 
+        <!-- Digital assistant (f048): the system lists these under Default apps > Digital assistant app. -->
+        <service
+            android:name=".feature.assistant.OrbitInteractionService"
+            android:label="Orbit AI"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/orbit_voice_interaction" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".feature.assistant.OrbitSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+
         <service
             android:name=".feature.bubble.OrbitBubbleService"
             android:exported="false"
