@@ -124,6 +124,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleSpace(id: String) = generation.toggleSpace(id)
     fun selectMode(id: String) = generation.selectMode(id)
+    fun selectMode(chatId: String, id: String) = generation.selectMode(chatId, id)
     fun refreshAvailableModels() = generation.refreshAvailableModels()
     fun selectModel(chatId: String, model: LlmModel) = generation.selectModel(chatId, model)
     fun onCloudSendConsent(granted: Boolean) = generation.onCloudSendConsent(granted)

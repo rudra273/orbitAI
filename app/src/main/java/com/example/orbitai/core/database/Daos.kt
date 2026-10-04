@@ -203,6 +203,9 @@ interface ModeDao {
     @Query("DELETE FROM modes WHERE id = :id AND isDefault = 0")
     suspend fun deleteMode(id: String)
 
+    @Query("UPDATE modes SET defaultModelId = :modelId, defaultSpaceIds = :spaceIds, accentColor = :accentColor WHERE id = :id")
+    suspend fun updatePreset(id: String, modelId: String?, spaceIds: String?, accentColor: Int?)
+
     @Query("SELECT * FROM modes WHERE id = :id LIMIT 1")
     suspend fun getModeById(id: String): ModeEntity?
 }

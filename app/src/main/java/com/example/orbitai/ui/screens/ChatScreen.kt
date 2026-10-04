@@ -434,7 +434,7 @@ fun ChatScreen(
                     availableModels = availableModels,
                     onBack         = handleBack,
                     onModelSelected = { model -> viewModel.selectModel(chatId, model) },
-                    onSelectMode    = { viewModel.selectMode(it) },
+                    onSelectMode    = { viewModel.selectMode(chatId, it) },
                     onToggleSpace   = { viewModel.toggleSpace(it) },
                     onNavigateToSettings = onNavigateToSettings,
                     onExport = { showExport = true },
@@ -899,10 +899,11 @@ private fun ModeDropdownChip(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            val accent = activeMode.preset.accentColor?.let { Color(0xFF000000 or it.toLong()) }
             Icon(
                 Icons.Outlined.Layers,
                 contentDescription = null,
-                tint     = TextSecondary,
+                tint     = accent ?: TextSecondary,
                 modifier = Modifier.size(14.dp),
             )
             Text(

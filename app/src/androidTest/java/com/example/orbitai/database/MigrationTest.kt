@@ -118,6 +118,10 @@ class MigrationTest {
             assertEquals(1, matches("Answer"))
             db.execSQL("INSERT INTO messages (id, chatId, role, content, modeName, imageUrisCsv, timestampMs) VALUES ('msg2', 'chat', 'USER', 'Pineapple pizza', NULL, NULL, 3)")
             assertEquals(1, matches("pineapple"))
+            db.query("SELECT defaultModelId, defaultSpaceIds, accentColor FROM modes WHERE id = 'custom'").use {
+                it.moveToFirst()
+                assertTrue(it.isNull(0) && it.isNull(1) && it.isNull(2))
+            }
             // Sources attach to a reply and go away with it.
             db.execSQL("INSERT INTO message_sources (messageId, rank, chunkId, docId, docName, page, excerpt) VALUES ('msg', 1, 'chunk', 'doc', 'a.txt', NULL, 'Chunk text')")
             assertEquals(1, count("message_sources"))

@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -93,13 +95,20 @@ fun ModesScreen(viewModel: ModesViewModel) {
         label = "modes_nav",
     ) { dest ->
         when (dest) {
-            is ModesDestination.List -> ModeListScreen(
-                modes      = modes,
-                onEditMode = { destination = ModesDestination.Edit(it) },
-                onCreateNew = { destination = ModesDestination.Edit(null) },
-                inferenceForMode = { modeId -> viewModel.inferenceForMode(modeId) },
-            )
-            is ModesDestination.Edit -> ModeEditScreen(
+            is ModesDestination.List -> Column {
+                ModeLibraryBar(viewModel)
+                ModeListScreen(
+                    modes      = modes,
+                    onEditMode = { destination = ModesDestination.Edit(it) },
+                    onCreateNew = { destination = ModesDestination.Edit(null) },
+                    inferenceForMode = { modeId -> viewModel.inferenceForMode(modeId) },
+                )
+            }
+            is ModesDestination.Edit -> {
+              var preset by remember(dest.mode?.id) { mutableStateOf(dest.mode?.preset ?: com.example.orbitai.core.database.ModePreset()) }
+              val spaces by viewModel.spaces.collectAsState()
+              val context = androidx.compose.ui.platform.LocalContext.current
+              ModeEditScreen(
                 mode      = dest.mode,
                 defaultInference = viewModel.defaultInference(),
                 initialInference = if (dest.mode == null) {
@@ -110,17 +119,27 @@ fun ModesScreen(viewModel: ModesViewModel) {
                 onBack    = { destination = ModesDestination.List },
                 onSave    = { name, prompt, inference, isActive ->
                     if (dest.mode == null) {
-                        viewModel.createMode(name, prompt, inference, isActive)
+                        viewModel.createMode(name, prompt, inference, isActive, preset)
                     } else {
-                        viewModel.updateMode(dest.mode.id, name, prompt, inference, isActive)
+                        viewModel.updateMode(dest.mode.id, name, prompt, inference, isActive, preset)
                     }
                     destination = ModesDestination.List
                 },
+                presetEditor = {
+                    ModePresetEditor(
+                        preset = preset,
+                        models = remember { viewModel.availableModels() },
+                        spaces = spaces,
+                        onChange = { preset = it },
+                    )
+                },
+                onExport = dest.mode?.let { mode -> { shareMode(context, mode.name, viewModel.exportMode(mode)) } },
                 onDelete  = {
                     dest.mode?.let { viewModel.deleteMode(it.id) }
                     destination = ModesDestination.List
                 },
             )
+            }
         }
     }
 }
@@ -541,6 +560,8 @@ private fun ModeEditScreen(
     onBack:   () -> Unit,
     onSave:   (name: String, prompt: String, inference: InferenceSettings, isActive: Boolean) -> Unit,
     onDelete: () -> Unit,
+    presetEditor: @Composable () -> Unit = {},
+    onExport: (() -> Unit)? = null,
 ) {
     var name   by rememberSaveable(mode?.id) { mutableStateOf(mode?.name ?: "") }
     var prompt by rememberSaveable(mode?.id) { mutableStateOf(mode?.systemPrompt ?: "") }
@@ -794,6 +815,15 @@ private fun ModeEditScreen(
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.End,
                     )
+                }
+
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        presetEditor()
+                        onExport?.let { export ->
+                            androidx.compose.material3.TextButton(onClick = export) { Text("Share this mode") }
+                        }
+                    }
                 }
 
                 item {
@@ -1121,4 +1151,135 @@ private fun FlatActionButton(
             fontWeight = FontWeight.Medium,
         )
     }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MODES 2.0: TEMPLATES, IMPORT / EXPORT, PRESETS (f039)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** "Templates" and "Import" above the mode list. */
+@Composable
+private fun ModeLibraryBar(viewModel: ModesViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var showTemplates by remember { mutableStateOf(false) }
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        // Read a little past the limit so oversized files are reported, not truncated.
+                        String(input.readNBytes(com.example.orbitai.feature.modes.ModeJson.MAX_BYTES + 1))
+                    }
+                }.getOrNull()
+            }
+            val message = if (text == null) "Couldn't read that file." else viewModel.importMode(text).fold(
+                onSuccess = { "Added mode “$it”." },
+                onFailure = { it.message ?: "That file isn't a valid Orbit mode." },
+            )
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        androidx.compose.material3.OutlinedButton(onClick = { showTemplates = true }) { Text("Templates") }
+        androidx.compose.material3.OutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Import") }
+    }
+    if (showTemplates) {
+        AlertDialog(
+            onDismissRequest = { showTemplates = false },
+            title = { Text("Add a mode") },
+            text = {
+                Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    com.example.orbitai.feature.modes.ModeTemplates.all.forEach { template ->
+                        Column(
+                            Modifier.fillMaxWidth().clickable {
+                                viewModel.addTemplate(template)
+                                showTemplates = false
+                                android.widget.Toast.makeText(context, "Added ${template.name}. Edit it any time.", android.widget.Toast.LENGTH_SHORT).show()
+                            }.padding(vertical = 10.dp),
+                        ) {
+                            Text(template.name, style = MaterialTheme.typography.titleSmall)
+                            Text(template.systemPrompt, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showTemplates = false }) { Text("Close") } },
+        )
+    }
+}
+
+private val ModeAccentColors = listOf(null, 0x8B5CF6, 0x3B82F6, 0x06B6D4, 0x10B981, 0xF59E0B, 0xEF4444, 0xEC4899)
+
+/** Default model, default Spaces and chip colour for a mode. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ModePresetEditor(
+    preset: com.example.orbitai.core.database.ModePreset,
+    models: List<com.example.orbitai.core.model.LlmModel>,
+    spaces: List<com.example.orbitai.core.database.Space>,
+    onChange: (com.example.orbitai.core.database.ModePreset) -> Unit,
+) {
+    var modelMenu by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ModeFieldLabel("When this mode is selected")
+        Box {
+            val current = models.find { it.id == preset.defaultModelId }?.displayName
+                ?: preset.defaultModelId?.let { id -> com.example.orbitai.core.model.AVAILABLE_MODELS.find { it.id == id }?.displayName?.plus(" (not downloaded)") }
+                ?: "Keep the chat's model"
+            androidx.compose.material3.OutlinedButton(onClick = { modelMenu = true }) { Text("Model: $current", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            androidx.compose.material3.DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Keep the chat's model") }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = null)) })
+                models.forEach { model ->
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(model.displayName) }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = model.id)) })
+                }
+            }
+        }
+        if (spaces.isNotEmpty()) {
+            Text("Spaces to turn on", style = MaterialTheme.typography.bodySmall)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                spaces.forEach { space ->
+                    val on = space.id in preset.defaultSpaceIds
+                    androidx.compose.material3.FilterChip(
+                        selected = on,
+                        onClick = { onChange(preset.copy(defaultSpaceIds = if (on) preset.defaultSpaceIds - space.id else preset.defaultSpaceIds + space.id)) },
+                        label = { Text(space.name) },
+                    )
+                }
+            }
+        }
+        Text("Colour", style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ModeAccentColors.forEach { color ->
+                val selected = preset.accentColor == color
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(color?.let { Color(0xFF000000 or it.toLong()) } ?: SpaceDust)
+                        .border(if (selected) 3.dp else 1.dp, if (selected) TextPrimary else GlassBorder, CircleShape)
+                        .clickable(onClickLabel = if (color == null) "No colour" else "Colour") { onChange(preset.copy(accentColor = color)) },
+                )
+            }
+        }
+    }
+}
+
+/** Shares a mode as a small .json file through the share sheet. */
+private fun shareMode(context: android.content.Context, name: String, json: String) {
+    val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+    val safe = name.replace(Regex("""[^\p{L}\p{M}\p{N} _-]+"""), "").trim().replace(Regex("\\s+"), "-").ifBlank { "mode" }
+    val file = java.io.File(dir, "$safe.orbitmode.json").apply { writeText(json) }
+    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+        .setType("application/json")
+        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    context.startActivity(android.content.Intent.createChooser(send, "Share mode").addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
 }

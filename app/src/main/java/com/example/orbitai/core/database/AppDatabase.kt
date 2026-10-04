@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageSourceDao(): MessageSourceDao
 
     companion object {
-        const val VERSION = 19
+        const val VERSION = 20
 
         @Volatile private var INSTANCE: AppDatabase? = null
 
@@ -248,6 +248,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE modes ADD COLUMN defaultModelId TEXT")
+                db.execSQL("ALTER TABLE modes ADD COLUMN defaultSpaceIds TEXT")
+                db.execSQL("ALTER TABLE modes ADD COLUMN accentColor INTEGER")
+            }
+        }
+
         internal val ALL_MIGRATIONS = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -267,6 +275,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_16_17,
             MIGRATION_17_18,
             MIGRATION_18_19,
+            MIGRATION_19_20,
         )
 
         fun getInstance(context: Context): AppDatabase =

@@ -89,6 +89,28 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         _activeModeId.value = id
     }
 
+    /**
+     * Selects a mode for [chatId] and applies its preset: its Spaces, and its model if downloaded
+     * (otherwise the chat keeps its model and says why).
+     */
+    fun selectMode(chatId: String, id: String) {
+        selectMode(id)
+        val preset = modeRepo.modes.value.find { it.id == id }?.preset ?: return
+        if (preset.defaultSpaceIds.isNotEmpty()) {
+            val existing = spaceRepo.spaces.value.map { it.id }.toSet()
+            _activeSpaceIds.value = preset.defaultSpaceIds.filter { it in existing }.toSet()
+        }
+        val modelId = preset.defaultModelId ?: return
+        val available = availableChatModels(modelDownloader, tokenStore)
+        val model = available.find { it.id == modelId }
+        if (model != null) {
+            selectModel(chatId, model)
+        } else {
+            val name = com.example.orbitai.core.model.AVAILABLE_MODELS.find { it.id == modelId }?.displayName ?: "This mode's model"
+            _uiState.update { it.copy(infoMessage = "$name isn't downloaded, so this chat keeps its current model. Download it in Settings > Models.") }
+        }
+    }
+
     private val _availableModels = MutableStateFlow<List<LlmModel>>(emptyList())
     val availableModels: StateFlow<List<LlmModel>> = _availableModels.asStateFlow()
 

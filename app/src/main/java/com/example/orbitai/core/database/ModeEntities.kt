@@ -15,6 +15,17 @@ data class Mode(
     val isDefault: Boolean,
     val isActive: Boolean,
     val createdAt: Long,
+    val preset: ModePreset = ModePreset(),
+)
+
+/** What selecting a mode also applies (f039). Everything is optional and overridable per chat. */
+data class ModePreset(
+    /** Model to switch the chat to, if it is downloaded. */
+    val defaultModelId: String? = null,
+    /** Spaces to turn on. */
+    val defaultSpaceIds: List<String> = emptyList(),
+    /** Colour of the mode chip, as 0xRRGGBB. */
+    val accentColor: Int? = null,
 )
 
 @Entity(tableName = "modes")
@@ -25,6 +36,10 @@ data class ModeEntity(
     val isDefault: Boolean,
     val isActive: Boolean,
     val createdAt: Long,
+    val defaultModelId: String? = null,
+    /** Comma-separated Space ids. */
+    val defaultSpaceIds: String? = null,
+    val accentColor: Int? = null,
 )
 
 fun ModeEntity.toDomain() = Mode(
@@ -34,4 +49,9 @@ fun ModeEntity.toDomain() = Mode(
     isDefault    = isDefault,
     isActive     = isActive,
     createdAt    = createdAt,
+    preset       = ModePreset(
+        defaultModelId = defaultModelId,
+        defaultSpaceIds = defaultSpaceIds?.split(',')?.filter { it.isNotBlank() }.orEmpty(),
+        accentColor = accentColor,
+    ),
 )
