@@ -25,7 +25,7 @@ import com.example.orbitai.feature.automation.AutomationRouter
 import com.example.orbitai.feature.automation.parser.AutomationRequest
 import com.example.orbitai.feature.automation.tools.ChatToolAction
 import com.example.orbitai.feature.automation.tools.ChatToolActions
-import com.example.orbitai.feature.automation.tools.OrbitChatToolSchema
+import com.example.orbitai.feature.automation.tools.ToolRegistry
 import com.example.orbitai.feature.automation.prompt.EmailDraftPromptBuilder
 import com.example.orbitai.feature.automation.prompt.ReminderPromptBuilder
 import com.example.orbitai.feature.automation.prompt.WhatsAppDraftPromptBuilder
@@ -632,7 +632,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
     }
 
     /**
-     * Streams one reply through a LiteRT conversation that offers [OrbitChatToolSchema], reusing
+     * Streams one reply through a LiteRT conversation that offers the enabled [ToolRegistry] tools, reusing
      * the chat's open conversation when it already holds the earlier messages; otherwise a new one
      * is started from the history. This turn's Spaces excerpts and memories go with the new message.
      * Returns null when the loaded model has no conversation support or can't start one, so the
@@ -653,7 +653,9 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
         val latest = turns.lastOrNull()?.takeIf { it.role == Role.USER } ?: return null
         val history = turns.dropLast(1)
         val systemInstruction = com.example.orbitai.core.prompt.AiSafetyPolicy.withInstructions(systemPrompt) + "\n\n" + ChatToolActions.INSTRUCTION
-        val key = "$chatId|${model.id}|$settings|${systemInstruction.hashCode()}"
+        val offered = com.example.orbitai.feature.automation.AutomationSettingsStore(ctx.app).enabledTools()
+        val tools = ToolRegistry.openApiTools(offered)
+        val key = "$chatId|${model.id}|$settings|${systemInstruction.hashCode()}|${ToolRegistry.enabled(offered).joinToString(",") { it.name }}"
 
         val context = ModelPromptBuilder.buildSystemContext(budgeted.memories, budgeted.ragContext, null)
         val text = if (context.isBlank()) latest.content else "$context\n\nUser message:\n${latest.content}"
@@ -669,7 +671,7 @@ internal class ChatGenerationController(private val ctx: ChatControllerContext) 
                     engine.createConversation(
                         systemInstruction = systemInstruction,
                         settings = settings,
-                        toolSchemas = listOf(OrbitChatToolSchema()),
+                        toolSchemas = tools,
                         history = history.map { PromptTurn(isUser = it.role == Role.USER, text = it.content) },
                     )
                 } catch (e: Exception) {

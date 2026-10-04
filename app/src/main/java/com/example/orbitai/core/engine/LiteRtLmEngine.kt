@@ -131,7 +131,13 @@ class LiteRtLmEngine(
             seed = kotlin.random.Random.nextInt(),
         )
 
-        val tools = toolSchemas.map { schema -> tool(schema as com.google.ai.edge.litertlm.ToolSet) }
+        val tools = toolSchemas.map { schema ->
+            when (schema) {
+                is com.google.ai.edge.litertlm.ToolSet -> tool(schema)
+                is com.google.ai.edge.litertlm.OpenApiTool -> tool(schema)
+                else -> throw IllegalArgumentException("Unsupported tool definition: ${schema::class.java.name}")
+            }
+        }
 
         val conversationConfig = ConversationConfig(
             systemInstruction = Contents.of(systemInstruction),
