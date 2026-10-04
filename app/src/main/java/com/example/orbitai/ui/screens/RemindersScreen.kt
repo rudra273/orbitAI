@@ -69,24 +69,41 @@ fun RemindersScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
         state.loadError?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
         state.infoMessage?.let { info -> item { Text(info) } }
         if (reminders.isEmpty()) item { Text("No saved reminders. Create one here or ask ‘Remind me at 10 pm to call Mom’.") }
-        items(reminders, key = { it.id }) { reminder ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(reminder.title, style = MaterialTheme.typography.titleMedium)
-                    if (reminder.description.isNotBlank()) Text(reminder.description)
-                    Text(Instant.ofEpochMilli(reminder.triggerAt).atZone(ZoneId.systemDefault())
-                        .format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a z")))
-                    Text(when { reminder.completed -> "Completed"; reminder.delivered -> "Due"; else -> "Scheduled · ${reminder.repeat.lowercase()}" })
-                    if (!reminder.completed) {
-                        Row {
-                            TextButton(onClick = { viewModel.editReminder(reminder) }) { Text("Edit") }
-                            TextButton(onClick = { viewModel.snoozeReminder(reminder.id) }) { Text("Snooze 10m") }
+        val groups = com.example.orbitai.feature.automation.reminder.ReminderGroups.group(reminders, System.currentTimeMillis())
+        groups.forEach { (group, list) ->
+            item(key = "h_${group.name}") { Text(group.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+            items(list, key = { it.id }) { reminder ->
+                val rule = com.example.orbitai.feature.automation.reminder.RepeatRule.parse(reminder.repeat)
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(reminder.title, style = MaterialTheme.typography.titleMedium)
+                        if (reminder.description.isNotBlank()) Text(reminder.description)
+                        Text(Instant.ofEpochMilli(reminder.triggerAt).atZone(ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a z")))
+                        Text(when { reminder.completed -> "Completed"; reminder.delivered -> "Due"; else -> "Scheduled · ${rule.label.lowercase()}" })
+                        if (!reminder.completed) {
+                            var snoozeMenu by remember { mutableStateOf(false) }
+                            Row {
+                                TextButton(onClick = { viewModel.editReminder(reminder) }) { Text("Edit") }
+                                androidx.compose.foundation.layout.Box {
+                                    TextButton(onClick = { snoozeMenu = true }) { Text("Snooze") }
+                                    androidx.compose.material3.DropdownMenu(expanded = snoozeMenu, onDismissRequest = { snoozeMenu = false }) {
+                                        val S = com.example.orbitai.feature.automation.reminder.ReminderScheduler
+                                        listOf(S.SNOOZE_10_MIN to "10 minutes", S.SNOOZE_HOUR to "1 hour", S.SNOOZE_TOMORROW to "Tomorrow morning").forEach { (choice, label) ->
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { Text(label) },
+                                                onClick = { snoozeMenu = false; viewModel.snoozeReminder(reminder.id, choice) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            TextButton(onClick = { viewModel.completeReminder(reminder.id) }) {
+                                Text(if (rule == com.example.orbitai.feature.automation.reminder.RepeatRule.Once) "Complete" else "Stop repeating")
+                            }
                         }
-                        TextButton(onClick = { viewModel.completeReminder(reminder.id) }) {
-                            Text(if (reminder.repeat == "NONE") "Complete" else "Stop repeating")
-                        }
+                        TextButton(onClick = { viewModel.cancelReminder(reminder.id) }) { Text("Delete") }
                     }
-                    TextButton(onClick = { viewModel.cancelReminder(reminder.id) }) { Text("Delete") }
                 }
             }
         }

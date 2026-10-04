@@ -72,10 +72,11 @@ class ReminderScheduler(context: Context) {
         manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, pending)
     }
 
-    suspend fun snooze(id: String, expectedAnchor: Long? = null) = operationMutex.withLock {
+    /** Fires the reminder again at [until] (default: in 10 minutes). */
+    suspend fun snooze(id: String, expectedAnchor: Long? = null, until: Long = System.currentTimeMillis() + 10 * 60_000L) = operationMutex.withLock {
         val current = dao.find(id) ?: return@withLock
         if (current.completed || (expectedAnchor != null && expectedAnchor != current.scheduledAt)) return@withLock
-        val updated = current.copy(triggerAt = System.currentTimeMillis() + 10 * 60_000L, delivered = false)
+        val updated = current.copy(triggerAt = until, delivered = false)
         dao.update(updated)
         enqueue(updated)
         NotificationManagerCompat.from(appContext).cancel(id, 0)
@@ -91,7 +92,7 @@ class ReminderScheduler(context: Context) {
     suspend fun acknowledge(id: String, expectedAnchor: Long? = null) = operationMutex.withLock {
         val current = dao.find(id) ?: return@withLock
         if (current.completed || (expectedAnchor != null && expectedAnchor != current.scheduledAt)) return@withLock
-        if (current.repeat == ReminderRepeat.NONE.name) {
+        if (RepeatRule.parse(current.repeat) == RepeatRule.Once) {
             dao.update(current.copy(completed = true))
             alarmManager?.cancel(pendingIntent(id, current.triggerAt))
         }
@@ -110,6 +111,17 @@ class ReminderScheduler(context: Context) {
 
     companion object {
         internal val operationMutex = Mutex()
+
+        /** Snooze targets: 10 minutes, 1 hour, or 9:00 tomorrow. */
+        fun snoozeUntil(choice: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): Long = when (choice) {
+            SNOOZE_HOUR -> now.plusHours(1)
+            SNOOZE_TOMORROW -> now.toLocalDate().plusDays(1).atTime(9, 0).atZone(now.zone)
+            else -> now.plusMinutes(10)
+        }.toInstant().toEpochMilli()
+
+        const val SNOOZE_10_MIN = "10m"
+        const val SNOOZE_HOUR = "1h"
+        const val SNOOZE_TOMORROW = "tomorrow"
     }
 
     private fun pendingIntent(id: String, triggerAt: Long): PendingIntent = PendingIntent.getBroadcast(

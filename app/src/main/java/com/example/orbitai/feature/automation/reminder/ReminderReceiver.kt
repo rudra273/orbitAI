@@ -33,6 +33,10 @@ class ReminderReceiver : BroadcastReceiver() {
                 val anchor = intent.getLongExtra(EXTRA_ANCHOR, Long.MIN_VALUE)
                 when (intent.action) {
                     ACTION_SNOOZE -> { scheduler.snooze(id, anchor); return@launch }
+                    ACTION_SNOOZE_HOUR -> {
+                        scheduler.snooze(id, anchor, ReminderScheduler.snoozeUntil(ReminderScheduler.SNOOZE_HOUR))
+                        return@launch
+                    }
                     ACTION_DONE -> { scheduler.acknowledge(id, anchor); return@launch }
                 }
                 ReminderScheduler.operationMutex.withLock {
@@ -100,7 +104,9 @@ class ReminderReceiver : BroadcastReceiver() {
             .setContentIntent(contentIntent)
             .apply {
                 if (id != null) {
+                    // Android shows three actions; "tomorrow morning" is in the Reminders list.
                     addAction(0, "Snooze 10 min", actionIntent(ACTION_SNOOZE))
+                    addAction(0, "1 hour", actionIntent(ACTION_SNOOZE_HOUR))
                     addAction(0, "Done", actionIntent(ACTION_DONE))
                 }
             }
@@ -117,6 +123,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_SNOOZE = "com.example.orbitai.reminder.SNOOZE"
+        const val ACTION_SNOOZE_HOUR = "com.example.orbitai.reminder.SNOOZE_HOUR"
         const val ACTION_DONE = "com.example.orbitai.reminder.DONE"
         const val EXTRA_ANCHOR = "scheduled_anchor"
         const val EXTRA_TRIGGER_AT = "trigger_at"

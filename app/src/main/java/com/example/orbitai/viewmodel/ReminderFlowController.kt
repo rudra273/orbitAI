@@ -112,7 +112,21 @@ internal class ReminderFlowController(private val ctx: ChatControllerContext) {
         ), true)
     }
 
-    fun snoozeReminder(id: String) = updateReminder { reminderScheduler.snooze(id) }
+    fun snoozeReminder(id: String, choice: String = com.example.orbitai.feature.automation.reminder.ReminderScheduler.SNOOZE_10_MIN) =
+        updateReminder { reminderScheduler.snooze(id, until = com.example.orbitai.feature.automation.reminder.ReminderScheduler.snoozeUntil(choice)) }
+
+    /** Opens the reminder review for a chat message ("Remind me about this"), an hour from now by default. */
+    fun remindAbout(chatId: String, text: String) {
+        val plain = com.example.orbitai.feature.chat.markdownToPlainText(text).trim()
+        val title = plain.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty().take(80).ifBlank { "Reminder" }
+        val start = java.time.ZonedDateTime.now().plusHours(1).withSecond(0).withNano(0).toInstant().toEpochMilli()
+        showReview(ReminderReviewRequest(chatId, com.example.orbitai.feature.automation.parser.ReminderDraft(
+            title = title,
+            description = plain.take(500),
+            startTimeMillis = start,
+            endTimeMillis = start + 30 * 60_000L,
+        ), true))
+    }
     fun completeReminder(id: String) = updateReminder { reminderScheduler.complete(id) }
     fun refreshReminders() = updateReminder { reminderScheduler.restore() }
     private fun updateReminder(action: suspend () -> Unit) {

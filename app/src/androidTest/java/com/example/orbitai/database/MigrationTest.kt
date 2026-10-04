@@ -89,7 +89,7 @@ class MigrationTest {
             }
             db.query("SELECT repeat FROM reminders WHERE id = 'rem'").use {
                 it.moveToFirst()
-                assertEquals("DAILY", it.getString(0))
+                assertEquals("FREQ=DAILY", it.getString(0))
             }
             db.query("SELECT status, errorMessage, pagesDone, pagesTotal FROM rag_documents WHERE id = 'doc'").use {
                 it.moveToFirst()

@@ -156,7 +156,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun confirmReminder(draft: ReminderDraft, useLocalReminder: Boolean) = reminderFlow.confirmReminder(draft, useLocalReminder)
     fun editReminder(reminder: ReminderEntity? = null) = reminderFlow.editReminder(reminder)
     fun cancelReminder(id: String) = reminderFlow.cancelReminder(id)
-    fun snoozeReminder(id: String) = reminderFlow.snoozeReminder(id)
+    fun snoozeReminder(id: String, choice: String = com.example.orbitai.feature.automation.reminder.ReminderScheduler.SNOOZE_10_MIN) =
+        reminderFlow.snoozeReminder(id, choice)
+    fun remindAbout(chatId: String, text: String) = reminderFlow.remindAbout(chatId, text)
     fun completeReminder(id: String) = reminderFlow.completeReminder(id)
     fun refreshReminders() = reminderFlow.refreshReminders()
     fun onNotificationsPermissionResult(granted: Boolean) = reminderFlow.onNotificationsPermissionResult(granted)

@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageSourceDao(): MessageSourceDao
 
     companion object {
-        const val VERSION = 18
+        const val VERSION = 19
 
         @Volatile private var INSTANCE: AppDatabase? = null
 
@@ -240,6 +240,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Reminder repeats move to RRULE-style strings (see RepeatRule); "NONE" stays as is. */
+        internal val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE reminders SET repeat = 'FREQ=DAILY' WHERE repeat = 'DAILY'")
+                db.execSQL("UPDATE reminders SET repeat = 'FREQ=WEEKLY' WHERE repeat = 'WEEKLY'")
+            }
+        }
+
         internal val ALL_MIGRATIONS = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -258,6 +266,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_15_16,
             MIGRATION_16_17,
             MIGRATION_17_18,
+            MIGRATION_18_19,
         )
 
         fun getInstance(context: Context): AppDatabase =

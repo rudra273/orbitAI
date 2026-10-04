@@ -13,6 +13,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import com.example.orbitai.feature.automation.reminder.RepeatRule
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -28,6 +30,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ReminderReviewDialog(
     request: ReminderReviewRequest,
@@ -56,9 +59,21 @@ fun ReminderReviewDialog(
                 OutlinedTextField(time, { time = it }, label = { Text("Time (HH:mm)") }, singleLine = true)
                 Text("Time zone: ${ZoneId.systemDefault().id}")
                 Text("Repeat")
-                Row {
-                    com.example.orbitai.feature.automation.reminder.ReminderRepeat.entries.forEach { option ->
-                        TextButton(onClick = { repeat = option.name }) { Text(if (repeat == option.name) "✓ ${option.label}" else option.label) }
+                // Common choices based on the chosen date, plus whatever was parsed from the request.
+                val startDate = runCatching { LocalDate.parse(date.trim()) }.getOrNull() ?: localTime.toLocalDate()
+                val options = remember(startDate, draft.repeat) {
+                    (listOf<RepeatRule>(
+                        RepeatRule.Once,
+                        RepeatRule.Every(1, RepeatRule.Unit.DAYS),
+                        RepeatRule.OnDays(RepeatRule.WEEKDAYS),
+                        RepeatRule.OnDays(setOf(startDate.dayOfWeek)),
+                        RepeatRule.Monthly(startDate.dayOfMonth),
+                    ) + RepeatRule.parse(draft.repeat)).distinctBy { it.encode() }
+                }
+                androidx.compose.foundation.layout.FlowRow {
+                    options.forEach { option ->
+                        val code = option.encode()
+                        TextButton(onClick = { repeat = code }) { Text(if (repeat == code) "✓ ${option.label}" else option.label) }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {

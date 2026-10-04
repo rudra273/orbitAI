@@ -56,6 +56,7 @@ import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.*
@@ -560,6 +561,7 @@ fun ChatScreen(
                                 isSpeaking = speakingId == msg.id,
                                 details = if (showGenerationDetails) generationStats[msg.id]?.label() else null,
                                 onSourceClick = { openSource = it },
+                                onRemind = { viewModel.remindAbout(chatId, msg.content) },
                                 onReadAloud = {
                                     if (speakingId == msg.id) speaker.stop() else speaker.speakMessage(msg.id, msg.content)
                                 },
@@ -1028,6 +1030,7 @@ private fun MessageBubble(
     /** Optional generation stats line (Settings > Chat > Show generation details). */
     details: String? = null,
     onSourceClick: (com.example.orbitai.feature.chat.MessageSource) -> Unit = {},
+    onRemind: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -1145,6 +1148,11 @@ private fun MessageBubble(
                         onClick = { menuOpen = false; editing = true },
                     )
                     DropdownMenuItem(
+                        text = { Text("Remind me about this") },
+                        leadingIcon = { Icon(Icons.Outlined.Alarm, contentDescription = null) },
+                        onClick = { menuOpen = false; onRemind() },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Delete") },
                         leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                         enabled = actionsEnabled,
@@ -1211,6 +1219,7 @@ private fun MessageBubble(
                         onClick = onReadAloud,
                     )
                     MessageActionIcon(Icons.Outlined.Share, "Share reply", onClick = share)
+                    MessageActionIcon(Icons.Outlined.Alarm, "Remind me about this", onClick = onRemind)
                     MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
                     if (msg.usedMemories.isNotEmpty()) {
                         var showMemories by remember { mutableStateOf(false) }

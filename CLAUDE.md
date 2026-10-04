@@ -81,7 +81,7 @@ A `SYSTEM_ALERT_WINDOW` overlay service (the largest single file, ~1800 lines) p
 
 ### Data layer (`core/database`)
 
-Single Room DB `orbitai.db` (`AppDatabase`, version in `AppDatabase.VERSION`, currently **18**) with entities split across files: chats/messages (`Entities.kt`), RAG docs/chunks with embeddings (`RagEntities.kt`), memories (`MemoryEntities.kt`), spaces (`SpaceEntities.kt`), modes (`ModeEntities.kt`), reminders (`ReminderEntity.kt`). **All schema changes require a hand-written `Migration` appended to `ALL_MIGRATIONS`** (no auto-migrations). Schemas are exported to `app/schemas/`: every version bump must commit the new schema JSON and extend `app/src/androidTest/.../database/MigrationTest.kt` (`./gradlew connectedAndroidTest`). Default modes (Orbit/Concise/Step-by-step) are seeded via migration SQL.
+Single Room DB `orbitai.db` (`AppDatabase`, version in `AppDatabase.VERSION`, currently **19**) with entities split across files: chats/messages (`Entities.kt`), RAG docs/chunks with embeddings (`RagEntities.kt`), memories (`MemoryEntities.kt`), spaces (`SpaceEntities.kt`), modes (`ModeEntities.kt`), reminders (`ReminderEntity.kt`). **All schema changes require a hand-written `Migration` appended to `ALL_MIGRATIONS`** (no auto-migrations). Schemas are exported to `app/schemas/`: every version bump must commit the new schema JSON and extend `app/src/androidTest/.../database/MigrationTest.kt` (`./gradlew connectedAndroidTest`). Default modes (Orbit/Concise/Step-by-step) are seeded via migration SQL.
 
 ### RAG & Spaces (`feature/spaces`)
 

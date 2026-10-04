@@ -113,10 +113,9 @@ class AutomationExecutor(context: Context) {
             data = CalendarContract.Events.CONTENT_URI
             putExtra(CalendarContract.Events.TITLE, draft.title)
             putExtra(CalendarContract.Events.DESCRIPTION, draft.description)
-            when (draft.repeat) {
-                "DAILY" -> putExtra(CalendarContract.Events.RRULE, "FREQ=DAILY")
-                "WEEKLY" -> putExtra(CalendarContract.Events.RRULE, "FREQ=WEEKLY")
-            }
+            // Repeat rules are stored in calendar RRULE form already.
+            val rule = com.example.orbitai.feature.automation.reminder.RepeatRule.parse(draft.repeat)
+            if (rule != com.example.orbitai.feature.automation.reminder.RepeatRule.Once) putExtra(CalendarContract.Events.RRULE, rule.encode())
             putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, draft.startTimeMillis)
             putExtra(CalendarContract.EXTRA_EVENT_END_TIME, draft.endTimeMillis)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

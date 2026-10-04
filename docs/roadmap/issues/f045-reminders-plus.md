@@ -14,7 +14,9 @@ Reminders support `NONE`/daily/weekly repeat and a fixed 10-minute snooze (`Remi
 - Reminder list grouped: Today / Upcoming / Repeating / Done
 
 **Acceptance Criteria:**
-- [ ] `LocalReminderParserTest` extended with every new phrase pattern
-- [ ] Repeat rules stored in a forward-compatible format (RRULE-like string) with a migration
-- [ ] Rescheduling after reboot (`ReminderRestoreReceiver`) handles every new repeat type
-- [ ] DST and time-zone change tests
+- [x] `LocalReminderParserTest` extended with every new phrase pattern
+- [x] Repeat rules stored in a forward-compatible format (RRULE-like string) with a migration
+- [x] Rescheduling after reboot (`ReminderRestoreReceiver`) handles every new repeat type
+- [x] DST and time-zone change tests
+
+**Status:** 🟡 Done, device check pending (2026-10-04). RepeatRule stores repeats as RRULE-style strings (FREQ=HOURLY/DAILY/WEEKLY[;INTERVAL][;BYDAY], FREQ=MONTHLY;BYMONTHDAY); DB v19 (MIGRATION_18_19) converts DAILY/WEEKLY. The parser understands every weekday/weekend, every mon and wed, the 1st of every month / every 20th, every N hours/days, morning/tonight. Restore after reboot goes through the same RepeatRule.next for every type. Snooze: 10 min / 1 hour on the notification (Android shows 3 actions, plus Done) and 10 min / 1 hour / tomorrow morning in the list. 'Remind me about this' on user messages (long-press) and replies (alarm icon). Reminders list grouped Today / Upcoming / Repeating / Done. Tests cover new phrases, DST and a time-zone change (a reminder keeps the same moment after the zone changes).
