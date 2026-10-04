@@ -364,7 +364,7 @@ fun ChatScreen(
         if (!reply.isStreaming) autoReadStreams.remove(reply.id)
     }
     chat?.takeIf { showExport }?.let { current ->
-        val modelName = (availableModels + com.example.orbitai.core.model.AVAILABLE_MODELS)
+        val modelName = (availableModels + com.example.orbitai.core.model.allLocalModels())
             .find { it.id == current.modelId }?.displayName
         ExportChatDialog(current, modelName, onDismiss = { showExport = false })
     }

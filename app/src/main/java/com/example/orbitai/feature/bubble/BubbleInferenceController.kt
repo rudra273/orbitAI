@@ -117,9 +117,9 @@ class BubbleInferenceController(
             val startedAt = SystemClock.elapsedRealtime()
             val downloader = context.appContainer.modelDownloader
             val selectedModelId = BubbleSettingsStore(context).bubbleModelId
-            val model = AVAILABLE_MODELS.firstOrNull {
+            val model = com.example.orbitai.core.model.allLocalModels().firstOrNull {
                 it.isChatSelectable && it.id == selectedModelId && downloader.isDownloaded(it)
-            } ?: AVAILABLE_MODELS.firstOrNull {
+            } ?: com.example.orbitai.core.model.allLocalModels().firstOrNull {
                 it.isChatSelectable && downloader.isDownloaded(it)
             }
 

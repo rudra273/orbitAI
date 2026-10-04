@@ -1231,7 +1231,7 @@ private fun ModePresetEditor(
         ModeFieldLabel("When this mode is selected")
         Box {
             val current = models.find { it.id == preset.defaultModelId }?.displayName
-                ?: preset.defaultModelId?.let { id -> com.example.orbitai.core.model.AVAILABLE_MODELS.find { it.id == id }?.displayName?.plus(" (not downloaded)") }
+                ?: preset.defaultModelId?.let { id -> com.example.orbitai.core.model.findModel(id)?.displayName?.plus(" (not downloaded)") }
                 ?: "Keep the chat's model"
             androidx.compose.material3.OutlinedButton(onClick = { modelMenu = true }) { Text("Model: $current", maxLines = 1, overflow = TextOverflow.Ellipsis) }
             androidx.compose.material3.DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
