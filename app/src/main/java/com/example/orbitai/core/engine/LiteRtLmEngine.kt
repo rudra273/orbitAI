@@ -13,6 +13,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -44,17 +45,18 @@ class LiteRtLmEngine(
     val activeBackend: String get() = backendLabel
 
     init {
-        engine = try {
-            Log.d(TAG, "Initializing LiteRT-LM on GPU for $modelPath")
-            createEngine(Backend.GPU(), Backend.GPU()).also {
-                backendLabel = "GPU"
+        // NPU → GPU → CPU (#40). NPU works only with models compiled for this phone's NPU; others fail fast and are skipped next time.
+        val (created, backend) = BackendCascade(context, java.io.File(modelPath).name)
+            .firstWorking(listOf(HardwareBackend.NPU, HardwareBackend.GPU, HardwareBackend.CPU)) { backend ->
+                Log.d(TAG, "Initializing LiteRT-LM on ${backend.label} for $modelPath")
+                when (backend) {
+                    HardwareBackend.NPU -> createEngine(Backend.NPU(context.applicationInfo.nativeLibraryDir), Backend.GPU())
+                    HardwareBackend.GPU -> createEngine(Backend.GPU(), Backend.GPU())
+                    HardwareBackend.CPU -> createEngine(Backend.CPU(), Backend.CPU())
+                }
             }
-        } catch (gpuError: Exception) {
-            Log.w(TAG, "GPU init failed, falling back to CPU", gpuError)
-            createEngine(Backend.CPU(), Backend.CPU()).also {
-                backendLabel = "CPU"
-            }
-        }
+        engine = created
+        backendLabel = backend.label
     }
 
     // ── LlmInferenceEngine (simple single-turn streaming) ─────────────────────
@@ -65,7 +67,7 @@ class LiteRtLmEngine(
             topK = settings.topK,
             topP = settings.topP.toDouble(),
             temperature = settings.temperature.toDouble(),
-            seed = 0,
+            seed = kotlin.random.Random.nextInt(),
         )
         val conversationConfig = ConversationConfig(
             samplerConfig = samplerConfig,
@@ -101,6 +103,10 @@ class LiteRtLmEngine(
                     emit(delta)
                 }
             }
+        } catch (e: CancellationException) {
+            // Coroutine cancellation alone doesn't stop native decoding (or prefill).
+            runCatching { conversation?.cancelProcess() }
+            throw e
         } finally {
             try {
                 conversation?.close()
@@ -115,19 +121,27 @@ class LiteRtLmEngine(
         systemInstruction: String,
         settings: InferenceSettings,
         toolSchemas: List<Any>,
+        history: List<PromptTurn>,
     ): ConversationSession {
         val eng = engine ?: throw IllegalStateException("LiteRT-LM engine is not loaded.")
         val samplerConfig = SamplerConfig(
             topK = settings.topK,
             topP = settings.topP.toDouble(),
             temperature = settings.temperature.toDouble(),
-            seed = 0,
+            seed = kotlin.random.Random.nextInt(),
         )
 
-        val tools = toolSchemas.map { schema -> tool(schema as com.google.ai.edge.litertlm.ToolSet) }
+        val tools = toolSchemas.map { schema ->
+            when (schema) {
+                is com.google.ai.edge.litertlm.ToolSet -> tool(schema)
+                is com.google.ai.edge.litertlm.OpenApiTool -> tool(schema)
+                else -> throw IllegalArgumentException("Unsupported tool definition: ${schema::class.java.name}")
+            }
+        }
 
         val conversationConfig = ConversationConfig(
             systemInstruction = Contents.of(systemInstruction),
+            initialMessages = history.map { if (it.isUser) Message.user(it.text) else Message.model(it.text) },
             tools = tools,
             samplerConfig = samplerConfig,
             automaticToolCalling = false,

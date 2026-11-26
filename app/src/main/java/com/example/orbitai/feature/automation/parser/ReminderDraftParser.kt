@@ -32,23 +32,24 @@ object ReminderDraftParser {
             ?.trim()
             .orEmpty()
 
+        val fallback = now.plusHours(1).withSecond(0).withNano(0)
         val date = dateRegex.find(trimmedOutput)
             ?.groupValues
             ?.getOrNull(1)
             ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            ?: now.toLocalDate()
+            ?: fallback.toLocalDate()
 
         val time = timeRegex.find(trimmedOutput)
             ?.groupValues
             ?.getOrNull(1)
             ?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
-            ?: now.toLocalTime().withSecond(0).withNano(0).plusHours(1)
+            ?: fallback.toLocalTime()
 
         val durationMinutes = durationRegex.find(trimmedOutput)
             ?.groupValues
             ?.getOrNull(1)
             ?.toIntOrNull()
-            ?.coerceAtLeast(5)
+            ?.coerceIn(5, 1440)
             ?: 30
 
         val startDateTime = LocalDateTime.of(date, time)

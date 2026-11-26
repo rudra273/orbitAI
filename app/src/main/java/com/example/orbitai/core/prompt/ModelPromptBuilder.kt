@@ -1,5 +1,7 @@
 package com.example.orbitai.core.prompt
 
+import com.example.orbitai.core.engine.PromptTurn
+import com.example.orbitai.core.engine.StructuredPrompt
 import com.example.orbitai.core.model.PromptStyle
 import com.example.orbitai.feature.chat.Message
 import com.example.orbitai.feature.chat.Role
@@ -22,6 +24,23 @@ object ModelPromptBuilder {
             PromptStyle.QWEN -> buildQwenPrompt(messages, ragContext, memories, safeSystemPrompt)
         }
     }
+
+    /** Same inputs as [buildChatPrompt], as a system instruction plus real turns. */
+    fun buildStructuredChat(
+        messages: List<Message>,
+        ragContext: List<String> = emptyList(),
+        memories: List<String> = emptyList(),
+        systemPrompt: String? = null,
+    ): StructuredPrompt = StructuredPrompt(
+        systemInstruction = buildSystemContext(memories, ragContext, AiSafetyPolicy.withInstructions(systemPrompt)),
+        turns = messages.map { PromptTurn(isUser = it.role == Role.USER, text = it.content) },
+    )
+
+    /** Same instruction as [wrapInstructionPrompt], as a single structured user turn. */
+    fun structuredInstruction(instruction: String): StructuredPrompt = StructuredPrompt(
+        systemInstruction = AiSafetyPolicy.instruction,
+        turns = listOf(PromptTurn(isUser = true, text = instruction)),
+    )
 
     fun wrapInstructionPrompt(
         promptStyle: PromptStyle,
@@ -64,7 +83,7 @@ object ModelPromptBuilder {
             }
             if (ragContext.isNotEmpty()) {
                 sb.append("Use the following reference documents to answer the question. ")
-                sb.append("If the answer is not in the documents, say so.\n\n")
+                sb.append("If the answer is not in the documents, say so. Cite a document inline by its number, like [1].\n\n")
                 ragContext.forEachIndexed { index, chunk ->
                     sb.append("[Document ${index + 1}]\n$chunk\n\n")
                 }
@@ -166,7 +185,7 @@ object ModelPromptBuilder {
         return sb.toString()
     }
 
-    private fun buildSystemContext(
+    internal fun buildSystemContext(
         memories: List<String>,
         ragContext: List<String>,
         systemPrompt: String?,
@@ -192,7 +211,7 @@ object ModelPromptBuilder {
 
         if (ragContext.isNotEmpty()) {
             sections += buildString {
-                append("Reference documents. Use them when relevant, and say so if the answer is not in them:\n")
+                append("Reference documents. Use them when relevant, and say so if the answer is not in them. When you use one, cite it inline by its number, like [1]:\n")
                 ragContext.forEachIndexed { index, chunk ->
                     append("[Document ")
                     append(index + 1)

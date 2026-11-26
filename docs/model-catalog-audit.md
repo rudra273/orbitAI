@@ -16,6 +16,8 @@ Checked 2026-10-02 against provider repository metadata. Download links are pinn
 | onnx-phi3-mini-4k | 2.73 GB | 10 | [microsoft/Phi-3-mini-4k-instruct-onnx@5f5f794c](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-onnx/tree/5f5f794c1c23c9d5ee142af85df02a6cc52d6945) |
 | onnx-phi4-mini | 4.93 GB | 11 | [microsoft/Phi-4-mini-instruct-onnx@fc04c8f9](https://huggingface.co/microsoft/Phi-4-mini-instruct-onnx/tree/fc04c8f93df696602fd9f300a30d1bf2e3081347) |
 | onnx-phi4 | 10.92 GB | 10 | [microsoft/phi-4-onnx@c4e245b5](https://huggingface.co/microsoft/phi-4-onnx/tree/c4e245b57793e8481e0fa9252b3a45dee44a921b) |
+| qwen35-0.8b | 963.2 MB | 1 | [litert-community/Qwen3.5-0.8B@03d910d3](https://huggingface.co/litert-community/Qwen3.5-0.8B/tree/03d910d3643b5ef29babed32327bdfad39fd1aef) |
+| qwen35-0.8b-vl | 1.30 GB | 1 | [litert-community/Qwen3.5-0.8B@03d910d3](https://huggingface.co/litert-community/Qwen3.5-0.8B/tree/03d910d3643b5ef29babed32327bdfad39fd1aef) |
 | onnx-llama3.2-3b | 3.66 GB | 7 | [onnx-community/Llama-3.2-3B-Instruct-GENAI-ONNX@5db5cdb5](https://huggingface.co/onnx-community/Llama-3.2-3B-Instruct-GENAI-ONNX/tree/5db5cdb5b0c8c440264ca0f16f5ec3351e753add) |
 
 Universal Sentence Encoder: 6.1 MB (6,120,274 bytes), verified from the existing Google Storage download response.
@@ -23,3 +25,24 @@ Universal Sentence Encoder: 6.1 MB (6,120,274 bytes), verified from the existing
 Gemma 2 previously referenced a missing file. Its URL now points to the provider's `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task`, retaining the existing local filename. Added Gemma 3 1B LiteRT as a compact alternative for chat and Orbit. Gated repositories still require the user to accept the provider license and supply a Hugging Face token.
 
 The reported Gemma 4 E2B failure (`Vision Encoder model must have exactly one signature but got 3`) occurred with LiteRT-LM 0.10.0. LiteRT-LM 0.17.1 supports selecting among multiple vision signatures. Its Kotlin 2.4.0 dependency requires a compiler update before this runtime fix can be built and tested.
+
+## Download integrity (2026-10-03)
+
+SHA-256 digests for 8 of 13 models (Gemma 4, all ONNX models) are stored in `core/model/ModelChecksums.kt`. They come from the Hugging Face `paths-info` LFS metadata of the same pinned revisions, and every API size matched the pinned sizes above. Downloads are verified against them before the file is moved into place.
+
+The gated repositories (`litert-community/Gemma3-1B-IT`, `google/gemma-3n-E4B-it-litert-lm`, `google/gemma-3n-E2B-it-litert-lm`, `litert-community/Gemma2-2B-IT`) need an authenticated request even for metadata, so they are verified by exact size only. Add their digests by running the same `paths-info` query with a Hugging Face token that has accepted the licenses.
+
+## Qwen 3.5 (2026-10-04)
+
+Added `qwen35-0.8b` (text, int8) and `qwen35-0.8b-vl` (with vision encoder). Apache-2.0, not gated; SHA-256 digests from the same pinned revision are in `ModelChecksums.kt`. The model card requires LiteRT-LM 0.15 or newer; Orbit uses 0.17.1. Load and chat on a device have not been tested yet.
+
+## Embedding model: multilingual-e5-small (2026-10-04)
+
+Ungated, MIT license, 100 languages including Hindi. Orbit downloads two files from [Xenova/multilingual-e5-small@761b726d](https://huggingface.co/Xenova/multilingual-e5-small/tree/761b726dd34fb83930e26aab4e9ac3899aa1fa78), a mirror of [intfloat/multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small) with ONNX exports:
+
+| File | Size | SHA-256 |
+| --- | --- | --- |
+| onnx/model_int8.onnx | 118,054,593 B | 4d24e2bc01a447951524466ef533e52944bf48509e6552810bcee1a2711cb02c |
+| tokenizer.json | 17,082,730 B | 0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39 |
+
+Checked on a computer with ONNX Runtime and the Hugging Face tokenizer: it matches English and Hindi questions to the right passage across both languages. Orbit's own tokenizer (`UnigramTokenizer`) reproduces the reference token ids for 23 test texts (English, Hindi, Tamil, Gujarati, Japanese, symbols). It does not reproduce zero-width spaces. The check runs when `ORBIT_E5_TOKENIZER` points at `tokenizer.json`. Not yet run on a phone.

@@ -3,6 +3,7 @@ package com.example.orbitai.feature.modes
 import android.content.Context
 import com.example.orbitai.core.database.Mode
 import com.example.orbitai.core.database.ModeEntity
+import com.example.orbitai.core.database.ModePreset
 import com.example.orbitai.core.database.AppDatabase
 import com.example.orbitai.core.database.BUBBLE_MODE_ID
 import com.example.orbitai.core.database.CONCISE_MODE_ID
@@ -81,7 +82,7 @@ class ModeRepository(private val context: Context) {
 
     fun orbitMode(): Mode? = modes.value.find { it.id == ORBIT_MODE_ID }
 
-    suspend fun createMode(name: String, systemPrompt: String, isActive: Boolean): Mode {
+    suspend fun createMode(name: String, systemPrompt: String, isActive: Boolean, preset: ModePreset = ModePreset()): Mode {
         val entity = ModeEntity(
             id           = UUID.randomUUID().toString(),
             name         = name.trim(),
@@ -89,14 +90,18 @@ class ModeRepository(private val context: Context) {
             isDefault    = false,
             isActive     = isActive,
             createdAt    = System.currentTimeMillis(),
+            defaultModelId = preset.defaultModelId,
+            defaultSpaceIds = preset.defaultSpaceIds.takeIf { it.isNotEmpty() }?.joinToString(","),
+            accentColor  = preset.accentColor,
         )
         dao.insertMode(entity)
         return entity.toDomain()
     }
 
-    suspend fun updateMode(id: String, name: String, systemPrompt: String, isActive: Boolean) =
+    suspend fun updateMode(id: String, name: String, systemPrompt: String, isActive: Boolean, preset: ModePreset) =
         withContext(Dispatchers.IO) {
             dao.updateMode(id, name.trim(), systemPrompt.trim(), isActive)
+            dao.updatePreset(id, preset.defaultModelId, preset.defaultSpaceIds.takeIf { it.isNotEmpty() }?.joinToString(","), preset.accentColor)
         }
 
     suspend fun deleteMode(id: String) = withContext(Dispatchers.IO) {

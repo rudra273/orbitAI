@@ -1,690 +1,205 @@
 package com.example.orbitai.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.orbitai.feature.chat.ChatRepository
-import com.example.orbitai.core.common.ModeInferenceSettingsStore
-import com.example.orbitai.core.model.LlmModel
-import com.example.orbitai.feature.chat.Chat
-import com.example.orbitai.core.engine.LlmRepository
-import com.example.orbitai.feature.chat.Message
-import com.example.orbitai.feature.chat.Role
-import com.example.orbitai.feature.memory.MemoryFeatureStore
-import com.example.orbitai.feature.modes.ModeRepository
-import com.example.orbitai.core.model.ModelDownloader
-import com.example.orbitai.feature.spaces.SpaceRepository
-import com.example.orbitai.core.common.TokenStore
-import com.example.orbitai.core.model.availableChatModels
 import com.example.orbitai.core.database.Mode
-import com.example.orbitai.core.database.ORBIT_MODE_ID
+import com.example.orbitai.core.database.ReminderEntity
 import com.example.orbitai.core.database.Space
-import com.example.orbitai.feature.automation.AutomationRoute
-import com.example.orbitai.feature.automation.AutomationRouter
-import com.example.orbitai.feature.automation.AutomationSettingsStore
-import com.example.orbitai.feature.automation.executor.AutomationExecutor
-import com.example.orbitai.feature.automation.parser.AutomationExecutionResult
-import com.example.orbitai.feature.automation.parser.AutomationRequest
-import com.example.orbitai.feature.memory.MemoryRepository
-import com.example.orbitai.core.prompt.ModelPromptBuilder
-import com.example.orbitai.feature.automation.parser.EmailDraftParser
-import com.example.orbitai.feature.automation.parser.ReminderDraftParser
-import com.example.orbitai.feature.automation.parser.RuntimeToolPermission
-import com.example.orbitai.feature.automation.parser.WhatsAppDraftParser
-import com.example.orbitai.feature.automation.prompt.EmailDraftPromptBuilder
-import com.example.orbitai.feature.automation.prompt.ReminderPromptBuilder
-import com.example.orbitai.feature.automation.prompt.WhatsAppDraftPromptBuilder
-import com.example.orbitai.feature.automation.reminder.ReminderScheduler
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
-import com.example.orbitai.core.model.ModelProvider
-import kotlinx.coroutines.CancellationException
+import com.example.orbitai.core.model.LlmModel
+import com.example.orbitai.feature.automation.executor.CallContact
+import com.example.orbitai.feature.automation.parser.ReminderDraft
+import com.example.orbitai.feature.automation.replies.ReplyNotification
+import com.example.orbitai.feature.chat.Chat
+import com.example.orbitai.feature.chat.ChatSummary
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
-import android.graphics.Bitmap
-import android.graphics.ImageDecoder
-import android.net.Uri
-import com.example.orbitai.core.engine.InferenceInput
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-data class ChatUiState(
-    val isModelLoading: Boolean = false,
-    val isGenerating: Boolean = false,
-    val loadError: String? = null,
-    val infoMessage: String? = null,
-)
-
-data class CloudSendRequest(
-    val chatId: String,
-    val text: String,
-    val imageUris: List<Uri>,
-    val modelId: String,
-    val modelName: String,
-)
-
-sealed interface ChatUiEvent {
-    data object RequestContactsPermission : ChatUiEvent
-    data object RequestNotificationsPermission : ChatUiEvent
-}
-
-private data class PendingWhatsAppExecution(
-    val request: AutomationRequest.DraftWhatsApp,
-    val draft: com.example.orbitai.feature.automation.parser.WhatsAppDraft,
-)
-
-private data class PendingReminderExecution(
-    val draft: com.example.orbitai.feature.automation.parser.ReminderDraft,
-)
-
+/**
+ * UI entry point for chat, reminders, calls and message replies. The work lives in the
+ * controllers below; this class wires them together and exposes their state to Compose.
+ */
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
-    val chatRepo = ChatRepository(application)
-    private val llmRepo = LlmRepository(application)
-    private val modelDownloader = ModelDownloader(application)
-    private val tokenStore = TokenStore(application)
-    private val modeInferenceStore = ModeInferenceSettingsStore(application)
-    private val spaceRepo = SpaceRepository(application)
-    private val modeRepo = ModeRepository(application)
-    private val memoryFeatureStore = MemoryFeatureStore(application)
-    private val automationSettingsStore = AutomationSettingsStore(application)
-    val memoryRepo = MemoryRepository(application)
-    private val automationExecutor = AutomationExecutor(application)
-    private val reminderScheduler = ReminderScheduler(application)
+    private val ctx = ChatControllerContext(application, viewModelScope)
+    private val generation = ChatGenerationController(ctx)
+    private val reminderFlow = ReminderFlowController(ctx)
+    private val callFlow = CallFlowController(ctx, generation::stopGeneration)
+    private val automationFlow = AutomationFlowController(ctx, callFlow, reminderFlow, generation::stopGeneration)
+    private val notificationReplies = NotificationReplyController(ctx, generation)
 
-    /** All available spaces — observed by the chat screen for the space selector. */
-    val spaces: StateFlow<List<Space>> = spaceRepo.spaces
-
-    /** Active modes only — observed by the chat screen for the mode selector. */
-    val modes: StateFlow<List<Mode>> = modeRepo.activeModes
-
-    private val _activeSpaceIds = MutableStateFlow<Set<String>>(emptySet())
-    val activeSpaceIds: StateFlow<Set<String>> = _activeSpaceIds.asStateFlow()
-
-    /** ID of the currently active mode; defaults to Orbit. */
-    private val _activeModeId = MutableStateFlow(ORBIT_MODE_ID)
-    val activeModeId: StateFlow<String> = _activeModeId.asStateFlow()
-
-    fun toggleSpace(id: String) {
-        _activeSpaceIds.update { current ->
-            if (id in current) current - id else current + id
-        }
-    }
-
-    fun selectMode(id: String) {
-        _activeModeId.value = id
-    }
-
-    val chats: StateFlow<List<Chat>> = chatRepo.chats
-
-    private val _availableModels = MutableStateFlow<List<LlmModel>>(emptyList())
-    val availableModels: StateFlow<List<LlmModel>> = _availableModels.asStateFlow()
-
-    private val _uiState = MutableStateFlow(ChatUiState())
-    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
-    private val _events = MutableSharedFlow<ChatUiEvent>()
-    val events: SharedFlow<ChatUiEvent> = _events.asSharedFlow()
-
-    private val _cloudSendRequest = MutableStateFlow<CloudSendRequest?>(null)
-    val cloudSendRequest: StateFlow<CloudSendRequest?> = _cloudSendRequest.asStateFlow()
-    private var engineCloseJob: Job? = null
-    private var generationJob: Job? = null
-    private var activeGenerationToken: Long = 0L
-    private var pendingWhatsAppExecution: PendingWhatsAppExecution? = null
-    private var pendingReminderExecution: PendingReminderExecution? = null
-    private val reminderTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, hh:mm a")
+    val chatRepo = ctx.container.chatRepository
+    val memoryRepo = ctx.container.memoryRepository
 
     init {
-        refreshAvailableModels()
-        viewModelScope.launch {
-            modes.collect { activeModes ->
-                if (activeModes.none { it.id == _activeModeId.value }) {
-                    _activeModeId.value = activeModes.firstOrNull()?.id ?: ORBIT_MODE_ID
-                }
-            }
+        generation.automation = automationFlow
+        reminderFlow.restoreOnStart()
+        // Launcher shortcuts for the two most recent chats; deleted chats lose theirs.
+        viewModelScope.launch(Dispatchers.Default) {
+            ctx.container.chatRepository.chatSummaries.collect { com.example.orbitai.feature.shortcuts.RecentChatShortcuts.update(application, it) }
         }
     }
 
-    fun refreshAvailableModels() {
-        _availableModels.value = availableChatModels(modelDownloader, tokenStore)
-    }
+    // ── Shared UI state ───────────────────────────────────────────────────────
+    val uiState: StateFlow<ChatUiState> = ctx.uiState.asStateFlow()
+    val events: SharedFlow<ChatUiEvent> = ctx.events.asSharedFlow()
+    val chatSummaries: StateFlow<List<ChatSummary>> = chatRepo.chatSummaries
 
-    private fun beginNewGenerationToken(): Long {
-        activeGenerationToken += 1
-        return activeGenerationToken
-    }
+    fun observeChat(chatId: String): Flow<Chat?> = chatRepo.observeChat(chatId)
 
-    private fun isGenerationTokenActive(token: Long): Boolean = activeGenerationToken == token
+    /** All available spaces — observed by the chat screen for the space selector. */
+    val spaces: StateFlow<List<Space>> = ctx.container.spaceRepository.spaces
 
-    fun stopGeneration() {
-        beginNewGenerationToken()
-        val stoppedGeneration = generationJob
-        stoppedGeneration?.cancel()
-        generationJob = null
-        val previousClose = engineCloseJob
-        engineCloseJob = viewModelScope.launch(Dispatchers.IO) {
-            previousClose?.join()
-            llmRepo.close()
-            stoppedGeneration?.join()
-            llmRepo.close()
-        }
-        _uiState.update { it.copy(isGenerating = false, isModelLoading = false) }
-    }
+    /** Active modes only — observed by the chat screen for the mode selector. */
+    val modes: StateFlow<List<Mode>> = ctx.container.modeRepository.activeModes
 
-    fun onContactsPermissionResult(granted: Boolean) {
-        val pending = pendingWhatsAppExecution
-        pendingWhatsAppExecution = null
-
-        if (!granted) {
-            _uiState.update {
-                it.copy(
-                    loadError = "Contacts permission is required to use WhatsApp by contact name.",
-                    infoMessage = null,
-                )
-            }
-            return
-        }
-
-        if (pending != null) {
-            viewModelScope.launch(Dispatchers.IO) {
-                handleIntentResult(
-                    automationExecutor.execute(
-                        request = pending.request,
-                        draft = pending.draft,
-                    ),
-                    onLaunched = null,
-                    onPermissionRequired = { permissionResult ->
-                        _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
-                    },
-                )
-            }
-        }
-    }
-
-    fun onNotificationsPermissionResult(granted: Boolean) {
-        val pending = pendingReminderExecution
-        pendingReminderExecution = null
-
-        if (!granted) {
-            _uiState.update {
-                it.copy(
-                    loadError = "Notifications permission is required for automatic reminder execution.",
-                    infoMessage = null,
-                )
-            }
-            return
-        }
-
-        if (pending != null) {
-            handleIntentResult(
-                reminderScheduler.schedule(pending.draft),
-                onLaunched = {
-                    _uiState.update {
-                        it.copy(
-                            loadError = null,
-                            infoMessage = "Reminder scheduled for ${formatReminderTime(pending.draft.startTimeMillis)}",
-                        )
-                    }
-                },
-                onPermissionRequired = { permissionResult ->
-                    _uiState.update { it.copy(loadError = permissionResult.message, infoMessage = null) }
-                },
-            )
-        }
-    }
+    /** User prompts for the "/" menu. */
+    val savedPrompts: StateFlow<List<com.example.orbitai.feature.prompts.SavedPrompt>> = ctx.container.savedPrompts.prompts
 
     // ── Chat management ───────────────────────────────────────────────────────
+    private val newChatMutex = Mutex()
 
-    fun createNewChat(): String {
-        // Navigation needs the ID synchronously; Room insert on IO is fast (< 1 ms).
-        return kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-            chatRepo.findReusableEmptyChatId() ?: chatRepo.createChat().id
-        }
+    /** Returns the latest chat without user messages, or creates one. Serialized so rapid taps can't create duplicates. */
+    suspend fun createNewChat(): String = newChatMutex.withLock {
+        chatRepo.findReusableEmptyChatId() ?: chatRepo.createChat().id
+    }
+
+    fun openNewChat(onReady: (String) -> Unit) {
+        viewModelScope.launch { onReady(createNewChat()) }
+    }
+
+    /** Starts a chat that is kept only in memory and never saved or used for Memory. */
+    fun openTemporaryChat(onReady: (String) -> Unit) {
+        onReady(chatRepo.createTemporaryChat().id)
+    }
+
+    fun isTemporaryChat(chatId: String): Boolean = com.example.orbitai.feature.chat.ChatRepository.isTemporaryChat(chatId)
+
+    fun discardTemporaryChat(chatId: String) {
+        if (!isTemporaryChat(chatId)) return
+        generation.stopGeneration()
+        chatRepo.discardTemporaryChat(chatId)
     }
 
     fun deleteChat(chatId: String) {
         viewModelScope.launch(Dispatchers.IO) { chatRepo.deleteChat(chatId) }
     }
 
-    fun selectModel(chatId: String, model: LlmModel) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val currentAvailable = availableChatModels(modelDownloader, tokenStore)
-            _availableModels.value = currentAvailable
-            if (currentAvailable.none { it.id == model.id }) return@launch
-            tokenStore.lastSelectedModelId = model.id
-            chatRepo.updateChatModel(chatId, model.id)
-        }
+    suspend fun documentUri(docId: String): String? = chatRepo.documentUri(docId)
+
+    fun deleteChats(chatIds: Collection<String>) {
+        viewModelScope.launch(Dispatchers.IO) { chatIds.forEach { chatRepo.deleteChat(it) } }
     }
 
-    // ── Inference ─────────────────────────────────────────────────────────────
-
-    fun onCloudSendConsent(granted: Boolean) {
-        val request = _cloudSendRequest.value ?: return
-        _cloudSendRequest.value = null
-        if (granted) {
-            sendMessage(request.chatId, request.text, request.imageUris, request.modelId)
-        }
+    fun renameChat(chatId: String, title: String) {
+        viewModelScope.launch { chatRepo.renameChat(chatId, title) }
     }
 
+    fun setPinned(chatIds: Collection<String>, pinned: Boolean) {
+        viewModelScope.launch { chatRepo.setPinned(chatIds.toList(), pinned) }
+    }
+
+    fun setArchived(chatIds: Collection<String>, archived: Boolean) {
+        viewModelScope.launch { chatRepo.setArchived(chatIds.toList(), archived) }
+    }
+
+    suspend fun searchMessages(query: String): List<com.example.orbitai.feature.chat.MessageSearchHit> =
+        chatRepo.searchMessages(query)
+
+    // ── Generation ────────────────────────────────────────────────────────────
+    val activeSpaceIds: StateFlow<Set<String>> = generation.activeSpaceIds
+    val activeModeId: StateFlow<String> = generation.activeModeId
+    val availableModels: StateFlow<List<LlmModel>> = generation.availableModels
+    val cloudSendRequest: StateFlow<CloudSendRequest?> = generation.cloudSendRequest
+    val generationStats: StateFlow<Map<String, com.example.orbitai.feature.chat.GenerationStats>> = generation.generationStats
+
+    fun toggleSpace(id: String) = generation.toggleSpace(id)
+    fun selectMode(id: String) = generation.selectMode(id)
+    fun selectMode(chatId: String, id: String) = generation.selectMode(chatId, id)
+    fun refreshAvailableModels() = generation.refreshAvailableModels()
+    fun selectModel(chatId: String, model: LlmModel) = generation.selectModel(chatId, model)
+    fun onCloudSendConsent(granted: Boolean) = generation.onCloudSendConsent(granted)
+    fun stopGeneration() = generation.stopGeneration()
+    fun regenerate(chatId: String) = generation.regenerate(chatId)
+    fun editAndResend(chatId: String, messageId: String, newText: String) = generation.editAndResend(chatId, messageId, newText)
+    fun deleteMessage(messageId: String) = generation.deleteMessage(messageId)
     fun sendMessage(
         chatId: String,
         userText: String,
         imageUris: List<Uri> = emptyList(),
         approvedCloudModelId: String? = null,
-    ) {
-        viewModelScope.launch {
-            val chat = chatRepo.getChat(chatId) ?: return@launch
-            sendMessageForChat(chat, userText, imageUris, approvedCloudModelId)
-        }
+    ) = generation.sendMessage(chatId, userText, imageUris, approvedCloudModelId)
+
+    // ── Memory suggestions ────────────────────────────────────────────────────
+    fun saveMemorySuggestion(fact: String) {
+        ctx.uiState.update { it.copy(memorySuggestion = null) }
+        viewModelScope.launch { memoryRepo.addMemory(fact, source = "suggested") }
     }
 
-    private fun sendMessageForChat(
-        chat: Chat,
-        userText: String,
-        imageUris: List<Uri>,
-        approvedCloudModelId: String?,
-    ) {
-        val chatId = chat.id
-        val trimmedText = userText.trim().ifBlank {
-            if (imageUris.isNotEmpty()) "Describe the attached image(s)." else ""
-        }
-        val currentAvailableModels = availableChatModels(modelDownloader, tokenStore)
-        _availableModels.value = currentAvailableModels
-
-        if (trimmedText.isEmpty()) return
-
-        val route = AutomationRouter.route(trimmedText)
-        val toolRequest = (route as? AutomationRoute.ToolOnly)?.request
-
-        val preferredModelId = when {
-            chat.modelId.isNotBlank() -> chat.modelId
-            tokenStore.lastSelectedModelId.isNotBlank() -> tokenStore.lastSelectedModelId
-            else -> ""
-        }
-
-        if (currentAvailableModels.isEmpty()) {
-            _uiState.update {
-                it.copy(loadError = "No available model found. Download one or configure Gemini in Settings > Model.")
-            }
-            return
-        }
-
-        val preferredModel = currentAvailableModels.find { it.id == preferredModelId }
-        val model = when {
-            preferredModelId.isBlank() -> currentAvailableModels.singleOrNull() ?: currentAvailableModels.firstOrNull()
-            else -> preferredModel ?: currentAvailableModels.firstOrNull()
-        } ?: run {
-            _uiState.update {
-                it.copy(
-                    loadError = if (preferredModelId.isBlank()) {
-                        "Select a model first from the model picker."
-                    } else {
-                        "Selected model is no longer available. Please choose another model."
-                    }
-                )
-            }
-            return
-        }
-        if (preferredModelId.isNotBlank() && preferredModel == null) {
-            tokenStore.lastSelectedModelId = model.id
-            _uiState.update {
-                it.copy(
-                    loadError = null,
-                    infoMessage = "Switched to ${model.displayName} because the previous model is no longer available.",
-                )
-            }
-        }
-        if (imageUris.isNotEmpty() && !model.supportsVision) {
-            _uiState.update {
-                it.copy(loadError = "${model.displayName} does not support image input. Pick a vision-capable model.")
-            }
-            return
-        }
-        if (model.provider == ModelProvider.GEMINI && approvedCloudModelId != model.id) {
-            _cloudSendRequest.value = CloudSendRequest(chatId, userText, imageUris.toList(), model.id, model.displayName)
-            return
-        }
-        val previousGeneration = generationJob
-        previousGeneration?.cancel()
-        val closingEngine = engineCloseJob
-        val activeModeId = _activeModeId.value
-        val activeSpaceIds = _activeSpaceIds.value.toList()
-        val activeMode = modeRepo.modes.value.find { it.id == activeModeId }
-            ?: modeRepo.modes.value.find { it.isDefault }
-        val settings = modeInferenceStore.get(activeModeId)
-        val generationToken = beginNewGenerationToken()
-
-        generationJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                closingEngine?.join()
-                if (previousGeneration != null) {
-                    llmRepo.close()
-                    previousGeneration.join()
-                    llmRepo.close()
-                }
-                _uiState.update { it.copy(loadError = null, infoMessage = null) }
-
-                if (chat.modelId != model.id) {
-                    chatRepo.updateChatModel(chatId, model.id)
-                }
-
-                val memoryEnabled = memoryFeatureStore.isEnabled
-            
-                // Resolve image uris to safe persisted strings
-                val uriStrings = imageUris.map { it.toString() }
-
-                // 1. Add user message
-                chatRepo.addMessage(chatId, Message(role = Role.USER, content = trimmedText, imageUris = uriStrings))
-
-                // 1b. Auto-detect and save memorable facts from user message
-                if (memoryEnabled) {
-                    extractMemoryFacts(trimmedText).forEach { fact ->
-                        memoryRepo.addMemory(fact, source = "auto")
-                    }
-                }
-
-                // 2. Load model if settings or model changed
-                if (!llmRepo.isModelLoaded(model.id, settings)) {
-                    _uiState.update { it.copy(isModelLoading = true, loadError = null) }
-                    try {
-                        llmRepo.loadModel(model, settings)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        _uiState.update {
-                            it.copy(isModelLoading = false, loadError = "Failed to load model: ${e.message}")
-                        }
-                        return@launch
-                    }
-                    _uiState.update { it.copy(isModelLoading = false) }
-                }
-
-                // 3. Build prompt from history + RAG context + memories
-                val history = chatRepo.getChat(chatId)?.messages ?: emptyList()
-                val memories = if (memoryEnabled) {
-                    memoryRepo.getAllMemories().map { it.content }
-                } else {
-                    emptyList()
-                }
-                val systemPrompt = activeMode?.systemPrompt
-                val prompt = when (toolRequest) {
-                    is AutomationRequest.DraftEmail -> ModelPromptBuilder.wrapInstructionPrompt(
-                        promptStyle = model.promptStyle,
-                        instruction = EmailDraftPromptBuilder.build(
-                            messages = history,
-                            topicHint = toolRequest.topicHint,
-                            memories = memories,
-                        ),
-                    )
-                    is AutomationRequest.DraftWhatsApp -> ModelPromptBuilder.wrapInstructionPrompt(
-                        promptStyle = model.promptStyle,
-                        instruction = WhatsAppDraftPromptBuilder.build(
-                            messages = history,
-                            topicHint = toolRequest.topicHint,
-                            memories = memories,
-                        ),
-                    )
-                    is AutomationRequest.CreateReminder -> ModelPromptBuilder.wrapInstructionPrompt(
-                        promptStyle = model.promptStyle,
-                        instruction = ReminderPromptBuilder.build(
-                            messages = history,
-                            topicHint = toolRequest.topicHint,
-                            memories = memories,
-                        ),
-                    )
-                    null -> {
-                        val ragContext = spaceRepo.searchChunksInSpaces(
-                            trimmedText,
-                            activeSpaceIds,
-                            limit = 5,
-                        ).map { it.content }
-                        ModelPromptBuilder.buildChatPrompt(
-                            promptStyle = model.promptStyle,
-                            messages = history,
-                            ragContext = ragContext,
-                            memories = memories,
-                            systemPrompt = systemPrompt,
-                            includeImageTokens = model.format == com.example.orbitai.core.model.ModelFormat.ONNX_GENAI && model.supportsVision,
-                        )
-                    }
-                }
-            
-                // Build InferenceInput
-                val bitmaps = mutableListOf<Bitmap>()
-                for (uri in imageUris) {
-                    try {
-                        val source = ImageDecoder.createSource(getApplication<Application>().contentResolver, uri)
-                        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE // Models often require software bitmaps
-                        }
-                        bitmaps.add(bitmap)
-                    } catch (e: Exception) {
-                        android.util.Log.e("ChatViewModel", "Failed to decode image from uri: $uri", e)
-                    }
-                }
-                val inferenceInput = InferenceInput(prompt = prompt, images = bitmaps)
-
-                // 4. Add empty assistant message (streaming placeholder)
-                val assistantMsg = Message(
-                    role = Role.ASSISTANT,
-                    content = "",
-                    modeName = activeMode?.name ?: "Orbit",
-                    isStreaming = true,
-                )
-                chatRepo.addMessage(chatId, assistantMsg)
-                _uiState.update { it.copy(isGenerating = true) }
-
-                // 5. Stream response
-                var accumulated = ""
-                var wasCancelled = false
-                try {
-                    llmRepo.generateResponseStream(inferenceInput, settings.maxDecodedTokens).collect { token ->
-                        if (!isGenerationTokenActive(generationToken)) {
-                            throw CancellationException("Stale generation request")
-                        }
-                        accumulated += token
-                        chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = true)
-                    }
-                } catch (e: CancellationException) {
-                    wasCancelled = true
-                } catch (e: Exception) {
-                    accumulated = "Error: ${e.message}"
-                } finally {
-                    val isActiveRequest = isGenerationTokenActive(generationToken)
-                    withContext(NonCancellable) {
-                        chatRepo.updateMessage(assistantMsg.id, accumulated, isStreaming = false)
-                    }
-                    bitmaps.forEach { if (!it.isRecycled) it.recycle() }
-
-                    if (isActiveRequest && !wasCancelled && !accumulated.startsWith("Error:")) {
-                        when (toolRequest) {
-                            is AutomationRequest.DraftEmail -> {
-                                when (
-                                    val result = automationExecutor.execute(
-                                        request = toolRequest,
-                                        draft = EmailDraftParser.parse(
-                                            modelOutput = accumulated,
-                                            topicHint = toolRequest.topicHint,
-                                        ),
-                                    )
-                                ) {
-                                    AutomationExecutionResult.Launched -> Unit
-                                    is AutomationExecutionResult.Failed -> {
-                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                    }
-                                    is AutomationExecutionResult.PermissionRequired -> {
-                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                    }
-                                }
-                            }
-                            is AutomationRequest.DraftWhatsApp -> {
-                                val draft = WhatsAppDraftParser.parse(
-                                    modelOutput = accumulated,
-                                    topicHint = toolRequest.topicHint,
-                                )
-                                when (
-                                    val result = automationExecutor.execute(
-                                        request = toolRequest,
-                                        draft = draft,
-                                    )
-                                ) {
-                                    AutomationExecutionResult.Launched -> Unit
-                                    is AutomationExecutionResult.Failed -> {
-                                        _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                    }
-                                    is AutomationExecutionResult.PermissionRequired -> {
-                                        if (result.permission == RuntimeToolPermission.CONTACTS) {
-                                            pendingWhatsAppExecution = PendingWhatsAppExecution(
-                                                request = toolRequest,
-                                                draft = draft,
-                                            )
-                                            _events.emit(ChatUiEvent.RequestContactsPermission)
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                    }
-                                }
-                            }
-                            is AutomationRequest.CreateReminder -> {
-                                val draft = ReminderDraftParser.parse(
-                                    modelOutput = accumulated,
-                                    topicHint = toolRequest.topicHint,
-                                )
-                                if (automationSettingsStore.isAutomationExecutionEnabled) {
-                                    when (val result = reminderScheduler.schedule(draft)) {
-                                        AutomationExecutionResult.Launched -> {
-                                            _uiState.update {
-                                                it.copy(
-                                                    loadError = null,
-                                                    infoMessage = "Reminder scheduled for ${formatReminderTime(draft.startTimeMillis)}",
-                                                )
-                                            }
-                                        }
-                                        is AutomationExecutionResult.Failed -> {
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                        is AutomationExecutionResult.PermissionRequired -> {
-                                            if (result.permission == RuntimeToolPermission.NOTIFICATIONS) {
-                                                pendingReminderExecution = PendingReminderExecution(draft)
-                                                _events.emit(ChatUiEvent.RequestNotificationsPermission)
-                                                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    when (
-                                        val result = automationExecutor.execute(
-                                            request = toolRequest,
-                                            draft = draft,
-                                        )
-                                    ) {
-                                        AutomationExecutionResult.Launched -> {
-                                            _uiState.update {
-                                                it.copy(
-                                                    loadError = null,
-                                                    infoMessage = "Calendar opened for reminder on ${formatReminderTime(draft.startTimeMillis)}",
-                                                )
-                                            }
-                                        }
-                                        is AutomationExecutionResult.Failed -> {
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                        is AutomationExecutionResult.PermissionRequired -> {
-                                            _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-                                        }
-                                    }
-                                }
-                            }
-                            null -> Unit
-                        }
-                    }
-
-                    if (isActiveRequest) {
-                        _uiState.update { it.copy(isGenerating = false) }
-                        generationJob = null
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (isGenerationTokenActive(generationToken)) {
-                    _uiState.update { it.copy(loadError = "Unable to process message: ${e.message}") }
-                }
-            } finally {
-                if (isGenerationTokenActive(generationToken)) {
-                    _uiState.update { it.copy(isGenerating = false, isModelLoading = false) }
-                    generationJob = null
-                }
-            }
-        }
+    fun dismissMemorySuggestion() {
+        ctx.uiState.update { it.copy(memorySuggestion = null) }
     }
 
-    /**
-     * Pattern-based extraction of memorable personal facts from user messages.
-     * Returns a list of human-readable fact strings to persist in memory.
-     */
-    private fun extractMemoryFacts(text: String): List<String> {
-        val t = text.trim()
-        val facts = mutableListOf<String>()
+    // ── Reminders ─────────────────────────────────────────────────────────────
+    val reminderReview: StateFlow<ReminderReviewRequest?> = reminderFlow.reminderReview
+    val reminders: StateFlow<List<ReminderEntity>> = reminderFlow.reminders
 
-        val patterns = listOf(
-            Regex("(?i)my name is ([\\w\\s]+)", RegexOption.IGNORE_CASE)             to { m: MatchResult -> "User's name is ${m.groupValues[1].trim()}" },
-            Regex("(?i)i(?:'m| am) ([\\w\\s]+?) years old")                          to { m: MatchResult -> "User is ${m.groupValues[1].trim()} years old" },
-            Regex("(?i)i(?:'m| am) a ([\\w\\s]+)")                                   to { m: MatchResult -> "User is a ${m.groupValues[1].trim()}" },
-            Regex("(?i)i work (?:at|for|in) ([\\w\\s]+)")                            to { m: MatchResult -> "User works at ${m.groupValues[1].trim()}" },
-            Regex("(?i)i(?:'m| am) (?:based in|from|living in|located in) ([\\w\\s,]+)") to { m: MatchResult -> "User is from/lives in ${m.groupValues[1].trim()}" },
-            Regex("(?i)i live(?:s)? in ([\\w\\s,]+)")                                to { m: MatchResult -> "User lives in ${m.groupValues[1].trim()}" },
-            Regex("(?i)i (?:love|really like|enjoy|prefer) ([\\w\\s]+)")             to { m: MatchResult -> "User likes/loves ${m.groupValues[1].trim()}" },
-            Regex("(?i)i (?:hate|dislike|don't like|do not like) ([\\w\\s]+)")       to { m: MatchResult -> "User dislikes ${m.groupValues[1].trim()}" },
-            Regex("(?i)(?:remember(?: that)?|don'?t forget)[:\\s]+(.+)")             to { m: MatchResult -> m.groupValues.getOrNull(1)?.trim().orEmpty() },
-            Regex("(?i)(?:keep in mind)[:\\s]+(.+)")                                 to { m: MatchResult -> m.groupValues[1].trim() },
-            Regex("(?i)my (?:favourite|favorite) ([\\w\\s]+) is ([\\w\\s]+)")        to { m: MatchResult -> "User's favorite ${m.groupValues[1].trim()} is ${m.groupValues[2].trim()}" },
-        )
+    fun dismissReminderReview() = reminderFlow.dismissReminderReview()
+    fun confirmReminder(draft: ReminderDraft, useLocalReminder: Boolean) = reminderFlow.confirmReminder(draft, useLocalReminder)
+    fun editReminder(reminder: ReminderEntity? = null) = reminderFlow.editReminder(reminder)
+    fun cancelReminder(id: String) = reminderFlow.cancelReminder(id)
+    fun snoozeReminder(id: String, choice: String = com.example.orbitai.feature.automation.reminder.ReminderScheduler.SNOOZE_10_MIN) =
+        reminderFlow.snoozeReminder(id, choice)
+    fun remindAbout(chatId: String, text: String) = reminderFlow.remindAbout(chatId, text)
+    fun completeReminder(id: String) = reminderFlow.completeReminder(id)
+    fun refreshReminders() = reminderFlow.refreshReminders()
+    fun onNotificationsPermissionResult(granted: Boolean) = reminderFlow.onNotificationsPermissionResult(granted)
 
-        for ((regex, transform) in patterns) {
-            val match = regex.find(t)
-            if (match != null) {
-                val fact = transform(match)
-                if (fact.isNotBlank() && fact.length < 200) {
-                    facts += fact
-                }
-            }
-        }
-        return facts
-    }
+    // ── Calls ─────────────────────────────────────────────────────────────────
+    val callReview: StateFlow<CallReviewRequest?> = callFlow.callReview
+    val voiceCallPrompt: StateFlow<VoiceCallPrompt?> = callFlow.voiceCallPrompt
+
+    fun dismissCallReview() = callFlow.dismissCallReview()
+    fun cancelVoiceCall(chatId: String) = callFlow.cancelVoiceCall(chatId)
+    fun onVoiceCallPromptSpoken(id: Long) = callFlow.onVoiceCallPromptSpoken(id)
+    fun showCallReviewForVoiceFailure(chatId: String) = callFlow.showCallReviewForVoiceFailure(chatId)
+    fun handleVoiceCall(chatId: String, text: String): Boolean = callFlow.handleVoiceCall(chatId, text)
+    fun confirmCall(contact: CallContact, dialOnly: Boolean = false) = callFlow.confirmCall(contact, dialOnly)
+    fun onCallContactsPermissionResult(granted: Boolean) = callFlow.onCallContactsPermissionResult(granted)
+    fun onCallPermissionResult(granted: Boolean) = callFlow.onCallPermissionResult(granted)
+
+    // ── Automation ────────────────────────────────────────────────────────────
+    fun onContactsPermissionResult(granted: Boolean) = automationFlow.onContactsPermissionResult(granted)
+    fun confirmDeviceAction() = automationFlow.confirmDeviceAction()
+    fun cancelDeviceAction() = automationFlow.cancelDeviceAction()
+
+    /** "/" menu command names whose tool is on in Settings > Tools. */
+    fun enabledCommandNames(): Set<String> =
+        com.example.orbitai.feature.automation.AutomationSettingsStore(getApplication()).enabledTools().mapNotNull { it.command }.toSet()
+
+    // ── Message replies ───────────────────────────────────────────────────────
+    val notificationReplyDraft: StateFlow<NotificationReplyDraftState> = notificationReplies.notificationReplyDraft
+
+    fun clearNotificationReplyDraft() = notificationReplies.clearNotificationReplyDraft()
+    fun draftNotificationReply(preview: ReplyNotification, instruction: String) =
+        notificationReplies.draftNotificationReply(preview, instruction)
+
+    /** The chat screen closed or went to the background: free its open model conversation. */
+    fun onChatHidden(chatId: String) = generation.closeLiveConversation(chatId)
 
     override fun onCleared() {
         super.onCleared()
-        llmRepo.close()
-    }
-
-    private fun handleIntentResult(
-        result: AutomationExecutionResult,
-        onLaunched: (() -> Unit)?,
-        onPermissionRequired: (AutomationExecutionResult.PermissionRequired) -> Unit,
-    ) {
-        when (result) {
-            AutomationExecutionResult.Launched -> onLaunched?.invoke()
-            is AutomationExecutionResult.Failed -> {
-                _uiState.update { it.copy(loadError = result.message, infoMessage = null) }
-            }
-            is AutomationExecutionResult.PermissionRequired -> onPermissionRequired(result)
-        }
-    }
-
-    private fun formatReminderTime(timeMillis: Long): String {
-        return Instant.ofEpochMilli(timeMillis)
-            .atZone(ZoneId.systemDefault())
-            .format(reminderTimeFormatter)
+        generation.release()
+        // The model is shared with the bubble; free it only if nothing else is using it.
+        ctx.container.appScope.launch { ctx.container.llmRepository.releaseIfIdle() }
     }
 }

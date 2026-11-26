@@ -1,24 +1,26 @@
 package com.example.orbitai.feature.automation.parser
 
+import com.example.orbitai.feature.automation.OrbitCommands
+
 object AutomationCommandParser {
 
     private val draftEmailPatterns = listOf(
-        Regex("""(?i)^/(?:mail|email|draft-mail|draft-email)\b\s*(.*)$"""),
-        Regex("""(?i)^draft\s+(?:an?\s+)?(?:mail|email)\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^/(?:${OrbitCommands.slashNames("mail")})\b\s*(.*)$"""),
+        Regex("""(?is)^draft\s+(?:an?\s+)?(?:mail|email)\b[:\-\s]*(.*)$"""),
     )
     private val draftWhatsAppPatterns = listOf(
-        Regex("""(?i)^/(?:whatsapp|wa)\b\s*(.*)$"""),
-        Regex("""(?i)^(?:draft|write|send)\s+(?:a\s+)?(?:whatsapp|wa)(?:\s+message)?\b[:\-\s]*(.*)$"""),
-        Regex("""(?i)^whatsapp\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^/(?:${OrbitCommands.slashNames("whatsapp")})\b\s*(.*)$"""),
+        Regex("""(?is)^(?:draft|write|send)\s+(?:a\s+)?(?:whatsapp|wa)(?:\s+message)?\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^whatsapp\b[:\-\s]*(.*)$"""),
     )
     private val reminderPatterns = listOf(
-        Regex("""(?i)^/(?:remind|reminder)\b\s*(.*)$"""),
-        Regex("""(?i)^(?:set|create|add)\s+(?:a\s+)?reminder\b[:\-\s]*(.*)$"""),
-        Regex("""(?i)^remind\s+me(?:\s+to)?\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^/(?:${OrbitCommands.slashNames("remind")})\b\s*(.*)$"""),
+        Regex("""(?is)^(?:set|create|add)\s+(?:a\s+)?reminder\b[:\-\s]*(.*)$"""),
+        Regex("""(?is)^remind\s+me(?:\s+to)?\b[:\-\s]*(.*)$"""),
     )
 
     fun parse(input: String): AutomationRequest? {
-        val trimmed = input.trim()
+        val trimmed = CommandSpelling.fix(input.trim())
         if (trimmed.isEmpty()) return null
 
         val topicHint = draftEmailPatterns.firstNotNullOfOrNull { pattern ->
@@ -43,7 +45,7 @@ object AutomationCommandParser {
             if (reminderHint != null) {
                 AutomationRequest.CreateReminder(topicHint = reminderHint)
             } else {
-                null
+                RequestIntentDetector.detect(trimmed)
             }
         }
     }

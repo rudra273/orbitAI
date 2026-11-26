@@ -1,415 +1,212 @@
 package com.example.orbitai.ui.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PALETTE — Warm Minimal
+// ORBIT THEME ACCESSOR
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-private data class OrbitPalette(
-    // Backgrounds — layered depth (now warm, not space)
-    val spaceVoid: Color,
-    val spaceDeep: Color,
-    val spaceNebula: Color,
-    val spaceDust: Color,
-    val spaceCloud: Color,
-    val spaceMist: Color,
-    // Neutral fills (subtle transparency layers)
-    val glassWhite4: Color,
-    val glassWhite8: Color,
-    val glassWhite12: Color,
-    val glassWhite20: Color,
-    val glassBorder: Color,
-    val glassBorderHi: Color,
-    // Violet — semantic only (Spaces/RAG feature, not a brand color)
-    val violetCore: Color,
-    val violetBright: Color,
-    val violetDim: Color,
-    val violetGlow: Color,       // active space chip fill
-    val violetGlowSoft: Color,
-    val violetFrost: Color,      // active space chip border
-    // Chat bubbles
-    val userBubbleFill: Color,
-    val userBubbleBorder: Color,
-    val aiBubbleFill: Color,     // transparent — AI has no bubble
-    val aiBubbleBorder: Color,
-    // Text
-    val textPrimary: Color,
-    val textSecondary: Color,
-    val textMuted: Color,
-    val textAccent: Color,
-    // Semantic
-    val destructive: Color,
-    val destructiveSoft: Color,
-    val success: Color,
-    val successSoft: Color,
-    val warning: Color,
-    // On-device indicator
-    val onDevicePillBg: Color,
-    val onDevicePillText: Color,
-)
+object OrbitTheme {
+    val colors: OrbitColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOrbitColors.current
 
-private val DarkPalette = OrbitPalette(
-    spaceVoid    = Color(0xFF141413),
-    spaceDeep    = Color(0xFF141413),   // main background
-    spaceNebula  = Color(0xFF1E1E1C),   // surface / cards
-    spaceDust    = Color(0xFF252523),   // input fields, inactive chips
-    spaceCloud   = Color(0xFF252523),
-    spaceMist    = Color(0xFF323230),
+    val typography: OrbitTypography
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOrbitTypography.current
 
-    glassWhite4  = Color(0x0AFFFFFF),
-    glassWhite8  = Color(0x14FFFFFF),
-    glassWhite12 = Color(0x1EFFFFFF),
-    glassWhite20 = Color(0x33FFFFFF),
-    glassBorder  = Color(0x14FFFFFF),
-    glassBorderHi= Color(0x26FFFFFF),
+    val spacing: OrbitSpacing
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOrbitSpacing.current
 
-    // Violet — dark semantic values
-    violetCore   = Color(0xFFA89EFF),
-    violetBright = Color(0xFFA89EFF),
-    violetDim    = Color(0xFF7B6FE0),
-    violetGlow   = Color(0xFF252340),   // active chip bg
-    violetGlowSoft=Color(0x1AA89EFF),
-    violetFrost  = Color(0xFF3D3870),   // active chip border
+    val shapes: OrbitShapes
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOrbitShapes.current
 
-    userBubbleFill   = Color(0xFFE8E6E1),
-    userBubbleBorder  = Color(0xFFE8E6E1),
-    aiBubbleFill     = Color.Transparent,
-    aiBubbleBorder   = Color.Transparent,
-
-    textPrimary  = Color(0xFFE8E6E1),
-    textSecondary= Color(0xFF9A9A95),
-    textMuted    = Color(0xFF6B6B66),
-    textAccent   = Color(0xFFA89EFF),
-
-    destructive  = Color(0xFFEF4444),
-    destructiveSoft= Color(0x33EF4444),
-    success      = Color(0xFF4CAF50),
-    successSoft  = Color(0x224CAF50),
-    warning      = Color(0xFFF59E0B),
-
-    onDevicePillBg  = Color(0xFF1A2E1E),
-    onDevicePillText= Color(0xFF4CAF50),
-)
-
-private val LightPalette = OrbitPalette(
-    spaceVoid    = Color(0xFFF7F6F3),
-    spaceDeep    = Color(0xFFF7F6F3),   // main background — warm off-white
-    spaceNebula  = Color(0xFFFFFFFF),   // surface / cards
-    spaceDust    = Color(0xFFEEEDE8),   // input fields, inactive chips
-    spaceCloud   = Color(0xFFEEEDE8),
-    spaceMist    = Color(0xFFE0DED8),
-
-    glassWhite4  = Color(0x0A000000),
-    glassWhite8  = Color(0x14000000),
-    glassWhite12 = Color(0x1E000000),
-    glassWhite20 = Color(0x33000000),
-    glassBorder  = Color(0x14000000),
-    glassBorderHi= Color(0x26000000),
-
-    // Violet — light semantic values
-    violetCore   = Color(0xFF5B4FE8),
-    violetBright = Color(0xFF5B4FE8),
-    violetDim    = Color(0xFF4A3FD0),
-    violetGlow   = Color(0xFFEDE9FE),   // active chip bg
-    violetGlowSoft=Color(0x1A5B4FE8),
-    violetFrost  = Color(0xFFD4CFFC),   // active chip border
-
-    userBubbleFill   = Color(0xFF1A1A1A),
-    userBubbleBorder  = Color(0xFF1A1A1A),
-    aiBubbleFill     = Color.Transparent,
-    aiBubbleBorder   = Color.Transparent,
-
-    textPrimary  = Color(0xFF1A1A1A),
-    textSecondary= Color(0xFF8A8A85),
-    textMuted    = Color(0xFF8A8A85),
-    textAccent   = Color(0xFF5B4FE8),
-
-    destructive  = Color(0xFFD93025),
-    destructiveSoft= Color(0x22D93025),
-    success      = Color(0xFF17A865),
-    successSoft  = Color(0x2217A865),
-    warning      = Color(0xFFC78300),
-
-    onDevicePillBg  = Color(0xFFE8F5E9),
-    onDevicePillText= Color(0xFF2E7D32),
-)
-
-private var currentPalette by mutableStateOf(DarkPalette)
-
-fun setOrbitThemeMode(isDarkTheme: Boolean) {
-    currentPalette = if (isDarkTheme) DarkPalette else LightPalette
+    val motion: OrbitMotionPreferences
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOrbitMotion.current
 }
 
-/** true when the current Orbit palette is the dark variant */
-val IsOrbitDarkTheme: Boolean get() = currentPalette == DarkPalette
+/** Chat-only appearance (text size and density), provided by [OrbitAITheme]. */
+val LocalAppearance = androidx.compose.runtime.staticCompositionLocalOf {
+    com.example.orbitai.core.common.Appearance()
+}
 
-// Backgrounds
-val SpaceVoid: Color get() = currentPalette.spaceVoid
-val SpaceDeep: Color get() = currentPalette.spaceDeep
-val SpaceNebula: Color get() = currentPalette.spaceNebula
-val SpaceDust: Color get() = currentPalette.spaceDust
-val SpaceCloud: Color get() = currentPalette.spaceCloud
-val SpaceMist: Color get() = currentPalette.spaceMist
+// Legacy global bridge kept temporarily while screens migrate to OrbitTheme.colors (removed in Phase 6).
+private var currentColors by mutableStateOf(OrbitDarkColors)
 
-// Neutral fills
-val GlassWhite4: Color get() = currentPalette.glassWhite4
-val GlassWhite8: Color get() = currentPalette.glassWhite8
-val GlassWhite12: Color get() = currentPalette.glassWhite12
-val GlassWhite20: Color get() = currentPalette.glassWhite20
-val GlassBorder: Color get() = currentPalette.glassBorder
-val GlassBorderHi: Color get() = currentPalette.glassBorderHi
+fun resolveOrbitColors(
+    isDarkTheme: Boolean,
+    pureBlack: Boolean = false,
+    accent: ColorScheme? = null,
+    highContrast: Boolean = false,
+): OrbitColors {
+    val base = when {
+        !isDarkTheme -> OrbitLightColors
+        pureBlack -> OrbitBlackColors
+        else -> OrbitDarkColors
+    }
+    val withAccent = if (accent != null) base.withDynamicAccent(accent) else base
+    return if (highContrast) withAccent.withHighContrast() else withAccent
+}
 
-// Violet — semantic only (Spaces/RAG)
-val VioletCore: Color get() = currentPalette.violetCore
-val VioletBright: Color get() = currentPalette.violetBright
-val VioletDim: Color get() = currentPalette.violetDim
-val VioletGlow: Color get() = currentPalette.violetGlow
-val VioletGlowSoft: Color get() = currentPalette.violetGlowSoft
-val VioletFrost: Color get() = currentPalette.violetFrost
+fun setOrbitThemeMode(
+    isDarkTheme: Boolean,
+    pureBlack: Boolean = false,
+    accent: ColorScheme? = null,
+) {
+    currentColors = resolveOrbitColors(isDarkTheme = isDarkTheme, pureBlack = pureBlack, accent = accent)
+}
 
-// Chat bubbles
-val UserBubbleFill: Color get() = currentPalette.userBubbleFill
-val UserBubbleBorder: Color get() = currentPalette.userBubbleBorder
-val AiBubbleFill: Color get() = currentPalette.aiBubbleFill
-val AiBubbleBorder: Color get() = currentPalette.aiBubbleBorder
+/** true when the current Orbit palette is a dark variant (dark or pure black) */
+val IsOrbitDarkTheme: Boolean get() = currentColors.isDark
 
-// Text
-val TextPrimary: Color get() = currentPalette.textPrimary
-val TextSecondary: Color get() = currentPalette.textSecondary
-val TextMuted: Color get() = currentPalette.textMuted
-val TextAccent: Color get() = currentPalette.textAccent
+// Legacy color bridges mapped to the new Apple HIG semantic tokens
+val SpaceVoid: Color get() = currentColors.background
+val SpaceDeep: Color get() = currentColors.background
+val SpaceNebula: Color get() = currentColors.surface
+val SpaceDust: Color get() = currentColors.surfaceInput
+val SpaceCloud: Color get() = currentColors.surfaceElevated
+val SpaceMist: Color get() = currentColors.surfaceHigh
 
-// Semantic
-val Destructive: Color get() = currentPalette.destructive
-val DestructiveSoft: Color get() = currentPalette.destructiveSoft
-val Success: Color get() = currentPalette.success
-val SuccessSoft: Color get() = currentPalette.successSoft
-val Warning: Color get() = currentPalette.warning
+val GlassWhite4: Color get() = if (currentColors.isDark) Color(0x0AFFFFFF) else Color(0x0A000000)
+val GlassWhite8: Color get() = if (currentColors.isDark) Color(0x14FFFFFF) else Color(0x14000000)
+val GlassWhite12: Color get() = if (currentColors.isDark) Color(0x1EFFFFFF) else Color(0x1E000000)
+val GlassWhite20: Color get() = if (currentColors.isDark) Color(0x33FFFFFF) else Color(0x33000000)
+val GlassBorder: Color get() = currentColors.separatorSubtle
+val GlassBorderHi: Color get() = currentColors.border
 
-// On-device indicator
-val OnDevicePillBg: Color get() = currentPalette.onDevicePillBg
-val OnDevicePillText: Color get() = currentPalette.onDevicePillText
+val VioletCore: Color get() = currentColors.accent
+val VioletBright: Color get() = currentColors.accent
+val VioletDim: Color get() = currentColors.onAccentContainer
+val VioletGlow: Color get() = currentColors.accentContainer
+val VioletGlowSoft: Color get() = currentColors.accent.copy(alpha = 0.12f)
+val VioletFrost: Color get() = currentColors.accentBorder
+
+val UserBubbleFill: Color get() = currentColors.userBubbleFill
+val UserBubbleBorder: Color get() = currentColors.userBubbleFill
+val AiBubbleFill: Color get() = Color.Transparent
+val AiBubbleBorder: Color get() = Color.Transparent
+
+val TextPrimary: Color get() = currentColors.labelPrimary
+val TextSecondary: Color get() = currentColors.labelSecondary
+val TextMuted: Color get() = currentColors.labelTertiary
+val TextAccent: Color get() = currentColors.accent
+
+val Destructive: Color get() = currentColors.destructive
+val DestructiveSoft: Color get() = currentColors.destructiveContainer
+val Success: Color get() = currentColors.success
+val SuccessSoft: Color get() = currentColors.successContainer
+val Warning: Color get() = currentColors.warning
+
+val OnDevicePillBg: Color get() = currentColors.successContainer
+val OnDevicePillText: Color get() = currentColors.onSuccessContainer
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MATERIAL COLOR SCHEME
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-private fun orbitColorScheme(isDarkTheme: Boolean) =
-    if (isDarkTheme) {
+private fun orbitColorScheme(colors: OrbitColors): ColorScheme =
+    if (colors.isDark) {
         darkColorScheme(
-            primary = VioletCore,
-            onPrimary = Color(0xFF141413),
-            primaryContainer = VioletDim,
-            onPrimaryContainer = VioletBright,
-            secondary = VioletBright,
-            onSecondary = Color(0xFF141413),
-            secondaryContainer = VioletGlow,
-            onSecondaryContainer = VioletBright,
-            tertiary = Color(0xFF60A5FA),
-            onTertiary = Color(0xFF141413),
-            background = SpaceDeep,
-            onBackground = TextPrimary,
-            surface = SpaceNebula,
-            onSurface = TextPrimary,
-            surfaceVariant = SpaceDust,
-            onSurfaceVariant = TextSecondary,
-            surfaceTint = VioletCore,
-            outline = GlassBorder,
-            outlineVariant = SpaceMist,
-            error = Destructive,
-            onError = Color.White,
-            errorContainer = DestructiveSoft,
-            onErrorContainer = Destructive,
-            scrim = Color(0xCC141413),
-            inverseSurface = TextPrimary,
-            inverseOnSurface = SpaceDeep,
-            inversePrimary = VioletDim,
+            primary = colors.accent,
+            onPrimary = colors.labelOnAccent,
+            primaryContainer = colors.accentContainer,
+            onPrimaryContainer = colors.onAccentContainer,
+            secondary = colors.accent,
+            onSecondary = colors.labelOnAccent,
+            secondaryContainer = colors.selectedContainer,
+            onSecondaryContainer = colors.onAccentContainer,
+            tertiary = colors.info,
+            onTertiary = colors.labelOnAccent,
+            background = colors.background,
+            onBackground = colors.labelPrimary,
+            surface = colors.surface,
+            onSurface = colors.labelPrimary,
+            surfaceVariant = colors.surfaceInput,
+            onSurfaceVariant = colors.labelSecondary,
+            surfaceContainerLowest = colors.background,
+            surfaceContainerLow = colors.surface,
+            surfaceContainer = colors.surface,
+            surfaceContainerHigh = colors.surfaceElevated,
+            surfaceContainerHighest = colors.surfaceHigh,
+            surfaceTint = colors.accent,
+            outline = colors.border,
+            outlineVariant = colors.separator,
+            error = colors.destructive,
+            onError = colors.labelOnAccent,
+            errorContainer = colors.destructiveContainer,
+            onErrorContainer = colors.onDestructiveContainer,
+            scrim = colors.scrim,
+            inverseSurface = colors.labelPrimary,
+            inverseOnSurface = colors.background,
+            inversePrimary = colors.onAccentContainer,
         )
     } else {
         lightColorScheme(
-            primary = VioletCore,
-            onPrimary = Color.White,
-            primaryContainer = VioletGlow,
-            onPrimaryContainer = VioletDim,
-            secondary = VioletBright,
-            onSecondary = Color.White,
-            secondaryContainer = VioletGlowSoft,
-            onSecondaryContainer = VioletDim,
-            tertiary = Color(0xFF3B82F6),
-            onTertiary = Color.White,
-            background = SpaceDeep,
-            onBackground = TextPrimary,
-            surface = SpaceNebula,
-            onSurface = TextPrimary,
-            surfaceVariant = SpaceDust,
-            onSurfaceVariant = TextSecondary,
-            surfaceTint = VioletCore,
-            outline = GlassBorder,
-            outlineVariant = SpaceMist,
-            error = Destructive,
+            primary = colors.accent,
+            onPrimary = colors.labelOnAccent,
+            primaryContainer = colors.accentContainer,
+            onPrimaryContainer = colors.onAccentContainer,
+            secondary = colors.accent,
+            onSecondary = colors.labelOnAccent,
+            secondaryContainer = colors.selectedContainer,
+            onSecondaryContainer = colors.onAccentContainer,
+            tertiary = colors.info,
+            onTertiary = colors.labelOnAccent,
+            background = colors.background,
+            onBackground = colors.labelPrimary,
+            surface = colors.surface,
+            onSurface = colors.labelPrimary,
+            surfaceVariant = colors.surfaceInput,
+            onSurfaceVariant = colors.labelSecondary,
+            surfaceContainerLowest = colors.surface,
+            surfaceContainerLow = colors.surface,
+            surfaceContainer = colors.surface,
+            surfaceContainerHigh = colors.surfaceInput,
+            surfaceContainerHighest = colors.surfaceHigh,
+            surfaceTint = colors.accent,
+            outline = colors.border,
+            outlineVariant = colors.separator,
+            error = colors.destructive,
             onError = Color.White,
-            errorContainer = DestructiveSoft,
-            onErrorContainer = Destructive,
-            scrim = Color(0x66F7F6F3),
-            inverseSurface = SpaceDeep,
-            inverseOnSurface = TextPrimary,
-            inversePrimary = VioletBright,
+            errorContainer = colors.destructiveContainer,
+            onErrorContainer = colors.onDestructiveContainer,
+            scrim = colors.scrim,
+            inverseSurface = colors.inkPrimary,
+            inverseOnSurface = colors.labelOnInk,
+            inversePrimary = colors.accentContainer,
         )
     }
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// TYPOGRAPHY
+// TYPOGRAPHY BRIDGE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Replace with your bundled fonts once added to res/font/:
-// val DisplayFont = FontFamily(
-//     Font(R.font.dm_sans_regular, FontWeight.Normal),
-//     Font(R.font.dm_sans_medium, FontWeight.Medium),
-//     Font(R.font.dm_sans_semibold, FontWeight.SemiBold),
-//     Font(R.font.dm_sans_bold, FontWeight.Bold),
-// )
-val DisplayFont = FontFamily.Default
-
-private fun orbitTypography() = Typography(
-    displayLarge = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Bold,
-        fontSize   = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.5).sp,
-        color = TextPrimary,
-    ),
-    displayMedium = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 26.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.3).sp,
-        color = TextPrimary,
-    ),
-    displaySmall = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 22.sp,
-        lineHeight = 30.sp,
-        color = TextPrimary,
-    ),
-
-    headlineLarge = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 20.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.2).sp,
-        color = TextPrimary,
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Medium,
-        fontSize   = 17.sp,
-        lineHeight = 24.sp,
-        color = TextPrimary,
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Medium,
-        fontSize   = 15.sp,
-        lineHeight = 22.sp,
-        color = TextPrimary,
-    ),
-
-    titleLarge = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 0.1.sp,
-        color = TextPrimary,
-    ),
-    titleMedium = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Medium,
-        fontSize   = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp,
-        color = TextPrimary,
-    ),
-    titleSmall = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Medium,
-        fontSize   = 12.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.1.sp,
-        color = TextSecondary,
-    ),
-
-    bodyLarge = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Normal,
-        fontSize   = 15.sp,
-        lineHeight = 25.sp,
-        letterSpacing = 0.1.sp,
-        color = TextPrimary,
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Normal,
-        fontSize   = 13.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp,
-        color = TextSecondary,
-    ),
-    bodySmall = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Normal,
-        fontSize   = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.2.sp,
-        color = TextMuted,
-    ),
-
-    labelLarge = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Medium,
-        fontSize   = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.2.sp,
-        color = TextPrimary,
-    ),
-    labelMedium = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Medium,
-        fontSize   = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp,
-        color = TextMuted,
-    ),
-    labelSmall = TextStyle(
-        fontFamily = DisplayFont,
-        fontWeight = FontWeight.Normal,
-        fontSize   = 10.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 0.5.sp,
-        color = TextMuted,
-    ),
-)
-
+val DisplayFont = OrbitUiFont
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ROOT THEME COMPOSABLE
@@ -417,13 +214,38 @@ private fun orbitTypography() = Typography(
 
 @Composable
 fun OrbitAITheme(
-    isDarkTheme: Boolean = true,
+    appearance: com.example.orbitai.core.common.Appearance = com.example.orbitai.core.common.Appearance(),
     content: @Composable () -> Unit,
 ) {
-    setOrbitThemeMode(isDarkTheme)
-    MaterialTheme(
-        colorScheme = orbitColorScheme(isDarkTheme),
-        typography = orbitTypography(),
-        content = content,
+    val isDarkTheme = appearance.isDark(androidx.compose.foundation.isSystemInDarkTheme())
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dynamic = if (appearance.dynamicColor) {
+        if (isDarkTheme) androidx.compose.material3.dynamicDarkColorScheme(context)
+        else androidx.compose.material3.dynamicLightColorScheme(context)
+    } else null
+
+    val motionPrefs = rememberSystemMotionPreferences()
+    val colors = resolveOrbitColors(
+        isDarkTheme = isDarkTheme,
+        pureBlack = appearance.mode == com.example.orbitai.core.common.ThemeMode.BLACK,
+        accent = dynamic,
+        highContrast = motionPrefs.highContrast,
     )
+    val typography = createOrbitTypography(colors)
+    currentColors = colors
+
+    CompositionLocalProvider(
+        LocalOrbitColors provides colors,
+        LocalOrbitTypography provides typography,
+        LocalOrbitSpacing provides DefaultOrbitSpacing,
+        LocalOrbitShapes provides DefaultOrbitShapes,
+        LocalOrbitMotion provides motionPrefs,
+        LocalAppearance provides appearance,
+    ) {
+        MaterialTheme(
+            colorScheme = orbitColorScheme(colors),
+            typography = typography.toMaterialTypography(),
+            content = content,
+        )
+    }
 }

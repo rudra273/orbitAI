@@ -35,4 +35,6 @@ data class ReminderDraft(
     val description: String,
     val startTimeMillis: Long,
     val endTimeMillis: Long,
+    val id: String? = null,
+    val repeat: String = "NONE",
 )

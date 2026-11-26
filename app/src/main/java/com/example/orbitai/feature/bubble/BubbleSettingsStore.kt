@@ -1,6 +1,7 @@
 package com.example.orbitai.feature.bubble
 
 import android.content.Context
+import androidx.core.content.edit
 
 class BubbleSettingsStore(context: Context) {
 
@@ -64,5 +65,12 @@ class BubbleSettingsStore(context: Context) {
         get() = prefs.getString("bubble_response_theme", "violet") ?: "violet"
         set(value) {
             prefs.edit().putString("bubble_response_theme", value).apply()
+        }
+
+    /** Off by default: bubble answers are kept only when the user taps Continue in app. */
+    var saveConversationsToHistory: Boolean
+        get() = prefs.getBoolean("bubble_save_history", false)
+        set(value) {
+            prefs.edit { putBoolean("bubble_save_history", value) }
         }
 }

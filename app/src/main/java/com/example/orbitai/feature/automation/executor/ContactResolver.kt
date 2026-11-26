@@ -49,6 +49,19 @@ class ContactResolver(context: Context) {
         return null
     }
 
+    fun findCallContacts(name: String): List<CallContact> {
+        val query = name.trim()
+        if (query.isBlank()) return emptyList()
+        val found = mutableListOf<CallContact>()
+        contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val number = callableNumber(cursor.getString(1).orEmpty()) ?: continue
+                found += CallContact(cursor.getString(0).orEmpty(), number)
+            }
+        }
+        return ContactNameMatcher.closest(query, found)
+    }
+
     private fun normalizePhoneNumber(value: String): String {
         return buildString {
             value.forEachIndexed { index, char ->

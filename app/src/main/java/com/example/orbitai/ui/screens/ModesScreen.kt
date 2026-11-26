@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
@@ -21,6 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -43,22 +47,18 @@ import com.example.orbitai.core.database.Mode
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 
-private val ModesSurfaceLight = Color(0xFFF9F8F5)
-private val ModesCardLight = Color(0xFFFFFFFF)
-private val ModesCardDark = Color(0xFF1E1E1C)
-private val ModesInkLight = Color(0xFF0D0D0D)
-private val ModesActiveGreen = Color(0xFF17A865)
-private val ModesDeleteRed = Color(0xFFD94F4F)
-private val ModesSans = FontFamily.SansSerif
-private val ModesMono = FontFamily.Monospace
+private val ModesActiveGreen @Composable get() = OrbitTheme.colors.success
+private val ModesDeleteRed @Composable get() = OrbitTheme.colors.destructive
+private val ModesSans = OrbitUiFont
+private val ModesMono = OrbitMonoFont
 private val ModeCardHeight = 152.dp
 
 private val ModesSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else ModesSurfaceLight
+    @Composable get() = OrbitTheme.colors.background
 private val ModesCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) ModesCardDark else ModesCardLight
+    @Composable get() = OrbitTheme.colors.surface
 private val ModesInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else ModesInkLight
+    @Composable get() = OrbitTheme.colors.labelPrimary
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MODES SCREEN — list + inline edit destination
@@ -94,12 +94,17 @@ fun ModesScreen(viewModel: ModesViewModel) {
     ) { dest ->
         when (dest) {
             is ModesDestination.List -> ModeListScreen(
-                modes      = modes,
+                modes = modes,
                 onEditMode = { destination = ModesDestination.Edit(it) },
                 onCreateNew = { destination = ModesDestination.Edit(null) },
                 inferenceForMode = { modeId -> viewModel.inferenceForMode(modeId) },
+                libraryBar = { ModeLibraryBar(viewModel) },
             )
-            is ModesDestination.Edit -> ModeEditScreen(
+            is ModesDestination.Edit -> {
+              var preset by remember(dest.mode?.id) { mutableStateOf(dest.mode?.preset ?: com.example.orbitai.core.database.ModePreset()) }
+              val spaces by viewModel.spaces.collectAsState()
+              val context = androidx.compose.ui.platform.LocalContext.current
+              ModeEditScreen(
                 mode      = dest.mode,
                 defaultInference = viewModel.defaultInference(),
                 initialInference = if (dest.mode == null) {
@@ -110,17 +115,27 @@ fun ModesScreen(viewModel: ModesViewModel) {
                 onBack    = { destination = ModesDestination.List },
                 onSave    = { name, prompt, inference, isActive ->
                     if (dest.mode == null) {
-                        viewModel.createMode(name, prompt, inference, isActive)
+                        viewModel.createMode(name, prompt, inference, isActive, preset)
                     } else {
-                        viewModel.updateMode(dest.mode.id, name, prompt, inference, isActive)
+                        viewModel.updateMode(dest.mode.id, name, prompt, inference, isActive, preset)
                     }
                     destination = ModesDestination.List
                 },
+                presetEditor = {
+                    ModePresetEditor(
+                        preset = preset,
+                        models = remember { viewModel.availableModels() },
+                        spaces = spaces,
+                        onChange = { preset = it },
+                    )
+                },
+                onExport = dest.mode?.let { mode -> { shareMode(context, mode.name, viewModel.exportMode(mode)) } },
                 onDelete  = {
                     dest.mode?.let { viewModel.deleteMode(it.id) }
                     destination = ModesDestination.List
                 },
             )
+            }
         }
     }
 }
@@ -136,74 +151,50 @@ private fun ModeListScreen(
     onEditMode: (Mode) -> Unit,
     onCreateNew: () -> Unit,
     inferenceForMode: (String) -> InferenceSettings,
+    libraryBar: @Composable () -> Unit = {},
 ) {
     val customModes = remember(modes) { modes.filterNot { it.isDefault } }
     val builtInModes = remember(modes) { modes.filter { it.isDefault } }
     val gridEntries = remember(customModes) { customModes + listOf<Mode?>(null) }
+    val colors = OrbitTheme.colors
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ModesSurface)
-            .padding(horizontal = 16.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 4.dp, top = 18.dp, bottom = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "Modes",
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
-                    ),
-                    color = ModesInk,
-                )
-                Text(
-                    text = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = ModesInk.copy(alpha = 0.35f),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(ModesInk)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onCreateNew,
-                    ),
-                contentAlignment = Alignment.Center,
+    Scaffold(
+        containerColor = colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitTopLevelHeader(
+                title = stringResource(R.string.modes),
+                subtitle = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Create mode",
-                    tint = if (IsOrbitDarkTheme) SpaceDeep else Color.White,
-                    modifier = Modifier.size(18.dp),
+                com.example.orbitai.ui.components.OrbitIconButton(
+                    icon = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.create_mode),
+                    onClick = onCreateNew,
+                    tint = colors.labelOnInk,
+                    containerColor = colors.inkPrimary,
                 )
             }
-        }
-
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 10.dp),
-            contentPadding = PaddingValues(bottom = 26.dp),
+                .background(colors.background)
+                .padding(padding),
+            contentPadding = PaddingValues(
+                start = OrbitTheme.spacing.screenHorizontal,
+                end = OrbitTheme.spacing.screenHorizontal,
+                top = OrbitTheme.spacing.xs,
+                bottom = OrbitTheme.spacing.xxl,
+            ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            item { libraryBar() }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     gridEntries.chunked(2).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             rowItems.forEach { mode ->
                                 if (mode == null) {
@@ -230,28 +221,19 @@ private fun ModeListScreen(
 
             if (builtInModes.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "BUILT-IN",
-                        color = ModesInk.copy(alpha = 0.30f),
-                        fontFamily = ModesMono,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
+                    com.example.orbitai.ui.components.OrbitSectionHeader(
+                        title = stringResource(R.string.built_in),
                     )
                 }
                 item {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    com.example.orbitai.ui.components.OrbitGroupedCard {
                         builtInModes.forEachIndexed { index, mode ->
                             BuiltInModeRow(
                                 mode = mode,
                                 onClick = { onEditMode(mode) },
                             )
                             if (index != builtInModes.lastIndex) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(1.dp)
-                                        .background(ModesInk.copy(alpha = 0.06f)),
-                                )
+                                com.example.orbitai.ui.components.OrbitInsetDivider(startIndent = 16.dp)
                             }
                         }
                     }
@@ -268,24 +250,21 @@ private fun FlatModeCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = OrbitTheme.colors
+    val shapes = OrbitTheme.shapes
     val emoji = extractLeadingEmoji(mode.name) ?: "🙂"
     val title = stripLeadingEmoji(mode.name)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(ModesCard)
-            .border(
-                width = 1.dp,
-                color = ModesInk.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(14.dp),
+            .clip(shapes.card)
+            .background(colors.surface)
+            .then(
+                if (colors.isDark) Modifier.border(0.5.dp, colors.separator, shapes.card)
+                else Modifier,
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .height(ModeCardHeight)
-            .padding(12.dp),
+            .clickable(onClick = onClick)
+            .heightIn(min = ModeCardHeight)
+            .padding(14.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -298,15 +277,12 @@ private fun FlatModeCard(
             ) {
                 Text(
                     text = emoji,
-                    fontFamily = ModesSans,
                     fontSize = 18.sp,
                 )
                 Text(
                     text = title,
-                    color = ModesInk,
-                    fontFamily = ModesSans,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
+                    style = OrbitTheme.typography.callout,
+                    color = colors.labelPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -317,13 +293,12 @@ private fun FlatModeCard(
             }
             Text(
                 text = compactPrompt(mode.systemPrompt),
-                color = ModesInk.copy(alpha = 0.42f),
-                fontFamily = ModesSans,
-                fontSize = 11.sp,
+                style = OrbitTheme.typography.footnote,
+                color = colors.labelSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MetaPill("T ${"%.2f".format(inference.temperature)}")
                 MetaPill("TOK ${inference.maxDecodedTokens}")
@@ -336,7 +311,7 @@ private fun FlatModeCard(
 private fun ActiveDot() {
     Box(
         modifier = Modifier
-            .size(6.dp)
+            .size(7.dp)
             .clip(CircleShape)
             .background(ModesActiveGreen),
     )
@@ -344,17 +319,17 @@ private fun ActiveDot() {
 
 @Composable
 private fun MetaPill(text: String) {
+    val colors = OrbitTheme.colors
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(ModesInk.copy(alpha = 0.06f))
-            .padding(horizontal = 7.dp, vertical = 3.dp),
+            .background(colors.surfaceInput)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
             text = text,
-            color = ModesInk.copy(alpha = 0.55f),
-            fontFamily = ModesMono,
-            fontSize = 9.sp,
+            style = OrbitTheme.typography.caption1.tabular(),
+            color = colors.labelSecondary,
         )
     }
 }
@@ -364,20 +339,18 @@ private fun NewModeCell(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = OrbitTheme.colors
+    val shapes = OrbitTheme.shapes
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(shapes.card)
             .dashedRoundedBorder(
-                color = ModesInk.copy(alpha = 0.18f),
-                cornerRadius = 14.dp,
+                color = colors.border,
+                cornerRadius = shapes.cardRadius,
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .height(ModeCardHeight)
-            .padding(12.dp),
+            .clickable(onClick = onClick)
+            .heightIn(min = ModeCardHeight)
+            .padding(14.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -385,29 +358,23 @@ private fun NewModeCell(
         ) {
             Text(
                 text = "+",
-                color = ModesInk.copy(alpha = 0.30f),
-                fontFamily = ModesSans,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
+                style = OrbitTheme.typography.title2,
+                color = colors.labelSecondary,
             )
             Text(
-                text = "New mode",
-                color = ModesInk.copy(alpha = 0.35f),
-                fontFamily = ModesSans,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
+                text = stringResource(R.string.new_mode),
+                style = OrbitTheme.typography.callout,
+                color = colors.labelPrimary,
             )
             Text(
-                text = "Prompt + tuning",
-                color = ModesInk.copy(alpha = 0.30f),
-                fontFamily = ModesSans,
-                fontSize = 11.sp,
+                text = stringResource(R.string.prompt_tuning),
+                style = OrbitTheme.typography.caption1,
+                color = colors.labelSecondary,
             )
             Text(
-                text = "Add emoji, prompt, and parameters",
-                color = ModesInk.copy(alpha = 0.24f),
-                fontFamily = ModesSans,
-                fontSize = 10.sp,
+                text = stringResource(R.string.add_emoji_prompt_and_parameters),
+                style = OrbitTheme.typography.caption1,
+                color = colors.labelTertiary,
             )
         }
     }
@@ -418,51 +385,27 @@ private fun BuiltInModeRow(
     mode: Mode,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = mode.name,
-                color = ModesInk,
-                fontFamily = ModesSans,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = compactPrompt(mode.systemPrompt),
-                color = ModesInk.copy(alpha = 0.38f),
-                fontFamily = ModesSans,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (mode.isActive) {
-                ActiveDot()
+    com.example.orbitai.ui.components.OrbitListRow(
+        title = mode.name,
+        subtitle = compactPrompt(mode.systemPrompt),
+        trailing = if (mode.isActive) {
+            {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActiveDot()
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null,
+                        tint = Color.Transparent,
+                        modifier = Modifier.size(0.dp),
+                    )
+                }
             }
-            Text(
-                text = "›",
-                color = ModesInk.copy(alpha = 0.55f),
-                fontFamily = ModesSans,
-                fontSize = 16.sp,
-            )
-        }
-    }
+        } else null,
+        onClick = onClick,
+    )
 }
 
 private fun compactPrompt(prompt: String): String {
@@ -541,6 +484,8 @@ private fun ModeEditScreen(
     onBack:   () -> Unit,
     onSave:   (name: String, prompt: String, inference: InferenceSettings, isActive: Boolean) -> Unit,
     onDelete: () -> Unit,
+    presetEditor: @Composable () -> Unit = {},
+    onExport: (() -> Unit)? = null,
 ) {
     var name   by rememberSaveable(mode?.id) { mutableStateOf(mode?.name ?: "") }
     var prompt by rememberSaveable(mode?.id) { mutableStateOf(mode?.systemPrompt ?: "") }
@@ -575,7 +520,7 @@ private fun ModeEditScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.back),
                                 tint = ModesInk,
                             )
                         }
@@ -638,7 +583,7 @@ private fun ModeEditScreen(
                         }
                         Spacer(Modifier.width(6.dp))
                         FlatActionButton(
-                            label = "Save",
+                            label = stringResource(R.string.save),
                             onClick = {
                                 if (canSave) {
                                     onSave(
@@ -722,7 +667,7 @@ private fun ModeEditScreen(
                         readOnly   = isDefault,
                     )
                     Text(
-                        text = "Tip: add emoji in the mode name, e.g. 🤖 Code Reviewer",
+                        text = stringResource(R.string.tip_add_emoji_in_the),
                         fontFamily = ModesSans,
                         fontSize = 10.sp,
                         color = ModesInk.copy(alpha = 0.38f),
@@ -797,6 +742,15 @@ private fun ModeEditScreen(
                 }
 
                 item {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        presetEditor()
+                        onExport?.let { export ->
+                            androidx.compose.material3.TextButton(onClick = export) { Text(stringResource(R.string.share_this_mode)) }
+                        }
+                    }
+                }
+
+                item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -804,7 +758,7 @@ private fun ModeEditScreen(
                     ) {
                         ModeFieldLabel("Inference")
                         FlatActionButton(
-                            label = "Reset Default",
+                            label = stringResource(R.string.reset_default),
                             onClick = resetInference,
                             enabled = true,
                             filled = false,
@@ -820,7 +774,7 @@ private fun ModeEditScreen(
                     Spacer(Modifier.height(6.dp))
 
                     CompactModeSlider(
-                        label = "Temperature",
+                        label = stringResource(R.string.temperature),
                         value = temperature,
                         valueStr = "%.2f".format(temperature),
                         range = 0.1f..2.0f,
@@ -828,7 +782,7 @@ private fun ModeEditScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
-                        label = "Top-K",
+                        label = stringResource(R.string.top_k),
                         value = topK.toFloat(),
                         valueStr = topK.toString(),
                         range = 1f..100f,
@@ -837,7 +791,7 @@ private fun ModeEditScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
-                        label = "Top-P",
+                        label = stringResource(R.string.top_p),
                         value = topP,
                         valueStr = "%.2f".format(topP),
                         range = 0.1f..1.0f,
@@ -845,7 +799,7 @@ private fun ModeEditScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     CompactModeSlider(
-                        label = "Max output tokens",
+                        label = stringResource(R.string.max_output_tokens),
                         value = maxDecodedTokens.toFloat(),
                         valueStr = maxDecodedTokens.toString(),
                         range = 128f..2048f,
@@ -859,7 +813,7 @@ private fun ModeEditScreen(
                     item {
                         Spacer(Modifier.height(4.dp))
                         FlatActionButton(
-                            label = "Delete Mode",
+                            label = stringResource(R.string.delete_mode),
                             onClick = { showDeleteConfirm = true },
                             modifier = Modifier
                                 .fillMaxWidth(),
@@ -878,14 +832,14 @@ private fun ModeEditScreen(
             onDismissRequest = { showDeleteConfirm = false },
             title = {
                 Text(
-                    text = "Delete mode?",
+                    text = stringResource(R.string.delete_mode_2),
                     color = TextPrimary,
                     style = MaterialTheme.typography.titleLarge,
                 )
             },
             text = {
                 Text(
-                    text = "This will permanently remove this mode.",
+                    text = stringResource(R.string.this_will_permanently_remove_this),
                     color = TextMuted,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -897,12 +851,12 @@ private fun ModeEditScreen(
                         onDelete()
                     },
                 ) {
-                    Text("Delete", color = Destructive)
+                    Text(stringResource(R.string.delete), color = Destructive)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel", color = TextMuted)
+                    Text(stringResource(R.string.cancel), color = TextMuted)
                 }
             },
         )
@@ -1121,4 +1075,135 @@ private fun FlatActionButton(
             fontWeight = FontWeight.Medium,
         )
     }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MODES 2.0: TEMPLATES, IMPORT / EXPORT, PRESETS (f039)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** "Templates" and "Import" above the mode list. */
+@Composable
+private fun ModeLibraryBar(viewModel: ModesViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var showTemplates by remember { mutableStateOf(false) }
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        // Read a little past the limit so oversized files are reported, not truncated.
+                        String(input.readNBytes(com.example.orbitai.feature.modes.ModeJson.MAX_BYTES + 1))
+                    }
+                }.getOrNull()
+            }
+            val message = if (text == null) "Couldn't read that file." else viewModel.importMode(text).fold(
+                onSuccess = { "Added mode “$it”." },
+                onFailure = { it.message ?: "That file isn't a valid Orbit mode." },
+            )
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        androidx.compose.material3.OutlinedButton(onClick = { showTemplates = true }) { Text(stringResource(R.string.templates)) }
+        androidx.compose.material3.OutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text(stringResource(R.string.action_import)) }
+    }
+    if (showTemplates) {
+        AlertDialog(
+            onDismissRequest = { showTemplates = false },
+            title = { Text(stringResource(R.string.add_a_mode)) },
+            text = {
+                Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    com.example.orbitai.feature.modes.ModeTemplates.all.forEach { template ->
+                        Column(
+                            Modifier.fillMaxWidth().clickable {
+                                viewModel.addTemplate(template)
+                                showTemplates = false
+                                android.widget.Toast.makeText(context, "Added ${template.name}. Edit it any time.", android.widget.Toast.LENGTH_SHORT).show()
+                            }.padding(vertical = 10.dp),
+                        ) {
+                            Text(template.name, style = MaterialTheme.typography.titleSmall)
+                            Text(template.systemPrompt, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showTemplates = false }) { Text(stringResource(R.string.close)) } },
+        )
+    }
+}
+
+private val ModeAccentColors = listOf(null, 0x8B5CF6, 0x3B82F6, 0x06B6D4, 0x10B981, 0xF59E0B, 0xEF4444, 0xEC4899)
+
+/** Default model, default Spaces and chip colour for a mode. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ModePresetEditor(
+    preset: com.example.orbitai.core.database.ModePreset,
+    models: List<com.example.orbitai.core.model.LlmModel>,
+    spaces: List<com.example.orbitai.core.database.Space>,
+    onChange: (com.example.orbitai.core.database.ModePreset) -> Unit,
+) {
+    var modelMenu by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ModeFieldLabel("When this mode is selected")
+        Box {
+            val current = models.find { it.id == preset.defaultModelId }?.displayName
+                ?: preset.defaultModelId?.let { id -> com.example.orbitai.core.model.findModel(id)?.displayName?.plus(" (not downloaded)") }
+                ?: "Keep the chat's model"
+            androidx.compose.material3.OutlinedButton(onClick = { modelMenu = true }) { Text("Model: $current", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            androidx.compose.material3.DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.keep_the_chat_s_model)) }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = null)) })
+                models.forEach { model ->
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(model.displayName) }, onClick = { modelMenu = false; onChange(preset.copy(defaultModelId = model.id)) })
+                }
+            }
+        }
+        if (spaces.isNotEmpty()) {
+            Text(stringResource(R.string.spaces_to_turn_on), style = MaterialTheme.typography.bodySmall)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                spaces.forEach { space ->
+                    val on = space.id in preset.defaultSpaceIds
+                    androidx.compose.material3.FilterChip(
+                        selected = on,
+                        onClick = { onChange(preset.copy(defaultSpaceIds = if (on) preset.defaultSpaceIds - space.id else preset.defaultSpaceIds + space.id)) },
+                        label = { Text(space.name) },
+                    )
+                }
+            }
+        }
+        Text(stringResource(R.string.colour), style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ModeAccentColors.forEach { color ->
+                val selected = preset.accentColor == color
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(color?.let { Color(0xFF000000 or it.toLong()) } ?: SpaceDust)
+                        .border(if (selected) 3.dp else 1.dp, if (selected) TextPrimary else GlassBorder, CircleShape)
+                        .clickable(onClickLabel = if (color == null) "No colour" else "Colour") { onChange(preset.copy(accentColor = color)) },
+                )
+            }
+        }
+    }
+}
+
+/** Shares a mode as a small .json file through the share sheet. */
+private fun shareMode(context: android.content.Context, name: String, json: String) {
+    val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+    val safe = name.replace(Regex("""[^\p{L}\p{M}\p{N} _-]+"""), "").trim().replace(Regex("\\s+"), "-").ifBlank { "mode" }
+    val file = java.io.File(dir, "$safe.orbitmode.json").apply { writeText(json) }
+    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+        .setType("application/json")
+        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    context.startActivity(android.content.Intent.createChooser(send, "Share mode").addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
 }

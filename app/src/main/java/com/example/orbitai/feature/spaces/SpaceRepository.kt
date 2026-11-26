@@ -1,11 +1,15 @@
 package com.example.orbitai.feature.spaces
 
+import androidx.core.net.toUri
+import java.io.File
+import com.example.orbitai.feature.spaces.embedding.EmbedKind
+import com.example.orbitai.feature.spaces.embedding.Embedded
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.example.orbitai.core.database.AppDatabase
-import com.example.orbitai.core.database.RagChunkEntity
 import com.example.orbitai.core.database.RagDocument
 import com.example.orbitai.core.database.RagDocumentEntity
 import com.example.orbitai.core.database.RagStatus
@@ -13,19 +17,18 @@ import com.example.orbitai.core.database.Space
 import com.example.orbitai.core.database.SpaceEntity
 import com.example.orbitai.core.database.toDomain
 import com.example.orbitai.core.common.normalizeDocumentMimeType
-import com.example.orbitai.core.common.isTextLikeDocument
-import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -44,6 +47,9 @@ class SpaceRepository(private val context: Context) {
         spaceDao.observeDocumentsInSpace(spaceId)
             .map { list -> list.map { it.toDomain() } }
 
+    /** Spaces read straight from the database (for screens that open before [spaces] has loaded). */
+    suspend fun currentSpaces(): List<Space> = spaceDao.observeSpaces().first().map { it.toDomain() }
+
     suspend fun createSpace(name: String): Space {
         val entity = SpaceEntity(
             id        = UUID.randomUUID().toString(),
@@ -58,6 +64,7 @@ class SpaceRepository(private val context: Context) {
         // Delete all documents in the space first (chunks cascade via FK on rag_chunks.docId)
         spaceDao.deleteDocumentsBySpaceId(id)
         spaceDao.deleteSpace(id)
+        invalidateIndex()
     }
 
     suspend fun renameSpace(id: String, name: String) {
@@ -98,205 +105,113 @@ class SpaceRepository(private val context: Context) {
                     spaceId    = spaceId,
                 )
             )
-            processDocument(docId, uri, mimeType)
+            DocumentIngestWorker.enqueue(context, docId)
         }
     }
 
-    private suspend fun processDocument(docId: String, uri: Uri, mimeType: String) {
-        ragDao.updateStatus(docId, RagStatus.PROCESSING.name, 0)
-        try {
-            val textBlocks = extractTextBlocks(uri, mimeType)
-            val chunks     = chunkTextBlocks(textBlocks, docId)
+    /** Saves a note typed in the app as a text document of the Space and indexes it. */
+    suspend fun addNote(spaceId: String, title: String, text: String) = withContext(Dispatchers.IO) {
+        val docId = UUID.randomUUID().toString()
+        val file = Notes.write(context, docId, text)
+        ragDao.insertDocument(
+            RagDocumentEntity(
+                id = docId,
+                name = Notes.displayName(title),
+                uri = file.toUri().toString(),
+                mimeType = "text/plain",
+                sizeBytes = file.length(),
+                status = RagStatus.PENDING.name,
+                chunkCount = 0,
+                addedAt = System.currentTimeMillis(),
+                spaceId = spaceId,
+            ),
+        )
+        DocumentIngestWorker.enqueue(context, docId)
+    }
 
-            val embedder = EmbeddingModel.create(context)
-            val chunksWithEmbeddings = if (embedder != null) {
-                chunks.map { chunk ->
-                    val vec = embedder.embed(chunk.content)
-                    if (vec != null) chunk.copy(embedding = vec.toByteArray()) else chunk
-                }.also { embedder.close() }
-            } else {
-                chunks
-            }
+    /** The text of a note, or null when [docId] isn't a note made in the app. */
+    suspend fun noteText(docId: String): String? = withContext(Dispatchers.IO) {
+        ragDao.getDocument(docId)?.let { Notes.fileFor(context, it.uri)?.takeIf(File::exists)?.readText() }
+    }
 
-            ragDao.insertChunks(chunksWithEmbeddings)
-            ragDao.updateStatus(docId, RagStatus.DONE.name, chunksWithEmbeddings.size)
-        } catch (_: Exception) {
-            ragDao.updateStatus(docId, RagStatus.ERROR.name, 0)
+    suspend fun updateNote(docId: String, title: String, text: String) = withContext(Dispatchers.IO) {
+        val doc = ragDao.getDocument(docId) ?: return@withContext
+        val file = Notes.fileFor(context, doc.uri) ?: return@withContext
+        file.writeText(text)
+        ragDao.renameDocument(docId, Notes.displayName(title), file.length())
+        DocumentIngestWorker.enqueue(context, docId)
+    }
+
+    /** Re-queues documents left unfinished, e.g. when the process died mid-way. Safe to call on every start. */
+    fun resumeUnfinishedIngestion() {
+        scope.launch {
+            ragDao.getUnfinishedDocuments().forEach { DocumentIngestWorker.enqueue(context, it.id) }
+            if (ragDao.countChunksToEmbed(activeEmbeddingModelId) > 0) ReembedWorker.enqueue(context)
         }
     }
 
-    private fun extractTextBlocks(uri: Uri, mimeType: String): List<String> = when {
-        mimeType == "application/pdf" -> extractPdfPages(uri)
-        isTextLikeDocument(mimeType)  -> extractPlainTextBlocks(uri)
-        else -> emptyList()
-    }
-
-    private fun extractPlainTextBlocks(uri: Uri): List<String> {
-        val text = context.contentResolver.openInputStream(uri)
-            ?.bufferedReader()
-            ?.use { it.readText() }
-            .orEmpty()
-            .replace("\r\n", "\n")
-            .trim()
-
-        if (text.isBlank()) return emptyList()
-
-        return text
-            .split(Regex("\\n\\s*\\n+"))
-            .map { normalizeChunkText(it) }
-            .filter { it.isNotBlank() }
-    }
-
-    private fun extractPdfPages(uri: Uri): List<String> = try {
-        PDFBoxResourceLoader.init(context)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            PDDocument.load(input).use { document ->
-                val stripper = PDFTextStripper().apply { sortByPosition = true }
-                (1..document.numberOfPages).mapNotNull { pageNumber ->
-                    stripper.startPage = pageNumber
-                    stripper.endPage = pageNumber
-                    val pageText = normalizeChunkText(stripper.getText(document))
-                    if (pageText.isBlank()) null else "[Page $pageNumber]\n$pageText"
-                }
-            }
-        } ?: emptyList()
-    } catch (_: Exception) {
-        emptyList()
-    }
-
-    private fun chunkTextBlocks(
-        textBlocks: List<String>,
-        docId: String,
-        chunkWordSize: Int = 500,
-        overlapWordCount: Int = 125,
-    ): List<RagChunkEntity> {
-        if (textBlocks.isEmpty()) return emptyList()
-
-        val chunks = mutableListOf<RagChunkEntity>()
-        var chunkIndex = 0
-        var currentWords = mutableListOf<String>()
-
-        fun flushChunk() {
-            if (currentWords.isEmpty()) return
-            chunks += RagChunkEntity(
-                id         = UUID.randomUUID().toString(),
-                docId      = docId,
-                chunkIndex = chunkIndex++,
-                content    = currentWords.joinToString(" "),
-            )
-            currentWords = currentWords.takeLast(overlapWordCount).toMutableList()
+    /** Indexes a failed document again. */
+    fun retryDocument(id: String) {
+        scope.launch {
+            ragDao.updateResult(id, RagStatus.PENDING.name, 0, null)
+            DocumentIngestWorker.enqueue(context, id, replace = true)
         }
-
-        textBlocks.forEach { block ->
-            val blockWords = block.split(Regex("\\s+")).filter { it.isNotBlank() }
-            if (blockWords.isEmpty()) return@forEach
-
-            if (currentWords.isNotEmpty() && currentWords.size + blockWords.size > chunkWordSize) {
-                flushChunk()
-            }
-
-            if (blockWords.size >= chunkWordSize) {
-                var start = 0
-                while (start < blockWords.size) {
-                    val preservedOverlap = if (currentWords.isEmpty()) emptyList() else currentWords
-                    val availableWords = (chunkWordSize - preservedOverlap.size).coerceAtLeast(1)
-                    val end = minOf(start + availableWords, blockWords.size)
-                    currentWords = (preservedOverlap + blockWords.subList(start, end)).toMutableList()
-                    flushChunk()
-                    start = end
-                }
-            } else {
-                currentWords.addAll(blockWords)
-            }
-        }
-
-        if (currentWords.isNotEmpty()) {
-            chunks += RagChunkEntity(
-                id         = UUID.randomUUID().toString(),
-                docId      = docId,
-                chunkIndex = chunkIndex,
-                content    = currentWords.joinToString(" "),
-            )
-        }
-
-        return chunks
     }
-
-    private fun normalizeChunkText(text: String): String =
-        text
-            .replace(Regex("[\\t\\x0B\\f\\r ]+"), " ")
-            .replace(Regex(" *\\n *"), "\n")
-            .replace(Regex("\\n{3,}"), "\n\n")
-            .trim()
 
     suspend fun deleteDocument(id: String) = withContext(Dispatchers.IO) {
+        DocumentIngestWorker.cancel(context, id)
+        ragDao.getDocument(id)?.let { Notes.fileFor(context, it.uri)?.delete() }
         ragDao.deleteDocument(id)
+        invalidateIndex()
+    }
+
+    private val embedder = SharedEmbedder(context)
+    private val indexLock = Mutex()
+    @Volatile private var cachedIndex: Pair<Set<String>, RetrievalIndex>? = null
+
+    /** Id of the embedding model in use; vectors from other models are ignored until re-indexed. */
+    val activeEmbeddingModelId: String get() = embedder.activeModelId
+
+    /** Embeds stored text (a document chunk or a memory); null when the model isn't downloaded. */
+    fun embedPassage(text: String): Embedded? = embedder.embed(text, EmbedKind.PASSAGE)
+
+    /** Embeds a question; null when the model isn't downloaded. */
+    fun embedQuery(text: String): FloatArray? = embedder.embed(text, EmbedKind.QUERY)?.vector
+
+    /** Drops the retrieval index so the next search rebuilds it (after documents change). */
+    fun invalidateIndex() {
+        cachedIndex = null
+    }
+
+    /** Frees the embedding model and the retrieval index; both are rebuilt on next use. */
+    fun releaseMemory() {
+        cachedIndex = null
+        embedder.release()
     }
 
     /**
-     * Search chunks across all specified spaces.
-     * Uses semantic (cosine) search if the embedding model is available,
-     * otherwise falls back to keyword search.
+     * Finds the chunks in [spaceIds] most relevant to [query], combining keyword (BM25) and
+     * semantic ranking. Returns nothing when no chunk is relevant (e.g. small talk).
      */
     suspend fun searchChunksInSpaces(
         query: String,
         spaceIds: List<String>,
         limit: Int = 5,
-    ): List<RagChunkEntity> = withContext(Dispatchers.IO) {
-        if (spaceIds.isEmpty()) return@withContext emptyList()
-
-        val embedder = EmbeddingModel.create(context)
-        if (embedder != null) {
-            val queryVec = embedder.embed(query)
-            embedder.close()
-            if (queryVec != null) {
-                val allChunks = spaceDao.getAllChunksWithEmbeddingsForSpaces(spaceIds)
-                if (allChunks.isNotEmpty()) {
-                    return@withContext allChunks
-                        .mapNotNull { chunk ->
-                            val cv = chunk.embedding?.toFloatArray() ?: return@mapNotNull null
-                            Pair(chunk, cosineSimilarity(queryVec, cv))
-                        }
-                        .sortedByDescending { it.second }
-                        .take(limit)
-                        .map { it.first }
-                }
-            }
-        }
-
-        keywordSearchInSpaces(query, spaceIds, limit)
+    ): List<IndexChunk> = withContext(Dispatchers.IO) {
+        if (spaceIds.isEmpty() || query.isBlank()) return@withContext emptyList()
+        val index = indexFor(spaceIds.toSet())
+        if (index.size == 0) return@withContext emptyList()
+        index.search(query, embedQuery(query), limit)
     }
 
-    private val stopWords = setOf(
-        "a","an","the","is","are","was","were","be","been","being",
-        "have","has","had","do","does","did","will","would","shall","should",
-        "may","might","must","can","could","i","me","my","mine","we","our",
-        "you","your","he","him","his","she","her","it","its","they","them",
-        "their","this","that","these","those","what","which","who","whom",
-        "how","when","where","why","of","in","to","for","with","on","at",
-        "from","by","about","as","into","through","during","before","after",
-        "and","but","or","nor","not","so","if","then","than","too","very",
-        "just","also","tell","give","show","get","find","know","let","make",
-    )
-
-    private suspend fun keywordSearchInSpaces(
-        query: String,
-        spaceIds: List<String>,
-        limit: Int,
-    ): List<RagChunkEntity> {
-        val keywords = query.lowercase()
-            .split(Regex("[^a-zA-Z0-9]+"))
-            .filter { it.length > 1 && it !in stopWords }
-        if (keywords.isEmpty()) return emptyList()
-
-        val hitMap = mutableMapOf<String, Pair<RagChunkEntity, Int>>()
-        for (kw in keywords) {
-            val hits = spaceDao.searchChunksInSpaces(spaceIds, kw, 20) +
-                       spaceDao.searchChunksByDocNameInSpaces(spaceIds, kw, 20)
-            for (chunk in hits) {
-                hitMap[chunk.id] = Pair(chunk, (hitMap[chunk.id]?.second ?: 0) + 1)
-            }
-        }
-        return hitMap.values.sortedByDescending { it.second }.take(limit).map { it.first }
+    private suspend fun indexFor(spaceIds: Set<String>): RetrievalIndex = indexLock.withLock {
+        cachedIndex?.takeIf { it.first == spaceIds }?.second
+            ?: RetrievalIndex(
+                spaceDao.getChunksForSpaces(spaceIds.toList()).map {
+                    // Vectors from another embedding model can't be compared; those chunks are found by keywords until re-indexed.
+                    val usable = it.embeddingModel == activeEmbeddingModelId
+                    IndexChunk(it.id, it.docId, it.docName, it.chunkIndex, it.content, if (usable) it.embedding?.toFloatArray() else null)
+                },
+            ).also { cachedIndex = spaceIds to it }
     }
 }

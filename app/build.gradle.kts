@@ -117,6 +117,18 @@ android {
         buildConfig = true
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
+    sourceSets {
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -127,6 +139,10 @@ android {
         }
         jniLibs { pickFirsts += "**/*.so" }
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 val validatePlayReleaseConfiguration = tasks.register("validatePlayReleaseConfiguration") {
@@ -174,11 +190,14 @@ dependencies {
     implementation(libs.pdfbox.android)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.work.runtime.ktx)
     ksp(libs.room.compiler)
 
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)

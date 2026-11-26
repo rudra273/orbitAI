@@ -21,6 +21,7 @@ data class AppUpdateInfo(
 class AppUpdateRepository(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
+        .addInterceptor(com.example.orbitai.feature.privacy.NetworkLogInterceptor("Update check"))
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()

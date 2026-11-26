@@ -1,5 +1,6 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,20 +54,16 @@ import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.viewmodel.MemoryViewModel
 
-private val WelcomeSurfaceLight = Color(0xFFF9F8F5)
-private val WelcomeCardLight = Color(0xFFFFFFFF)
-private val WelcomeCardDark = Color(0xFF1E1E1C)
-private val WelcomeInkLight = Color(0xFF0D0D0D)
-private val WelcomeAccent = Color(0xFF5B4FE8)
-private val WelcomeSans = FontFamily.SansSerif
-private val WelcomeMono = FontFamily.Monospace
+private val WelcomeAccent @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accent
+private val WelcomeSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val WelcomeMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val WelcomeSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else WelcomeSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val WelcomeCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) WelcomeCardDark else WelcomeCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val WelcomeInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else WelcomeInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun WelcomeScreen(
@@ -211,14 +208,14 @@ fun WelcomeScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    text = "Welcome to OrbitAI",
+                    text = stringResource(R.string.welcome_to_orbitai),
                     color = WelcomeInk,
                     fontFamily = WelcomeSans,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 28.sp,
                 )
                 Text(
-                    text = "Your own on-device private AI assistant.",
+                    text = stringResource(R.string.your_own_on_device_private),
                     color = WelcomeInk.copy(alpha = 0.56f),
                     fontFamily = WelcomeSans,
                     fontSize = 14.sp,
@@ -241,7 +238,7 @@ fun WelcomeScreen(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "What should I call you?",
+                        text = stringResource(R.string.what_should_i_call_you),
                         color = WelcomeInk,
                         fontFamily = WelcomeSans,
                         fontWeight = FontWeight.Medium,
@@ -264,7 +261,7 @@ fun WelcomeScreen(
                             Box(contentAlignment = Alignment.CenterStart) {
                                 if (userName.isBlank()) {
                                     Text(
-                                        text = "Enter your name",
+                                        text = stringResource(R.string.enter_your_name),
                                         color = WelcomeInk.copy(alpha = 0.35f),
                                         fontFamily = WelcomeSans,
                                         fontSize = 15.sp,
@@ -298,7 +295,7 @@ fun WelcomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
-                                    text = "Use Orbit Bubble",
+                                    text = stringResource(R.string.use_orbit_bubble),
                                     color = WelcomeInk,
                                     fontFamily = WelcomeSans,
                                     fontWeight = FontWeight.Medium,
@@ -307,7 +304,7 @@ fun WelcomeScreen(
                                 RecommendedTag()
                             }
                             Text(
-                                text = "Use a floating assistant over other apps. Tap to speak, approve screen capture when needed, and copy responses to paste yourself.",
+                                text = stringResource(R.string.use_a_floating_assistant_over),
                                 color = WelcomeInk.copy(alpha = 0.56f),
                                 fontFamily = WelcomeSans,
                                 fontSize = 12.sp,
@@ -323,7 +320,7 @@ fun WelcomeScreen(
                     }
 
                     Text(
-                        text = "You can turn this off later in Settings / Orbit Bubble.",
+                        text = stringResource(R.string.you_can_turn_this_off),
                         color = WelcomeInk.copy(alpha = 0.50f),
                         fontFamily = WelcomeMono,
                         fontSize = 11.sp,
@@ -339,12 +336,12 @@ fun WelcomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             PrimaryWelcomeButton(
-                label = "Continue",
+                label = stringResource(R.string.action_continue),
                 enabled = userName.trim().isNotBlank(),
                 onClick = ::submit,
             )
             Text(
-                text = "Orbit runs fully on-device. You can also add Gemini or GPT API later if you want.",
+                text = stringResource(R.string.orbit_runs_fully_on_device),
                 color = WelcomeInk.copy(alpha = 0.42f),
                 fontFamily = WelcomeMono,
                 fontSize = 11.sp,
@@ -365,7 +362,7 @@ private fun RecommendedTag() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Recommended",
+            text = stringResource(R.string.recommended),
             color = WelcomeAccent,
             fontFamily = WelcomeMono,
             fontSize = 10.sp,

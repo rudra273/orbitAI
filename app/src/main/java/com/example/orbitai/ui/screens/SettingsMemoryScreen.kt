@@ -1,5 +1,10 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,7 +28,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,21 +59,17 @@ import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.viewmodel.MemoryViewModel
 
-private val MemorySurfaceLight = Color(0xFFF9F8F5)
-private val MemoryCardLight = Color(0xFFFFFFFF)
-private val MemoryCardDark = Color(0xFF1E1E1C)
-private val MemoryInkLight = Color(0xFF0D0D0D)
-private val MemoryGreen = Color(0xFF17A865)
-private val MemoryRed = Color(0xFFD94F4F)
-private val MemorySans = FontFamily.SansSerif
-private val MemoryMono = FontFamily.Monospace
+private val MemoryGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val MemoryRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
+private val MemorySans = com.example.orbitai.ui.theme.OrbitUiFont
+private val MemoryMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val MemorySurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else MemorySurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val MemoryCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) MemoryCardDark else MemoryCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val MemoryInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else MemoryInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun MemorySettingsScreen(
@@ -73,7 +78,31 @@ fun MemorySettingsScreen(
     onBack: () -> Unit,
 ) {
     var enabled by remember { mutableStateOf(memoryStore.isEnabled) }
-    val memories by memoryViewModel.memories.collectAsState()
+    var suggest by remember { mutableStateOf(memoryStore.suggestionsEnabled) }
+    val allMemories by memoryViewModel.memories.collectAsState()
+    var query by remember { mutableStateOf("") }
+    var sortByUse by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<MemoryEntity?>(null) }
+    val memories = remember(allMemories, query, sortByUse) {
+        allMemories
+            .filter { query.isBlank() || it.content.contains(query.trim(), ignoreCase = true) }
+            .sortedWith(if (sortByUse) compareByDescending<MemoryEntity> { it.useCount }.thenByDescending { it.lastUsedAt } else compareByDescending { it.createdAt })
+    }
+    editing?.let { memory ->
+        var text by remember(memory.id) { mutableStateOf(memory.content) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(stringResource(R.string.edit_memory)) },
+            text = { OutlinedTextField(value = text, onValueChange = { text = it }, maxLines = 4) },
+            confirmButton = {
+                TextButton(enabled = text.isNotBlank(), onClick = {
+                    memoryViewModel.updateMemory(memory.id, text)
+                    editing = null
+                }) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -86,12 +115,13 @@ fun MemorySettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 16.dp)
+                    .padding(start = 4.dp, top = 4.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onBack,
-                    ),
+                    )
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -102,7 +132,7 @@ fun MemorySettingsScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings),
                     color = MemoryInk.copy(alpha = 0.40f),
                     fontFamily = MemoryMono,
                     fontSize = 13.sp,
@@ -112,21 +142,21 @@ fun MemorySettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
+                    .padding(start = 4.dp, top = 2.dp, bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Memory",
+                    text = stringResource(R.string.memory),
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
+                        letterSpacing = (-0.3).sp,
                     ),
                     color = MemoryInk,
                     fontFamily = MemorySans,
                 )
                 Text(
-                    text = "Stored memories and controls",
+                    text = stringResource(R.string.stored_memories_and_controls),
                     color = MemoryInk.copy(alpha = 0.35f),
                     fontFamily = MemoryMono,
                     fontSize = 11.sp,
@@ -138,9 +168,9 @@ fun MemorySettingsScreen(
         item {
             MemoryGroupedCard {
                 MemoryToggleRow(
-                    title = "Use memory",
+                    title = stringResource(R.string.use_memory),
                     description = if (enabled) {
-                        "OrbitAI saves and uses memories from conversations."
+                        "OrbitAI uses the memories you save in conversations."
                     } else {
                         "Memory is off for new conversations."
                     },
@@ -150,16 +180,46 @@ fun MemorySettingsScreen(
                         memoryStore.isEnabled = it
                     },
                 )
+                if (enabled) {
+                    MemoryHairlineDivider()
+                    MemoryToggleRow(
+                        title = stringResource(R.string.suggest_memories),
+                        description = stringResource(R.string.when_you_share_a_personal),
+                        checked = suggest,
+                        onCheckedChange = {
+                            suggest = it
+                            memoryStore.suggestionsEnabled = it
+                        },
+                    )
+                }
             }
         }
 
         item { MemorySectionHeader("STORED") }
+        if (allMemories.size > 1) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.search_memories)) },
+                        singleLine = true,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !sortByUse, onClick = { sortByUse = false }, label = { Text(stringResource(R.string.recent)) })
+                        FilterChip(selected = sortByUse, onClick = { sortByUse = true }, label = { Text(stringResource(R.string.most_used)) })
+                    }
+                }
+            }
+        }
         if (memories.isNotEmpty()) {
             item {
                 MemoryGroupedCard {
                     memories.forEachIndexed { index, memory ->
                         MemoryStoredRow(
                             memory = memory,
+                            onEdit = { editing = memory },
                             onDelete = { memoryViewModel.deleteMemory(memory.id) },
                         )
                         if (index != memories.lastIndex) {
@@ -210,7 +270,7 @@ fun MemorySettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = MemoryInk.copy(alpha = 0.20f),
                 fontFamily = MemoryMono,
@@ -219,6 +279,13 @@ fun MemorySettingsScreen(
             )
         }
     }
+}
+
+private fun memorySourceLabel(source: String): String = when (source) {
+    "user_profile" -> "Profile"
+    "suggested" -> "Saved from a suggestion"
+    "auto" -> "Saved automatically"
+    else -> "Added by you"
 }
 
 @Composable
@@ -271,6 +338,7 @@ private fun MemoryToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -325,11 +393,13 @@ private fun MemoryToggleRow(
 @Composable
 private fun MemoryStoredRow(
     memory: MemoryEntity,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClickLabel = "Edit memory", onClick = onEdit)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,
@@ -341,23 +411,33 @@ private fun MemoryStoredRow(
                 .clip(CircleShape)
                 .background(MemoryGreen),
         )
-        Text(
-            text = memory.content,
-            modifier = Modifier.weight(1f),
-            color = MemoryInk.copy(alpha = 0.82f),
-            fontFamily = MemorySans,
-            fontSize = 13.sp,
-            lineHeight = 17.sp,
-            maxLines = 4,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = memory.content,
+                color = MemoryInk.copy(alpha = 0.82f),
+                fontFamily = MemorySans,
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = listOfNotNull(
+                    memorySourceLabel(memory.source),
+                    memory.useCount.takeIf { it > 0 }?.let { "used $it ${if (it == 1) "time" else "times"}" },
+                ).joinToString(" · "),
+                color = MemoryInk.copy(alpha = 0.38f),
+                fontFamily = MemorySans,
+                fontSize = 11.sp,
+            )
+        }
         IconButton(
             onClick = onDelete,
             modifier = Modifier.size(28.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.Delete,
-                contentDescription = "Delete memory",
+                contentDescription = stringResource(R.string.delete_memory),
                 tint = MemoryRed.copy(alpha = 0.82f),
                 modifier = Modifier.size(15.dp),
             )

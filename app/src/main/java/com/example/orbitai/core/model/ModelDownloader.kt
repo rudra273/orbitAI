@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.isActive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -22,12 +21,14 @@ data class DownloadProgress(
     val totalBytes: Long = 0L,
     val status: DownloadStatus = DownloadStatus.IDLE,
     val error: String? = null,
+    /** True when a failed download kept its partial data and can be retried from where it stopped. */
+    val canResume: Boolean = false,
 ) {
     val progress: Float get() = if (totalBytes > 0) bytesDownloaded / totalBytes.toFloat() else 0f
     val progressPercent: Int get() = (progress * 100).toInt()
 }
 
-enum class DownloadStatus { IDLE, DOWNLOADING, PAUSED, COMPLETED, FAILED }
+enum class DownloadStatus { IDLE, DOWNLOADING, PAUSED, VERIFYING, COMPLETED, FAILED }
 
 class ModelDownloader(private val context: Context) {
     companion object {
@@ -37,6 +38,7 @@ class ModelDownloader(private val context: Context) {
     private val tokenStore = TokenStore(context)
 
     private val client = OkHttpClient.Builder()
+        .addInterceptor(com.example.orbitai.feature.privacy.NetworkLogInterceptor("Model download"))
         .followRedirects(true)
         .followSslRedirects(true)
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -44,6 +46,28 @@ class ModelDownloader(private val context: Context) {
         .build()
 
     private val activeDownloads = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    private val fileDownloader = ResumableFileDownloader(client) {
+        tokenStore.huggingFaceToken.takeIf { tokenStore.hasToken() }
+    }
+
+    private suspend fun downloadFile(
+        modelId: String,
+        url: String,
+        dest: File,
+        expectedSize: Long?,
+        expectedSha256: String?,
+        requiresAuth: Boolean,
+        onProgress: suspend (bytesDone: Long, totalBytes: Long, status: DownloadStatus) -> Unit,
+    ): FileDownloadResult = fileDownloader.download(
+        url = url,
+        dest = dest,
+        expectedSize = expectedSize,
+        expectedSha256 = expectedSha256,
+        requiresAuth = requiresAuth,
+        isCancelled = { activeDownloads[modelId] == false },
+        onProgress = onProgress,
+    )
 
     val modelDir: File = File(context.getExternalFilesDir(null), "models").also { it.mkdirs() }
 
@@ -87,10 +111,11 @@ class ModelDownloader(private val context: Context) {
         url: String,
         fileName: String,
         requiresAuth: Boolean = true,
+        expectedSizeBytes: Long? = null,
+        expectedSha256: String? = null,
     ): Flow<DownloadProgress> = flow {
         Log.d(TAG, "Starting download for $modelId -> $fileName")
         val dest = File(modelDir, fileName)
-        val tmp  = File(modelDir, "$fileName.tmp")
 
         // A previous broken build could have created a directory where a model file should live.
         // Clean that up so we can redownload the real file instead of reporting a false "complete".
@@ -106,67 +131,24 @@ class ModelDownloader(private val context: Context) {
 
         activeDownloads[modelId] = true
         emit(DownloadProgress(modelId, status = DownloadStatus.DOWNLOADING))
-
         try {
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .header("User-Agent", "Mozilla/5.0")
-            if (requiresAuth && tokenStore.hasToken()) {
-                requestBuilder.header("Authorization", "Bearer ${tokenStore.huggingFaceToken}")
+            val result = downloadFile(
+                modelId = modelId,
+                url = url,
+                dest = dest,
+                expectedSize = expectedSizeBytes,
+                expectedSha256 = expectedSha256,
+                requiresAuth = requiresAuth,
+            ) { done, total, status -> emit(DownloadProgress(modelId, done, total, status)) }
+            when (result) {
+                FileDownloadResult.Completed -> {
+                    Log.d(TAG, "Download completed for $modelId -> ${dest.absolutePath}")
+                    emit(DownloadProgress(modelId, dest.length(), dest.length(), DownloadStatus.COMPLETED))
+                }
+                is FileDownloadResult.Failed -> emit(
+                    DownloadProgress(modelId, status = DownloadStatus.FAILED, error = result.message, canResume = result.canResume)
+                )
             }
-            val request = requestBuilder.build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    val errMsg = when (response.code) {
-                        401  -> "Invalid token. Check your HuggingFace token in Settings."
-                        403  -> "Access denied. Accept the model license on HuggingFace first."
-                        404  -> "Model file not found."
-                        else -> "HTTP error ${response.code}"
-                    }
-                    Log.e(TAG, "Download failed for $modelId: ${response.code} $errMsg")
-                    emit(DownloadProgress(modelId, status = DownloadStatus.FAILED, error = errMsg))
-                    return@flow
-                }
-
-                val body       = response.body ?: run {
-                    emit(DownloadProgress(modelId, status = DownloadStatus.FAILED, error = "Empty response"))
-                    return@flow
-                }
-                val totalBytes = body.contentLength()
-                var downloaded = 0L
-
-                tmp.outputStream().use { out ->
-                    body.byteStream().use { input ->
-                        val buffer = ByteArray(8 * 1024)
-                        var bytes  = input.read(buffer)
-                        while (bytes >= 0) {
-                            if (!coroutineContext.isActive || activeDownloads[modelId] == false) {
-                                tmp.delete()
-                                emit(DownloadProgress(modelId, status = DownloadStatus.FAILED,
-                                    error = "Cancelled"))
-                                return@flow
-                            }
-                            out.write(buffer, 0, bytes)
-                            downloaded += bytes
-                            emit(DownloadProgress(modelId, downloaded, totalBytes,
-                                DownloadStatus.DOWNLOADING))
-                            bytes = input.read(buffer)
-                        }
-                    }
-                }
-
-                check(tmp.renameTo(dest)) { "Unable to finalize $fileName" }
-                Log.d(TAG, "Download completed for $modelId -> ${dest.absolutePath}")
-                emit(DownloadProgress(modelId, downloaded, totalBytes, DownloadStatus.COMPLETED))
-            }
-        } catch (e: CancellationException) {
-            tmp.delete()
-            throw e
-        } catch (e: Exception) {
-            tmp.delete()
-            Log.e(TAG, "Download exception for $modelId", e)
-            emit(DownloadProgress(modelId, status = DownloadStatus.FAILED, error = e.message))
         } finally {
             activeDownloads.remove(modelId)
         }
@@ -174,6 +156,7 @@ class ModelDownloader(private val context: Context) {
 
     private fun download(model: LlmModel, spec: ModelDownloadSpec): Flow<DownloadProgress> = flow {
         Log.d(TAG, "Starting model download for ${model.id} -> ${model.fileName}")
+        val checksums = MODEL_FILE_SHA256[model.id].orEmpty()
 
         if (model.format != ModelFormat.ONNX_GENAI) {
             val singleFile = spec.files.singleOrNull()
@@ -184,6 +167,8 @@ class ModelDownloader(private val context: Context) {
                     url = singleFile.url,
                     fileName = model.fileName,
                     requiresAuth = spec.requiresAuth,
+                    expectedSizeBytes = singleFile.sizeBytes,
+                    expectedSha256 = checksums[singleFile.relativePath],
                 )
             )
             return@flow
@@ -191,178 +176,49 @@ class ModelDownloader(private val context: Context) {
 
         val modelRoot = File(modelDir, model.fileName).also { it.mkdirs() }
         val knownTotalBytes = spec.files.sumOf { it.sizeBytes ?: 0L }
-        var completedBytes = 0L
 
         if (isDownloaded(model)) {
-            emit(
-                DownloadProgress(
-                    modelId = model.id,
-                    bytesDownloaded = knownTotalBytes,
-                    totalBytes = knownTotalBytes,
-                    status = DownloadStatus.COMPLETED,
-                )
-            )
+            emit(DownloadProgress(model.id, knownTotalBytes, knownTotalBytes, DownloadStatus.COMPLETED))
             return@flow
         }
 
         activeDownloads[model.id] = true
-        emit(
-            DownloadProgress(
-                modelId = model.id,
-                totalBytes = knownTotalBytes,
-                status = DownloadStatus.DOWNLOADING,
-            )
-        )
+        emit(DownloadProgress(model.id, totalBytes = knownTotalBytes, status = DownloadStatus.DOWNLOADING))
 
+        var completedBytes = 0L
         try {
             for (file in spec.files) {
-                if (!coroutineContext.isActive || activeDownloads[model.id] == false) {
-                    emit(
-                        DownloadProgress(
-                            modelId = model.id,
-                            bytesDownloaded = completedBytes,
-                            totalBytes = knownTotalBytes,
-                            status = DownloadStatus.FAILED,
-                            error = "Cancelled",
-                        )
-                    )
-                    return@flow
-                }
-
                 val dest = File(modelRoot, file.relativePath)
-                val fallbackBytes = file.sizeBytes ?: dest.takeIf(File::exists)?.length() ?: 0L
-                if (dest.exists()) {
-                    completedBytes += fallbackBytes
-                    emit(
-                        DownloadProgress(
-                            modelId = model.id,
-                            bytesDownloaded = completedBytes,
-                            totalBytes = knownTotalBytes,
-                            status = DownloadStatus.DOWNLOADING,
-                        )
-                    )
-                    continue
-                }
-
-                val parentDir = dest.parentFile
-                if (parentDir != null && !parentDir.exists()) {
-                    parentDir.mkdirs()
-                }
-
-                val tmp = File(dest.absolutePath + ".tmp")
-                val requestBuilder = Request.Builder()
-                    .url(file.url)
-                    .header("User-Agent", "Mozilla/5.0")
-                if (spec.requiresAuth && tokenStore.hasToken()) {
-                    requestBuilder.header("Authorization", "Bearer ${tokenStore.huggingFaceToken}")
-                }
-
-                client.newCall(requestBuilder.build()).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        val errMsg = when (response.code) {
-                            401  -> "Invalid token. Check your HuggingFace token in Settings."
-                            403  -> "Access denied. Accept the model license on HuggingFace first."
-                            404  -> "Model file not found."
-                            else -> "HTTP error ${response.code}"
-                        }
-                        emit(
-                            DownloadProgress(
-                                modelId = model.id,
-                                bytesDownloaded = completedBytes,
-                                totalBytes = knownTotalBytes,
-                                status = DownloadStatus.FAILED,
-                                error = errMsg,
-                            )
-                        )
+                val alreadyComplete = dest.isFile && (file.sizeBytes == null || dest.length() == file.sizeBytes)
+                if (!alreadyComplete) {
+                    val result = downloadFile(
+                        modelId = model.id,
+                        url = file.url,
+                        dest = dest,
+                        expectedSize = file.sizeBytes,
+                        expectedSha256 = checksums[file.relativePath],
+                        requiresAuth = spec.requiresAuth,
+                    ) { done, _, status ->
+                        emit(DownloadProgress(model.id, completedBytes + done, knownTotalBytes, status))
+                    }
+                    if (result is FileDownloadResult.Failed) {
+                        emit(DownloadProgress(model.id, completedBytes, knownTotalBytes, DownloadStatus.FAILED, result.message, result.canResume))
                         return@flow
                     }
-
-                    val body = response.body ?: run {
-                        emit(
-                            DownloadProgress(
-                                modelId = model.id,
-                                bytesDownloaded = completedBytes,
-                                totalBytes = knownTotalBytes,
-                                status = DownloadStatus.FAILED,
-                                error = "Empty response",
-                            )
-                        )
-                        return@flow
-                    }
-
-                    val totalBytes = if (knownTotalBytes > 0L) knownTotalBytes else body.contentLength()
-                    var fileBytesDownloaded = 0L
-
-                    try {
-                        tmp.outputStream().use { out ->
-                            body.byteStream().use { input ->
-                                val buffer = ByteArray(8 * 1024)
-                                var bytes = input.read(buffer)
-                                while (bytes >= 0) {
-                                    if (!coroutineContext.isActive || activeDownloads[model.id] == false) {
-                                        tmp.delete()
-                                        emit(
-                                            DownloadProgress(
-                                                modelId = model.id,
-                                                bytesDownloaded = completedBytes + fileBytesDownloaded,
-                                                totalBytes = totalBytes,
-                                                status = DownloadStatus.FAILED,
-                                                error = "Cancelled",
-                                            )
-                                        )
-                                        return@flow
-                                    }
-
-                                    out.write(buffer, 0, bytes)
-                                    fileBytesDownloaded += bytes
-                                    emit(
-                                        DownloadProgress(
-                                            modelId = model.id,
-                                            bytesDownloaded = completedBytes + fileBytesDownloaded,
-                                            totalBytes = totalBytes,
-                                            status = DownloadStatus.DOWNLOADING,
-                                        )
-                                    )
-                                    bytes = input.read(buffer)
-                                }
-                            }
-                        }
-
-                        if (!tmp.renameTo(dest)) {
-                            throw IllegalStateException("Unable to finalize ${file.relativePath}")
-                        }
-                    } catch (e: Exception) {
-                        tmp.delete()
-                        throw e
-                    }
-
-                    completedBytes += file.sizeBytes ?: fileBytesDownloaded
                 }
+                completedBytes += file.sizeBytes ?: dest.length()
+                emit(DownloadProgress(model.id, completedBytes, knownTotalBytes, DownloadStatus.DOWNLOADING))
             }
 
             OnnxGenAiConfigFactory.ensureConfig(model, modelRoot)
 
-            emit(
-                DownloadProgress(
-                    modelId = model.id,
-                    bytesDownloaded = if (knownTotalBytes > 0L) knownTotalBytes else completedBytes,
-                    totalBytes = if (knownTotalBytes > 0L) knownTotalBytes else completedBytes,
-                    status = DownloadStatus.COMPLETED,
-                )
-            )
+            val total = if (knownTotalBytes > 0L) knownTotalBytes else completedBytes
+            emit(DownloadProgress(model.id, total, total, DownloadStatus.COMPLETED))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Download exception for ${model.id}", e)
-            emit(
-                DownloadProgress(
-                    modelId = model.id,
-                    bytesDownloaded = completedBytes,
-                    totalBytes = knownTotalBytes,
-                    status = DownloadStatus.FAILED,
-                    error = e.message,
-                )
-            )
+            emit(DownloadProgress(model.id, completedBytes, knownTotalBytes, DownloadStatus.FAILED, e.message))
         } finally {
             activeDownloads.remove(model.id)
         }
@@ -375,6 +231,22 @@ class ModelDownloader(private val context: Context) {
     fun deleteModel(model: LlmModel) {
         val target = File(modelDir, model.fileName)
         if (target.isDirectory) target.deleteRecursively() else target.delete()
+        deletePartialDownload(model)
+    }
+
+    /** Bytes already on disk from an interrupted download, used to offer "Resume". */
+    fun partialBytes(model: LlmModel): Long {
+        val root = File(modelDir, model.fileName)
+        if (model.format != ModelFormat.ONNX_GENAI) return File(modelDir, "${model.fileName}.tmp").takeIf { it.isFile }?.length() ?: 0L
+        if (!root.isDirectory) return 0L
+        return root.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }
+
+    fun deletePartialDownload(model: LlmModel) {
+        File(modelDir, "${model.fileName}.tmp").delete()
+        File(modelDir, model.fileName).takeIf { it.isDirectory }?.walkTopDown()
+            ?.filter { it.isFile && it.name.endsWith(".tmp") }
+            ?.forEach { it.delete() }
     }
 
     fun isEmbeddingDownloaded(model: EmbeddingModelConfig): Boolean {

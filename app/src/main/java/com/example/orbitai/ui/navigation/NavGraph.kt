@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.navigation
 
+import androidx.compose.ui.res.stringResource
+import com.example.orbitai.appContainer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -7,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -81,8 +84,9 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
 
     // ── Detail screens (not in bottom nav) ──────────────────────────────────
-    data object ChatDetail : Screen("chat/{chatId}") {
-        fun go(chatId: String) = "chat/$chatId"
+    data object ChatDetail : Screen("chat/{chatId}?focus={focus}") {
+        fun go(chatId: String, focusMessageId: String? = null) =
+            "chat/$chatId" + (focusMessageId?.let { "?focus=$it" } ?: "")
     }
     data object SpaceDetail : Screen("space_detail/{spaceId}") {
         fun go(spaceId: String) = "space_detail/$spaceId"
@@ -90,10 +94,21 @@ sealed class Screen(val route: String) {
 
     // ── Settings sub-screens ─────────────────────────────────────────────────
     data object SettingsPrivacy : Screen("settings/privacy")
+    data object SettingsDiagnostics : Screen("settings/diagnostics")
+    data object SettingsSavedPrompts : Screen("settings/saved_prompts")
+    data object SettingsVoice : Screen("settings/voice")
+    data object SettingsChat : Screen("settings/chat")
+    data object SettingsAppearance : Screen("settings/appearance")
+    data object SettingsBackup : Screen("settings/backup")
+    data object Onboarding : Screen("onboarding")
+    data object SettingsDigest : Screen("settings/digest")
+    data object SettingsPrivacyCenter : Screen("settings/privacy_center")
     data object SettingsModel     : Screen("settings/model")
     data object SettingsHfToken   : Screen("settings/hf_token")
     data object SettingsMemory    : Screen("settings/memory")      // moved from tab
     data object SettingsTools     : Screen("settings/tools")
+    data object Reminders : Screen("reminders")
+    data object NotificationReplies : Screen("notification_replies")
     data object SettingsOrbitBubble : Screen("settings/orbit_bubble")
     data object Welcome : Screen("welcome")
 }
@@ -127,21 +142,38 @@ fun OrbitNavGraph(
     memoryViewModel:   MemoryViewModel,
     overlayPromptRequest: OverlayPromptRequest?,
     onOverlayPromptConsumed: () -> Unit,
-    isDarkTheme:       Boolean,
-    onThemeChanged:    (Boolean) -> Unit,
+    launchRequest: com.example.orbitai.LaunchRequest? = null,
+    onLaunchConsumed: () -> Unit = {},
+    appearance:        com.example.orbitai.core.common.Appearance,
+    onAppearanceChanged: (com.example.orbitai.core.common.Appearance) -> Unit,
 ) {
     var sharedDraftText by rememberSaveable { mutableStateOf("") }
     var sharedDraftChatId by rememberSaveable { mutableStateOf("") }
+    var sharedDraftFiles by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val context = LocalContext.current
     val onboardingStore = remember { OnboardingSettingsStore(context) }
     val bubbleSettingsStore = remember { BubbleSettingsStore(context) }
     var hasCompletedWelcome by rememberSaveable { mutableStateOf(onboardingStore.hasCompletedWelcome) }
     var shouldAutoOpenInitialChat by rememberSaveable { mutableStateOf(onboardingStore.hasCompletedWelcome) }
+    // People who already finished the welcome see what changed once; new installs start up to date.
+    var showWhatsNew by rememberSaveable {
+        mutableStateOf(
+            (onboardingStore.hasCompletedWelcome && onboardingStore.lastSeenWhatsNew < com.example.orbitai.feature.update.WhatsNew.VERSION).also {
+                if (!onboardingStore.hasCompletedWelcome) onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.VERSION
+            },
+        )
+    }
+    if (showWhatsNew) {
+        com.example.orbitai.feature.update.WhatsNewDialog {
+            onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.VERSION
+            showWhatsNew = false
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
     val showBottomBar  = currentRoute in TAB_ROUTES
-    val initialChatId = remember(hasCompletedWelcome, shouldAutoOpenInitialChat, overlayPromptRequest?.chatId) {
-        if (hasCompletedWelcome && shouldAutoOpenInitialChat) {
+    val initialChatId by produceState<String?>(null, hasCompletedWelcome, shouldAutoOpenInitialChat) {
+        value = if (hasCompletedWelcome && shouldAutoOpenInitialChat) {
             overlayPromptRequest?.chatId ?: chatViewModel.createNewChat()
         } else {
             null
@@ -166,6 +198,44 @@ fun OrbitNavGraph(
         }
     }
 
+    val diagnostics = remember { context.appContainer.diagnostics }
+    val showCrashPrompt by diagnostics.pendingPrompt.collectAsState()
+    if (showCrashPrompt && hasCompletedWelcome) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { diagnostics.dismissPrompt() },
+            title = { Text(stringResource(R.string.orbit_closed_unexpectedly)) },
+            text = { Text(stringResource(R.string.a_diagnostics_report_was_saved)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    diagnostics.dismissPrompt()
+                    navController.navigate(Screen.SettingsDiagnostics.route) { launchSingleTop = true }
+                }) { Text(stringResource(R.string.review)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { diagnostics.dismissPrompt() }) { Text(stringResource(R.string.not_now)) }
+            },
+        )
+    }
+
+    // Launcher shortcuts and the Quick Settings tile.
+    LaunchedEffect(launchRequest, hasCompletedWelcome) {
+        if (!hasCompletedWelcome) return@LaunchedEffect
+        val request = launchRequest ?: return@LaunchedEffect
+        onLaunchConsumed()
+        when (request) {
+            com.example.orbitai.LaunchRequest.NewChat ->
+                navController.navigate(Screen.ChatDetail.go(chatViewModel.createNewChat())) { launchSingleTop = true }
+            com.example.orbitai.LaunchRequest.TemporaryChat ->
+                chatViewModel.openTemporaryChat { navController.navigate(Screen.ChatDetail.go(it)) { launchSingleTop = true } }
+            // Voice runs in the Orbit Bubble only; this opens its settings when the bubble can't start.
+            com.example.orbitai.LaunchRequest.Voice ->
+                navController.navigate(Screen.SettingsOrbitBubble.route) { launchSingleTop = true }
+            com.example.orbitai.LaunchRequest.Reminders -> navController.navigate(Screen.Reminders.route) { launchSingleTop = true }
+            com.example.orbitai.LaunchRequest.Settings -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+            is com.example.orbitai.LaunchRequest.OpenChat -> navController.navigate(Screen.ChatDetail.go(request.chatId)) { launchSingleTop = true }
+        }
+    }
+
     LaunchedEffect(overlayPromptRequest?.id, hasCompletedWelcome) {
         if (!hasCompletedWelcome) return@LaunchedEffect
         val request = overlayPromptRequest ?: return@LaunchedEffect
@@ -177,6 +247,7 @@ fun OrbitNavGraph(
         } else {
             sharedDraftChatId = request.chatId
             sharedDraftText = request.prompt
+            sharedDraftFiles = request.attachments
         }
         onOverlayPromptConsumed()
     }
@@ -209,6 +280,7 @@ fun OrbitNavGraph(
                 modifier         = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
                     .then(swipeModifier),
             ) {
 
@@ -220,7 +292,7 @@ fun OrbitNavGraph(
                     onFinished = {
                         hasCompletedWelcome = true
                         shouldAutoOpenInitialChat = false
-                        navController.navigate(Screen.SettingsModel.route) {
+                        navController.navigate(Screen.Onboarding.route) {
                             popUpTo(Screen.Welcome.route) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -234,6 +306,7 @@ fun OrbitNavGraph(
                 HomeScreen(
                     viewModel  = chatViewModel,
                     onOpenChat = { navController.navigate(Screen.ChatDetail.go(it)) },
+                    onOpenMessage = { chatId, messageId -> navController.navigate(Screen.ChatDetail.go(chatId, messageId)) },
                     onDownloadModel = { navController.navigate(Screen.SettingsModel.route) },
                 )
             }
@@ -254,8 +327,7 @@ fun OrbitNavGraph(
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
                     appUpdateViewModel = appUpdateViewModel,
-                    isDarkTheme       = isDarkTheme,
-                    onThemeChanged    = onThemeChanged,
+                    appearance        = appearance,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },
                 )
@@ -265,18 +337,25 @@ fun OrbitNavGraph(
 
             composable(
                 route     = Screen.ChatDetail.route,
-                arguments = listOf(navArgument("chatId") { type = NavType.StringType }),
+                arguments = listOf(
+                    navArgument("chatId") { type = NavType.StringType },
+                    navArgument("focus") { type = NavType.StringType; nullable = true; defaultValue = null },
+                ),
             ) { back ->
                 val chatId = back.arguments?.getString("chatId") ?: return@composable
+                val focusMessageId = back.arguments?.getString("focus")
                 ChatScreen(
                     chatId    = chatId,
                     viewModel = chatViewModel,
+                    focusMessageId = focusMessageId,
                     initialText = sharedDraftText.takeIf { sharedDraftChatId == chatId }.orEmpty(),
-                    onInitialTextConsumed = { sharedDraftText = ""; sharedDraftChatId = "" },
+                    initialAttachments = sharedDraftFiles.takeIf { sharedDraftChatId == chatId }.orEmpty(),
+                    onInitialTextConsumed = { sharedDraftText = ""; if (sharedDraftFiles.isEmpty()) sharedDraftChatId = "" },
+                    onInitialAttachmentsConsumed = { sharedDraftFiles = emptyList(); if (sharedDraftText.isEmpty()) sharedDraftChatId = "" },
                     onNavigateToSettings = { navController.navigate(Screen.SettingsModel.route) },
                     onBack    = {
                         navController.navigate(Screen.Chat.route) {
-                            popUpTo(Screen.ChatDetail.go(chatId)) { inclusive = true }
+                            popUpTo(Screen.ChatDetail.route) { inclusive = true }
                             launchSingleTop = true
                         }
                     },
@@ -297,6 +376,50 @@ fun OrbitNavGraph(
 
             composable(Screen.SettingsPrivacy.route) {
                 com.example.orbitai.ui.screens.PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsAppearance.route) {
+                com.example.orbitai.ui.screens.AppearanceScreen(
+                    appearance = appearance,
+                    onChange = onAppearanceChanged,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.SettingsPrivacyCenter.route) {
+                com.example.orbitai.ui.screens.PrivacyCenterScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsDigest.route) {
+                com.example.orbitai.ui.screens.DigestScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Onboarding.route) {
+                val tokenStore = remember { TokenStore(context) }
+                com.example.orbitai.ui.screens.OnboardingScreen(
+                    downloadViewModel = downloadViewModel,
+                    tokenStore = tokenStore,
+                    onOpenModels = { navController.navigate(Screen.SettingsModel.route) },
+                    onDone = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Screen.Chat.route) {
+                                popUpTo(Screen.Onboarding.route) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                )
+            }
+            composable(Screen.SettingsBackup.route) {
+                com.example.orbitai.ui.screens.BackupScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsChat.route) {
+                com.example.orbitai.ui.screens.ChatSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsVoice.route) {
+                com.example.orbitai.ui.screens.VoiceSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsSavedPrompts.route) {
+                com.example.orbitai.ui.screens.SavedPromptsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettingsDiagnostics.route) {
+                com.example.orbitai.ui.screens.DiagnosticsScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.SettingsModel.route) {
                 val context = LocalContext.current
@@ -331,7 +454,16 @@ fun OrbitNavGraph(
                 ToolsSettingsScreen(
                     toolSettingsStore = toolSettingsStore,
                     onBack = { navController.popBackStack() },
+                    onOpenReminders = { navController.navigate(Screen.Reminders.route) },
+                    onOpenReplies = { navController.navigate(Screen.NotificationReplies.route) },
+                    onOpenDigest = { navController.navigate(Screen.SettingsDigest.route) },
                 )
+            }
+            composable(Screen.NotificationReplies.route) {
+                com.example.orbitai.ui.screens.NotificationRepliesScreen(chatViewModel) { navController.popBackStack() }
+            }
+            composable(Screen.Reminders.route) {
+                com.example.orbitai.ui.screens.RemindersScreen(chatViewModel) { navController.popBackStack() }
             }
             composable(Screen.SettingsOrbitBubble.route) {
                 val context = LocalContext.current
@@ -357,8 +489,9 @@ private fun rememberTabSwipeModifier(
     onNavigate: (String) -> Unit,
 ): Modifier {
     if (currentRoute !in SWIPE_NAV_ROUTES) return Modifier
+    val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
 
-    return Modifier.pointerInput(currentRoute) {
+    return Modifier.pointerInput(currentRoute, isRtl) {
         var totalDrag = 0f
         detectHorizontalDragGestures(
             onHorizontalDrag = { _, dragAmount ->
@@ -366,11 +499,12 @@ private fun rememberTabSwipeModifier(
             },
             onDragEnd = {
                 val threshold = 90f
+                val adjustedDrag = if (isRtl) -totalDrag else totalDrag
                 val currentIndex = SWIPE_NAV_ROUTES.indexOf(currentRoute)
                 val targetRoute = when {
-                    totalDrag <= -threshold && currentIndex < SWIPE_NAV_ROUTES.lastIndex ->
+                    adjustedDrag <= -threshold && currentIndex < SWIPE_NAV_ROUTES.lastIndex ->
                         SWIPE_NAV_ROUTES[currentIndex + 1]
-                    totalDrag >= threshold && currentIndex > 0 ->
+                    adjustedDrag >= threshold && currentIndex > 0 ->
                         SWIPE_NAV_ROUTES[currentIndex - 1]
                     else -> null
                 }
@@ -385,21 +519,21 @@ private fun rememberTabSwipeModifier(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// BOTTOM BAR
+// STANDARD EDGE-TO-EDGE BOTTOM BAR WITH REFINED CENTER BUMP
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 private data class TabItem(
     val route:       String,
-    val label:       String,
+    val labelRes:    Int,
     val iconDefault: ImageVector,
     val iconActive:  ImageVector,
 )
 
 private val TABS = listOf(
-    TabItem(Screen.Chat.route,     "Chats",    Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
-    TabItem(Screen.Spaces.route,   "Spaces",   Icons.Outlined.FolderOpen,        Icons.Filled.Folder),
-    TabItem(Screen.Modes.route,    "Modes",    Icons.Outlined.Layers,            Icons.Filled.Layers),
-    TabItem(Screen.Settings.route, "Settings", Icons.Outlined.Settings,          Icons.Filled.Settings),
+    TabItem(Screen.Chat.route,     R.string.tab_chats,    Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
+    TabItem(Screen.Spaces.route,   R.string.tab_spaces,   Icons.Outlined.FolderOpen,        Icons.Filled.Folder),
+    TabItem(Screen.Modes.route,    R.string.tab_modes,    Icons.Outlined.Layers,            Icons.Filled.Layers),
+    TabItem(Screen.Settings.route, R.string.tab_settings, Icons.Outlined.Settings,          Icons.Filled.Settings),
 )
 
 @Composable
@@ -408,100 +542,56 @@ private fun OrbitBottomBar(
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val dockShape = remember {
-        GenericShape { size, _ ->
-            val width = size.width
-            val height = size.height
-            val cornerRadius = height * 0.28f
-            val notchHalfWidth = height * 0.42f
-            val notchDepth = height * 0.34f
-            val shoulder = notchHalfWidth * 0.72f
-            val centerX = width / 2f
+    val colors = OrbitTheme.colors
 
-            moveTo(0f, height)
-            lineTo(0f, cornerRadius)
-            quadraticTo(0f, 0f, cornerRadius, 0f)
-            lineTo(centerX - notchHalfWidth, 0f)
-            cubicTo(
-                centerX - shoulder,
-                0f,
-                centerX - notchHalfWidth * 0.62f,
-                notchDepth,
-                centerX,
-                notchDepth,
-            )
-            cubicTo(
-                centerX + notchHalfWidth * 0.62f,
-                notchDepth,
-                centerX + shoulder,
-                0f,
-                centerX + notchHalfWidth,
-                0f,
-            )
-            lineTo(width - cornerRadius, 0f)
-            quadraticTo(width, 0f, width, cornerRadius)
-            lineTo(width, height)
-            close()
-        }
-    }
-
-    Box(
+    // Sleek docked edge-to-edge bottom bar with subtle top hairline & integrated center Orbit core
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SpaceDeep)
-            .padding(horizontal = 14.dp),
+            .background(colors.surface)
+            .navigationBarsPadding(),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(94.dp)
-                .padding(bottom = 8.dp, top = 6.dp),
+                .height(0.5.dp)
+                .background(colors.separator),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            TabButton(TABS[0], currentRoute == TABS[0].route, modifier = Modifier.weight(1f)) {
+                onNavigate(TABS[0].route)
+            }
+            TabButton(TABS[1], currentRoute == TABS[1].route, modifier = Modifier.weight(1f)) {
+                onNavigate(TABS[1].route)
+            }
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(76.dp)
-                    .align(Alignment.BottomCenter)
-                    .clip(dockShape)
-                    .background(SpaceDeep)
-                    .border(1.dp, GlassBorder, dockShape),
+                    .width(64.dp)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    TabButton(TABS[0], currentRoute == TABS[0].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[0].route)
-                    }
-                    TabButton(TABS[1], currentRoute == TABS[1].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[1].route)
-                    }
-                    Spacer(modifier = Modifier.width(76.dp))
-                    TabButton(TABS[2], currentRoute == TABS[2].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[2].route)
-                    }
-                    TabButton(TABS[3], currentRoute == TABS[3].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[3].route)
-                    }
-                }
+                OrbitNavButton(
+                    onClick = { OrbitBubbleService.trigger(context) },
+                )
             }
-
-            OrbitNavButton(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = 2.dp),
-                onClick = { OrbitBubbleService.trigger(context) },
-            )
+            TabButton(TABS[2], currentRoute == TABS[2].route, modifier = Modifier.weight(1f)) {
+                onNavigate(TABS[2].route)
+            }
+            TabButton(TABS[3], currentRoute == TABS[3].route, modifier = Modifier.weight(1f)) {
+                onNavigate(TABS[3].route)
+            }
         }
     }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// RAISED CENTER ORBIT BUTTON
+// INTEGRATED CENTER ORBIT BUTTON
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @Composable
@@ -509,67 +599,66 @@ private fun OrbitNavButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = OrbitTheme.colors
+    val motion = OrbitTheme.motion
+    val haptics = rememberOrbitHaptics()
     var isActivated by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isActivated) 1.08f else 1f,
-        animationSpec = tween(durationMillis = 220),
+        targetValue = if (isActivated && !motion.reduceMotion) 1.08f else 1f,
+        animationSpec = motion.snappySpring(),
         label = "orbit_nav_scale",
     )
-    val buttonColor by animateColorAsState(
-        targetValue = if (isActivated) VioletCore.copy(alpha = 0.20f) else TextPrimary.copy(alpha = 0.06f),
-        animationSpec = tween(durationMillis = 220),
+    val innerBg by animateColorAsState(
+        targetValue = if (isActivated) colors.accentContainer else colors.surfaceElevated,
+        animationSpec = motion.standardSpring(),
         label = "orbit_nav_bg",
     )
     val ringColor by animateColorAsState(
-        targetValue = if (isActivated) VioletGlow.copy(alpha = 0.55f) else GlassBorder,
-        animationSpec = tween(durationMillis = 220),
+        targetValue = if (isActivated) colors.accent else colors.accent.copy(alpha = 0.35f),
+        animationSpec = motion.standardSpring(),
         label = "orbit_nav_ring",
     )
 
     LaunchedEffect(isActivated) {
         if (isActivated) {
-            kotlinx.coroutines.delay(1100)
+            kotlinx.coroutines.delay(900)
             isActivated = false
         }
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier            = modifier,
+    // Layered squircle-circle button integrated cleanly inside the docked bar
+    Box(
+        modifier = modifier
+            .size(46.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.accent.copy(alpha = 0.10f))
+            .border(width = 1.dp, color = ringColor, shape = RoundedCornerShape(16.dp))
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClick = {
+                    haptics.confirm()
+                    isActivated = true
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
-                .size(62.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .clip(CircleShape)
-                .background(SpaceDeep)
-                .border(width = 1.5.dp, color = ringColor, shape = CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                    onClick           = {
-                        isActivated = true
-                        onClick()
-                    },
-                ),
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(innerBg),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(buttonColor),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter            = painterResource(R.drawable.vector_logo),
-                    contentDescription = "Orbit",
-                    modifier           = Modifier.size(26.dp),
-                )
-            }
+            Image(
+                painter            = painterResource(R.drawable.vector_logo),
+                contentDescription = stringResource(R.string.orbit),
+                modifier           = Modifier.size(22.dp),
+            )
         }
     }
 }
@@ -585,30 +674,85 @@ private fun TabButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val tint = TextPrimary.copy(alpha = if (selected) 1f else 0.4f)
+    val colors = OrbitTheme.colors
+    val motion = OrbitTheme.motion
+    val haptics = rememberOrbitHaptics()
+    val label = stringResource(tab.labelRes)
+    val tint by animateColorAsState(
+        targetValue = if (selected) colors.labelPrimary else colors.labelSecondary,
+        animationSpec = motion.standardSpring(),
+        label = "tab_tint",
+    )
+    val pillBg by animateColorAsState(
+        targetValue = if (selected) colors.surfaceInput else Color.Transparent,
+        animationSpec = motion.standardSpring(),
+        label = "tab_pill_bg",
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected && !motion.reduceMotion) 1.06f else 1f,
+        animationSpec = motion.snappySpring(),
+        label = "tab_icon_scale",
+    )
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier            = modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
-            )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .selectable(
+                selected = selected,
+                role = androidx.compose.ui.semantics.Role.Tab,
+                onClick = {
+                    if (!selected) haptics.selection()
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector        = if (selected) tab.iconActive else tab.iconDefault,
-            contentDescription = tab.label,
-            tint               = tint,
-            modifier           = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text       = tab.label,
-            style      = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-            color      = tint,
-        )
+        // Subtle top active accent bar anchored to the navbar hairline
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .width(22.dp)
+                    .height(2.5.dp)
+                    .clip(RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp))
+                    .background(colors.accent),
+            )
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier            = Modifier.padding(top = 2.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .height(28.dp)
+                    .width(46.dp)
+                    .clip(CircleShape)
+                    .background(pillBg),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector        = if (selected) tab.iconActive else tab.iconDefault,
+                    contentDescription = null,
+                    tint               = tint,
+                    modifier           = Modifier
+                        .size(20.dp)
+                        .graphicsLayer {
+                            scaleX = iconScale
+                            scaleY = iconScale
+                        },
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text       = label,
+                style      = OrbitTheme.typography.caption1,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                color      = tint,
+                maxLines   = 1,
+                overflow   = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
     }
 }

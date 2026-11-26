@@ -1,8 +1,10 @@
 package com.example.orbitai.core.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Fts4
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
@@ -16,6 +18,58 @@ data class ChatEntity(
     val title: String,
     val modelId: String,
     val createdAt: Long,
+    @ColumnInfo(defaultValue = "0") val isPinned: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val isArchived: Boolean = false,
+    /** True once the user renamed the chat; automatic titles leave it alone. */
+    @ColumnInfo(defaultValue = "0") val isTitleLocked: Boolean = false,
+)
+
+/** A Spaces excerpt that was sent with an assistant reply (f033). Name, page and text are snapshots. */
+@Entity(
+    tableName = "message_sources",
+    primaryKeys = ["messageId", "rank"],
+    foreignKeys = [ForeignKey(
+        entity        = MessageEntity::class,
+        parentColumns = ["id"],
+        childColumns  = ["messageId"],
+        onDelete      = ForeignKey.CASCADE,
+    )],
+    indices = [Index("messageId")],
+)
+data class MessageSourceEntity(
+    val messageId: String,
+    /** 1-based number the model was given ("[Document 1]"). */
+    val rank: Int,
+    val chunkId: String,
+    val docId: String,
+    val docName: String,
+    val page: Int?,
+    val excerpt: String,
+)
+
+/** A stored source plus whether its document still exists. */
+data class MessageSourceRow(
+    val messageId: String,
+    val rank: Int,
+    val docId: String,
+    val docName: String,
+    val page: Int?,
+    val excerpt: String,
+    val available: Boolean,
+)
+
+/** Full-text index over message content, kept in sync with `messages` by Room's triggers. */
+@Fts4(contentEntity = MessageEntity::class)
+@Entity(tableName = "messages_fts")
+data class MessageFtsEntity(val content: String)
+
+/** A message matching a search, with its chat and a highlighted excerpt. */
+data class MessageSearchRow(
+    val messageId: String,
+    val chatId: String,
+    val chatTitle: String,
+    val snippet: String,
+    val timestampMs: Long,
 )
 
 @Entity(
@@ -26,7 +80,7 @@ data class ChatEntity(
         childColumns  = ["chatId"],
         onDelete      = ForeignKey.CASCADE,
     )],
-    indices = [Index("chatId")],
+    indices = [Index("chatId"), Index(value = ["chatId", "timestampMs"])],
 )
 data class MessageEntity(
     @PrimaryKey val id: String,
@@ -36,6 +90,31 @@ data class MessageEntity(
     val modeName: String? = null,
     val imageUrisCsv: String? = null,
     val timestampMs: Long,
+    /** Memories sent with this reply, one per line. */
+    val usedMemories: String? = null,
+)
+
+/** Chat list row: chat fields plus its newest message, without loading other messages. */
+data class ChatSummaryRow(
+    val id: String,
+    val title: String,
+    val modelId: String,
+    val createdAt: Long,
+    val lastMessagePreview: String?,
+    val lastMessageAt: Long?,
+    val isPinned: Boolean,
+    val isArchived: Boolean,
+)
+
+fun ChatSummaryRow.toDomain() = com.example.orbitai.feature.chat.ChatSummary(
+    id = id,
+    title = title,
+    modelId = modelId,
+    createdAt = createdAt,
+    lastMessagePreview = lastMessagePreview,
+    lastMessageAt = lastMessageAt,
+    isPinned = isPinned,
+    isArchived = isArchived,
 )
 
 /** Room relation: one chat with all its messages. */
@@ -74,6 +153,7 @@ fun MessageEntity.toDomain(): Message = Message(
     imageUris   = imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     isStreaming = false,
     timestampMs = timestampMs,
+    usedMemories = usedMemories?.split("\n")?.filter { it.isNotBlank() } ?: emptyList(),
 )
 
 fun Chat.toEntity(): ChatEntity = ChatEntity(id, title, modelId, createdAt)
@@ -86,4 +166,5 @@ fun Message.toEntity(chatId: String): MessageEntity = MessageEntity(
     modeName    = modeName,
     imageUrisCsv = if (imageUris.isEmpty()) null else imageUris.joinToString(","),
     timestampMs = timestampMs,
+    usedMemories = usedMemories.takeIf { it.isNotEmpty() }?.joinToString("\n"),
 )

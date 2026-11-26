@@ -36,11 +36,11 @@ Release signing reads `keystore.properties` at the repo root (gitignored). Witho
 
 ## Architecture
 
-On-device AI chat assistant. All inference runs locally except the optional Gemini cloud provider. UI is Jetpack Compose; persistence is Room; there is no DI framework — dependencies are instantiated directly (e.g. `ChatViewModel` news up all its repositories/stores).
+On-device AI chat assistant. All inference runs locally except the optional Gemini cloud provider. UI is Jetpack Compose; persistence is Room; there is no DI framework. Shared dependencies (the single `LlmRepository`, chat/space/mode/memory repositories, `ModelDownloader`, `ReminderScheduler`) live in `core/AppContainer`, created by `OrbitApplication` and reached via `context.appContainer`; never construct these directly. Lightweight `SharedPreferences` stores are still created where used.
 
 ### Inference engine abstraction (`core/engine`)
 
-The central abstraction. `LlmRepository` is the single entry point for loading a model and streaming inference, used by **both** the main app and the floating bubble. It caches one active engine and reloads only when the model id or `InferenceSettings` change.
+The central abstraction. `LlmRepository` is the single entry point for loading a model and streaming inference, used by **both** the main app and the floating bubble. It caches one active engine and reloads only when the model id or `InferenceSettings` change. Because it is shared, wrap inference in `beginUse()`/`endUse()` and free memory with `releaseIfIdle()`, not `close()`, unless you are deliberately stopping the current run.
 
 - `LlmInferenceEngineFactory.create()` picks an engine by `ModelProvider` + `ModelFormat`:
   - `GEMINI` → `GeminiApiEngine` (cloud, needs API key)
@@ -63,15 +63,15 @@ The largest orchestration surface — read this to understand the end-to-end mes
 1. Cancels any in-flight generation (uses a monotonic `activeGenerationToken` to ignore stale streams; also closes the engine so the backend tears down cleanly).
 2. Routes the input through `AutomationRouter` → either a tool request or normal chat.
 3. Resolves the model (chat's model → last-selected → first available), validates vision support for image input.
-4. Persists the user message, optionally auto-extracts memory facts (regex patterns in `extractMemoryFacts`).
-5. Builds the prompt: for normal chat, pulls RAG chunks from active spaces + memories + the active mode's system prompt; for tool requests, uses the corresponding draft prompt builder.
+4. Persists the user message, may offer a "Remember …?" suggestion (`MemorySuggester`, saved only on tap).
+5. Builds the prompt: for normal chat, pulls RAG chunks from active spaces + relevant memories (`MemoryRepository.selectForPrompt` → `MemorySelector`: profile facts + top-5 relevant, ~150-token budget) + the active mode's system prompt; for tool requests, uses the corresponding draft prompt builder.
 6. Streams the response into a placeholder assistant message, then (for tool requests) parses the model output and executes the automation.
 
 Active **mode** (`activeModeId`) selects the system prompt and per-mode `InferenceSettings`; active **spaces** (`activeSpaceIds`) scope RAG retrieval.
 
 ### Automation / tool-calling (`feature/automation`)
 
-Command-driven, not free-form tool calling. Flow: `AutomationRouter.route()` → `AutomationCommandParser.parse()` matches regex patterns (`/mail`, `/whatsapp`, `/remind`, and natural-language equivalents) to an `AutomationRequest`. If matched, the chat is "tool-only": the LLM generates a structured draft using a draft prompt builder, then a draft parser (`EmailDraftParser`, `WhatsAppDraftParser`, `ReminderDraftParser`) extracts fields from the model output, and `AutomationExecutor` fires an Android Intent (or `ReminderScheduler` schedules an alarm). Some paths need runtime permissions (contacts for WhatsApp-by-name, notifications for reminders) — the ViewModel emits `ChatUiEvent` and stashes a `Pending*Execution` to resume after the grant.
+Two paths. (1) Commands: `CommandSpelling` fixes typos in the command word, `RequestIntentDetector` catches free-form requests ("send hi to aditya on whatsapp"), then `AutomationRouter.route()` → `AutomationCommandParser.parse()` matches regex patterns (`/mail`, `/whatsapp`, `/remind`, and natural-language equivalents) to an `AutomationRequest`. If matched, the chat is "tool-only": the LLM generates a structured draft using a draft prompt builder, then a draft parser (`EmailDraftParser`, `WhatsAppDraftParser`, `ReminderDraftParser`) extracts fields from the model output, and `AutomationExecutor` fires an Android Intent (or `ReminderScheduler` schedules an alarm). (2) Native tool calls: when no command matches and the loaded model is LiteRT-LM, `ChatGenerationController.streamConversation` (which keeps one live conversation per open chat and only prefills the new message; `ConversationReuse` decides when to rebuild, and `LlmRepository.addBeforeEngineCloseListener` closes it before the engine goes away) offers the tools in `ToolRegistry` whose Settings > Tools switch is on (one `ToolDefinition` per tool: name, description, parameters, and the mapping from arguments to a `ChatToolAction`; the schema JSON handed to LiteRT-LM is generated from it); a returned call is mapped by `ChatToolActions` (which delegates to the registry) and run by `AutomationFlowController.handleToolAction` after confirmation. Other engines fall back to plain streaming. (3) Device actions (`feature/automation/device`): `DeviceActionParser` recognises timers, alarms, SMS drafts, navigation, open app, web search, calendar events and the flashlight; they (and the matching native tools) wait for a confirmation dialog, then `DeviceActionExecutor` hands them to the right app. **Adding a tool:** add an `OrbitTool` entry, its slash command in `OrbitCommands`, one `ToolDefinition` in `ToolRegistry.all`, and the action plus the code that runs it after confirmation; `ToolRegistryTest` checks the pieces line up. Every tool has an on/off switch (`OrbitTool`, `AutomationSettingsStore.isEnabled`) shown in Settings > Tools; disabled tools are skipped by the parsers, refused as tool calls and hidden from the "/" menu. Some paths need runtime permissions (contacts for WhatsApp-by-name, notifications for reminders) — the ViewModel emits `ChatUiEvent` and stashes a `Pending*Execution` to resume after the grant.
 
 The unit tests under `app/src/test/.../tools/` cover this subsystem (router, draft parsers, draft prompt builders) — keep them green when touching parsing/prompt logic.
 
@@ -81,17 +81,19 @@ A `SYSTEM_ALERT_WINDOW` overlay service (the largest single file, ~1800 lines) p
 
 ### Data layer (`core/database`)
 
-Single Room DB `orbitai.db` (`AppDatabase`, currently **version 11**) with entities split across files: chats/messages (`Entities.kt`), RAG docs/chunks with embeddings (`RagEntities.kt`), memories (`MemoryEntities.kt`), spaces (`SpaceEntities.kt`), modes (`ModeEntities.kt`). **All schema changes require a hand-written `Migration` appended to the `addMigrations(...)` chain** (`exportSchema = false`, no auto-migrations). Default modes (Orbit/Concise/Step-by-step) are seeded via migration SQL.
+Single Room DB `orbitai.db` (`AppDatabase`, version in `AppDatabase.VERSION`, currently **21**) with entities split across files: chats/messages (`Entities.kt`), RAG docs/chunks with embeddings (`RagEntities.kt`), memories (`MemoryEntities.kt`), spaces (`SpaceEntities.kt`), modes (`ModeEntities.kt`), reminders (`ReminderEntity.kt`). **All schema changes require a hand-written `Migration` appended to `ALL_MIGRATIONS`** (no auto-migrations). Schemas are exported to `app/schemas/`: every version bump must commit the new schema JSON and extend `app/src/androidTest/.../database/MigrationTest.kt` (`./gradlew connectedAndroidTest`). Default modes (Orbit/Concise/Step-by-step) are seeded via migration SQL.
 
 ### RAG & Spaces (`feature/spaces`)
 
-"Spaces" are user knowledge bases. Documents (PDF via PDFBox, text) are chunked, embedded with the on-device `EmbeddingModel` (Universal Sentence Encoder `.tflite`), and stored as BLOBs in `rag_chunks`. `SpaceRepository.searchChunksInSpaces()` does cosine-similarity retrieval scoped to the active space ids, feeding the top-K chunks into the chat prompt.
+"Spaces" are user knowledge bases. Documents (PDF via PDFBox, text) are indexed by `DocumentIngestWorker` (WorkManager, one unique job per document, re-queued on app start, waits while a model run is active; failures store a user-facing `errorMessage`): chunked, embedded with the chosen on-device embedder (`SharedEmbedder`: Universal Sentence Encoder `.tflite`, or multilingual-e5-small via ONNX Runtime and `UnigramTokenizer`), and stored as BLOBs with the id of the model that made them (`embeddingModel`; mismatched vectors are ignored and `ReembedWorker` converts them after a switch). `SpaceRepository.searchChunksInSpaces()` uses an in-memory `RetrievalIndex` (BM25 + cosine merged by reciprocal-rank fusion, deduped, with a relevance cutoff) over the active space ids, cached until documents change; the embedder is shared (`SharedEmbedder`), feeding the top-K chunks into the chat prompt.
 
 ### Settings stores (`core/common`)
 
 Lightweight `SharedPreferences` wrappers, one concern each: `TokenStore` (HF token, Gemini API key/model, last-selected model), `ModeInferenceSettingsStore` (per-mode `InferenceSettings`), plus theme/onboarding/bubble/automation stores. No shared prefs schema abstraction — each store owns its keys.
 
 ## Conventions
+
+- UI text goes in `res/values/strings.xml` with a Hindi version in `res/values-hi/strings.xml` (use `stringResource`); lint fails on a missing translation. Texts built from variables still use string templates in code.
 
 - Package layout is `core/*` (engine, model, prompt, database, common) for infrastructure and `feature/*` for user-facing features; UI is `ui/screens`, `ui/navigation`, `ui/theme`; ViewModels in `viewmodel/`.
 - Long-running work runs on `Dispatchers.IO` inside `viewModelScope`; generation cancellation uses the token pattern, not just `Job.cancel()`.

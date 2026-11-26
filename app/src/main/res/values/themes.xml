@@ -2,7 +2,7 @@
 <resources>
     <style name="Theme.OrbitAI" parent="Theme.AppCompat.NoActionBar">
         <!-- Prevent white flash during Compose theme transitions -->
-        <item name="android:windowBackground">#F9F8F5</item>
+        <item name="android:windowBackground">#F2F2F7</item>
         <item name="android:windowIsTranslucent">false</item>
     </style>
 </resources>

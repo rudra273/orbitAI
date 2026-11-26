@@ -42,6 +42,7 @@ class GeminiApiEngine(
             )
         }
 
+        com.example.orbitai.feature.privacy.NetworkLog.note("generativelanguage.googleapis.com", "Gemini request")
         val resolvedMaxTokens = maxDecodedTokens.coerceAtLeast(1)
         val config = GenerateContentConfig.builder()
             .temperature(settings.temperature)
@@ -57,6 +58,11 @@ class GeminiApiEngine(
                     .build()
             })
             .maxOutputTokens(resolvedMaxTokens)
+            .apply {
+                input.structured?.systemInstruction?.takeIf { it.isNotBlank() }?.let {
+                    systemInstruction(Content.fromParts(Part.fromText(it)))
+                }
+            }
             .build()
 
         var emittedAnyText = false
@@ -67,25 +73,15 @@ class GeminiApiEngine(
             .build()
 
         try {
-            val partsList = mutableListOf<Part>()
-            
-            // Add images if present
-            input.images.forEach { bitmap ->
+            val imageParts = input.images.map { bitmap ->
                 val stream = java.io.ByteArrayOutputStream()
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, stream)
-                partsList.add(Part.fromBytes(stream.toByteArray(), "image/jpeg"))
+                Part.fromBytes(stream.toByteArray(), "image/jpeg")
             }
-            
-            // Add textual prompt
-            partsList.add(Part.fromText(input.prompt))
-
-            val content = Content.builder()
-                .parts(partsList)
-                .role("user")
-                .build()
+            val contents = buildGeminiContents(input.prompt, input.structured, imageParts)
 
             val stream: ResponseStream<GenerateContentResponse> =
-                client.models.generateContentStream(tokenStore.geminiModelName, content, config)
+                client.models.generateContentStream(tokenStore.geminiModelName, contents, config)
 
             stream.use {
                 for (chunk in it) {
@@ -124,6 +120,36 @@ class GeminiApiEngine(
 
     override fun close() {
         // SDK model object is per request; nothing to close.
+    }
+}
+
+/**
+ * Maps a prompt to Gemini contents: real user/model turns when [structured] is present,
+ * otherwise [prompt] as a single user turn. Images attach to the last user turn.
+ * Empty turns are dropped, consecutive same-role turns are merged and the history
+ * starts with a user turn, as the API expects.
+ */
+internal fun buildGeminiContents(
+    prompt: String,
+    structured: StructuredPrompt?,
+    imageParts: List<Part>,
+): List<Content> {
+    val turns = structured?.turns ?: listOf(PromptTurn(isUser = true, text = prompt))
+    val merged = mutableListOf<PromptTurn>()
+    for (turn in turns) {
+        if (turn.text.isBlank()) continue
+        if (merged.isEmpty() && !turn.isUser) continue
+        val last = merged.lastOrNull()
+        if (last != null && last.isUser == turn.isUser) {
+            merged[merged.lastIndex] = last.copy(text = last.text + "\n\n" + turn.text)
+        } else {
+            merged += turn
+        }
+    }
+    val lastUserIndex = merged.indexOfLast { it.isUser }
+    return merged.mapIndexed { index, turn ->
+        val parts = if (index == lastUserIndex) imageParts + Part.fromText(turn.text) else listOf(Part.fromText(turn.text))
+        Content.builder().role(if (turn.isUser) "user" else "model").parts(parts).build()
     }
 }
 

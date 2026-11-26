@@ -13,6 +13,7 @@ fun TokenStore.geminiChatModelOrNull(): LlmModel? {
         description = "Cloud model via API key",
         paramCount = "API",
         provider = ModelProvider.GEMINI,
+        contextTokens = 32_768,
     )
 }
 
@@ -21,7 +22,7 @@ fun availableChatModels(
     tokenStore: TokenStore,
 ): List<LlmModel> {
     val cloudModels = listOfNotNull(tokenStore.geminiChatModelOrNull())
-    val downloadedLocalModels = AVAILABLE_MODELS.filter { model ->
+    val downloadedLocalModels = allLocalModels().filter { model ->
         model.isChatSelectable && modelDownloader.isDownloaded(model)
     }
     return cloudModels + downloadedLocalModels

@@ -1,9 +1,34 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.foundation.verticalScroll
+import com.example.orbitai.feature.prompts.CommandPalette
+import com.example.orbitai.feature.prompts.PaletteItem
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import android.widget.Toast
+import com.example.orbitai.feature.chat.markdownToPlainText
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,17 +41,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -34,11 +53,18 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.StopCircle
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,7 +125,15 @@ fun ChatScreen(
     onNavigateToSettings: () -> Unit = {},
     initialText: String = "",
     onInitialTextConsumed: () -> Unit = {},
+    initialAttachments: List<String> = emptyList(),
+    onInitialAttachmentsConsumed: () -> Unit = {},
+    /** A message to scroll to and highlight, e.g. from search. */
+    focusMessageId: String? = null,
 ) {
+    val callContactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallContactsPermissionResult)
+    val callPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), viewModel::onCallPermissionResult)
+    val callReview by viewModel.callReview.collectAsState()
+    val voiceCallPrompt by viewModel.voiceCallPrompt.collectAsState()
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -110,22 +144,30 @@ fun ChatScreen(
     ) { granted ->
         viewModel.onNotificationsPermissionResult(granted)
     }
+    val reminderReview by viewModel.reminderReview.collectAsState()
     val cloudSendRequest by viewModel.cloudSendRequest.collectAsState()
-    val chats          by viewModel.chats.collectAsState()
+    val chat by remember(chatId) { viewModel.observeChat(chatId) }.collectAsState(initial = null)
     val uiState        by viewModel.uiState.collectAsState()
+    callReview?.takeIf { it.chatId == chatId && !it.voice }?.let { request ->
+        CallReviewDialog(request, uiState.loadError, viewModel::dismissCallReview, viewModel::confirmCall)
+    }
+    reminderReview?.takeIf { it.chatId == chatId }?.let { request ->
+        ReminderReviewDialog(request, viewModel::dismissReminderReview, viewModel::confirmReminder, uiState.loadError)
+    }
     val spaces         by viewModel.spaces.collectAsState()
     val activeSpaceIds by viewModel.activeSpaceIds.collectAsState()
     val modes          by viewModel.modes.collectAsState()
     val activeModeId   by viewModel.activeModeId.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
 
-    val chat     = chats.find { it.id == chatId }
     val messages = chat?.messages ?: emptyList()
     val selectedModel = remember(chat?.modelId, availableModels) {
         availableModels.find { it.id == chat?.modelId } ?: availableModels.firstOrNull()
     }
 
     var inputText by androidx.compose.runtime.saveable.rememberSaveable(chatId) { mutableStateOf("") }
+    var cursorRequest by remember { mutableStateOf<Int?>(null) }
+    val savedPrompts by viewModel.savedPrompts.collectAsState()
     LaunchedEffect(initialText) {
         if (initialText.isNotBlank()) {
             inputText = initialText
@@ -150,13 +192,50 @@ fun ChatScreen(
             onDismissRequest = { cancelCloudSend() },
             title = { Text("Send to ${request.modelName}?") },
             text = {
-                Text("Orbit will send this message, chat history, attached images or document text, and relevant memories and Space excerpts to Google for a cloud AI response. Google processes this data under its Gemini API terms. Use a local model to keep inference on this device.")
+                Text(stringResource(R.string.orbit_will_send_this_message))
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.onCloudSendConsent(true) }) { Text("Send to Google") }
+                TextButton(onClick = { viewModel.onCloudSendConsent(true) }) { Text(stringResource(R.string.send_to_google)) }
             },
-            dismissButton = { TextButton(onClick = { cancelCloudSend() }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { cancelCloudSend() }) { Text(stringResource(R.string.cancel)) } },
         )
+    }
+
+    /**
+     * Attaches an image (vision input) or a document (its text goes into the prompt).
+     * With [combine], a document is added to the one already attached instead of replacing it.
+     */
+    suspend fun attachFile(uri: Uri, combine: Boolean = false) {
+        val mimeType = normalizeDocumentMimeType(context.contentResolver.getType(uri), "file")
+        if (isImageDocument(mimeType)) {
+            if (selectedImageUris.size >= 3) {
+                attachmentError = "You can only attach up to 3 images."
+            } else {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                    // Some document providers grant access only for the current session.
+                }
+                selectedImageUris = selectedImageUris + uri
+                attachmentError = null
+            }
+        } else {
+            val attachment = readAttachmentForPrompt(context, uri)
+            if (attachment == null) {
+                if (!combine) {
+                    pendingAttachment = null
+                    attachmentInfo = null
+                }
+                attachmentError = "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
+            } else {
+                val combined = pendingAttachment?.takeIf { combine }?.let {
+                    PendingAttachment("${it.name}, ${attachment.name}", it.promptText + "\n\n" + attachment.promptText)
+                } ?: attachment
+                pendingAttachment = combined
+                attachmentError = null
+                attachmentInfo = "${combined.name} attached"
+            }
+        }
     }
 
     val documentPicker = rememberLauncherForActivityResult(
@@ -172,44 +251,134 @@ fun ChatScreen(
             return@rememberLauncherForActivityResult
         }
 
-        scope.launch {
-            val mimeType = normalizeDocumentMimeType(
-                context.contentResolver.getType(uri),
-                "file"
-            )
-            if (isImageDocument(mimeType)) {
-                if (selectedImageUris.size >= 3) {
-                    attachmentError = "You can only attach up to 3 images."
-                } else {
-                    try {
-                        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    } catch (_: SecurityException) {
-                        // Some document providers grant access only for the current session.
-                    }
-                    selectedImageUris = selectedImageUris + uri
-                    attachmentError = null
-                }
-            } else {
-                val attachment = readAttachmentForPrompt(context, uri)
-                if (attachment == null) {
-                    pendingAttachment = null
-                    attachmentInfo = null
-                    attachmentError = "Couldn't read that file. Try PDF, TXT, Markdown, CSV, JSON, XML, HTML, or an image."
-                } else {
-                    pendingAttachment = attachment
-                    attachmentError = null
-                    attachmentInfo = "${attachment.name} attached"
-                }
-            }
+        scope.launch { attachFile(uri) }
+    }
+
+    // Camera and photo picker for vision models. The camera writes to an app-private file, so no permission is needed.
+    var pendingPhotoUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val uri = pendingPhotoUri?.let(Uri::parse)
+        pendingPhotoUri = null
+        if (saved && uri != null) scope.launch { attachFile(uri) }
+    }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { attachFile(uri) }
+    }
+    fun launchCamera() {
+        val file = java.io.File(context.filesDir, "shared/camera/${java.util.UUID.randomUUID()}.jpg").apply { parentFile?.mkdirs() }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        pendingPhotoUri = uri.toString()
+        try {
+            takePicture.launch(uri)
+        } catch (_: android.content.ActivityNotFoundException) {
+            pendingPhotoUri = null
+            attachmentError = "No camera app found on this phone."
         }
     }
 
-    BackHandler(onBack = onBack)
+    // Files shared to Orbit from another app: pick a model that can read them, then attach.
+    LaunchedEffect(initialAttachments, availableModels.isNotEmpty()) {
+        if (initialAttachments.isEmpty() || availableModels.isEmpty()) return@LaunchedEffect
+        val uris = initialAttachments.map(Uri::parse)
+        onInitialAttachmentsConsumed()
+        val needsVision = uris.any { isImageDocument(normalizeDocumentMimeType(context.contentResolver.getType(it), "file")) }
+        fun fits(model: LlmModel) = model.supportsDocumentAttachments() && (!needsVision || model.supportsVision)
+        val current = selectedModel
+        val target = current?.takeIf(::fits) ?: availableModels.firstOrNull(::fits)
+        if (target == null) {
+            attachmentError = if (needsVision) {
+                "Shared images need a model that can see images. Download one in Settings > Models."
+            } else {
+                "Shared files need Gemma 3 or Gemini. Download one in Settings > Models."
+            }
+            return@LaunchedEffect
+        }
+        if (target.id != current?.id) viewModel.selectModel(chatId, target)
+        uris.forEach { attachFile(it, combine = true) }
+        if (target.id != current?.id && attachmentError == null) {
+            attachmentInfo = listOfNotNull(attachmentInfo, "Using ${target.displayName} to read it").joinToString(" · ")
+        }
+    }
+
+    val isTemporary = remember(chatId) { viewModel.isTemporaryChat(chatId) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+    val enabledCommands = remember { viewModel.enabledCommandNames() }
+    uiState.deviceActionRequest?.takeIf { it.chatId == chatId }?.let { request ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelDeviceAction,
+            title = { Text(request.action.tool.title) },
+            text = { Text(request.action.confirmation()) },
+            confirmButton = { TextButton(onClick = viewModel::confirmDeviceAction) { Text(stringResource(R.string.do_it)) } },
+            dismissButton = { TextButton(onClick = viewModel::cancelDeviceAction) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    var openSource by remember { mutableStateOf<com.example.orbitai.feature.chat.MessageSource?>(null) }
+    openSource?.let { source ->
+        SourceSheet(
+            source = source,
+            onOpenDocument = {
+                scope.launch {
+                    val uri = viewModel.documentUri(source.docId)?.let(Uri::parse)
+                    val opened = uri != null && runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW)
+                                .setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }.isSuccess
+                    if (!opened) Toast.makeText(context, "This file can't be opened anymore.", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { openSource = null },
+        )
+    }
+    val voiceSettings = remember { com.example.orbitai.feature.voice.VoiceSettingsStore(context) }
+    val speaker = remember { com.example.orbitai.feature.voice.ReplySpeaker(context, voiceSettings) }
+    DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
+    val speakingId by speaker.speakingId.collectAsState()
+    // Free the chat's open model conversation when leaving the chat or the app.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(chatId, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) viewModel.onChatHidden(chatId)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.onChatHidden(chatId)
+        }
+    }
+    val showGenerationDetails = remember { com.example.orbitai.feature.chat.ChatSettingsStore(context).showGenerationDetails }
+    val generationStats by viewModel.generationStats.collectAsState()
+    chat?.takeIf { showExport }?.let { current ->
+        val modelName = (availableModels + com.example.orbitai.core.model.allLocalModels())
+            .find { it.id == current.modelId }?.displayName
+        ExportChatDialog(current, modelName, onDismiss = { showExport = false })
+    }
+    val leave = {
+        if (isTemporary) viewModel.discardTemporaryChat(chatId)
+        onBack()
+    }
+    val handleBack = { if (isTemporary && messages.isNotEmpty()) confirmDiscard = true else leave() }
+    BackHandler(onBack = handleBack)
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.discard_temporary_chat)) },
+            text = { Text(stringResource(R.string.temporary_chats_aren_t_saved)) },
+            confirmButton = { TextButton(onClick = { confirmDiscard = false; leave() }) { Text(stringResource(R.string.discard), color = Destructive) } },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep_chatting)) } },
+        )
+    }
+
 
     LaunchedEffect(viewModel) {
         viewModel.refreshAvailableModels()
         viewModel.events.collect { event ->
             when (event) {
+                ChatUiEvent.RequestCallContactsPermission -> callContactsLauncher.launch(Manifest.permission.READ_CONTACTS)
+                ChatUiEvent.RequestCallPermission -> callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
                 ChatUiEvent.RequestContactsPermission -> {
                     contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                 }
@@ -220,7 +389,19 @@ fun ChatScreen(
         }
     }
 
+    var focusPending by rememberSaveable(focusMessageId) { mutableStateOf(focusMessageId != null) }
+    var highlightedId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(messages.size) {
+        if (focusPending) {
+            val index = messages.indexOfFirst { it.id == focusMessageId }
+            if (index < 0) return@LaunchedEffect
+            focusPending = false
+            listState.scrollToItem(index)
+            highlightedId = focusMessageId
+            kotlinx.coroutines.delay(2500)
+            highlightedId = null
+            return@LaunchedEffect
+        }
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
@@ -233,65 +414,88 @@ fun ChatScreen(
             containerColor = Color.Transparent,
             topBar = {
                 ChatTopBar(
-                    chat          = chat,
-                    modes         = modes,
-                    activeModeId  = activeModeId,
-                    spaces        = spaces,
-                    activeSpaceIds = activeSpaceIds,
+                    chat            = chat,
                     availableModels = availableModels,
-                    onBack         = onBack,
+                    onBack          = handleBack,
                     onModelSelected = { model -> viewModel.selectModel(chatId, model) },
-                    onSelectMode    = { viewModel.selectMode(it) },
-                    onToggleSpace   = { viewModel.toggleSpace(it) },
-                    onNavigateToSettings = onNavigateToSettings,
+                    onExport        = { showExport = true },
                 )
             },
             bottomBar = {
-                ChatInputBar(
-                    text         = inputText,
-                    onTextChange = { inputText = it },
-                    onSend       = {
-                        val text = inputText.trim()
-                        val finalPrompt = buildString {
-                            if (text.isNotEmpty()) append(text)
-                            pendingAttachment?.let { attachment ->
-                                if (isNotEmpty()) append("\n\n")
-                                append(attachment.promptText)
-                            }
-                        }.trim()
-
-                        if ((finalPrompt.isNotEmpty() || selectedImageUris.isNotEmpty()) && !uiState.isGenerating && !uiState.isModelLoading) {
-                            inputText = ""
-                            val imagesToPass = selectedImageUris.toList()
-                            pendingAttachment = null
-                            selectedImageUris = emptyList()
-                            attachmentInfo = null
-                            attachmentError = null
-                            viewModel.sendMessage(chatId, finalPrompt, imagesToPass)
-                            scope.launch {
-                                if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
-                            }
+                key(chatId) {
+                    Column {
+                    CommandPalette.query(inputText)?.let { query ->
+                        CommandPaletteMenu(CommandPalette.items(query, savedPrompts, enabledCommands)) { item ->
+                            val insertion = CommandPalette.insertion(item)
+                            cursorRequest = insertion.cursor
+                            inputText = insertion.text
                         }
-                    },
-                    onStop       = { viewModel.stopGeneration() },
-                    isGenerating = uiState.isGenerating,
-                    isLoading    = uiState.isModelLoading,
-                    selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
-                    pendingAttachment = pendingAttachment,
-                    selectedImageUris = selectedImageUris,
-                    onPickAttachment = {
-                        attachmentError = null
-                        attachmentInfo = null
-                        documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
-                    },
-                    onClearAttachment = {
-                        pendingAttachment = null
-                        attachmentInfo = null
-                    },
-                    onClearImage = { uriToRemove ->
-                        selectedImageUris = selectedImageUris.filter { it != uriToRemove }
-                    },
-                )
+                    }
+                    ChatInputBar(
+                        voiceCallPrompt = voiceCallPrompt?.takeIf { it.chatId == chatId },
+                        onVoiceCall = { viewModel.handleVoiceCall(chatId, it) },
+                        onCancelVoiceCall = { viewModel.cancelVoiceCall(chatId) },
+                        onVoicePromptSpoken = viewModel::onVoiceCallPromptSpoken,
+                        onVoiceUnavailable = { viewModel.showCallReviewForVoiceFailure(chatId) },
+                        modes = modes,
+                        activeModeId = activeModeId,
+                        onSelectMode = { viewModel.selectMode(chatId, it) },
+                        spaces = spaces,
+                        activeSpaceIds = activeSpaceIds,
+                        onToggleSpace = { viewModel.toggleSpace(it) },
+                        text         = inputText,
+                        onTextChange = { inputText = it; cursorRequest = null },
+                        cursorRequest = cursorRequest,
+                        onSend       = {
+                            val text = inputText.trim()
+                            val finalPrompt = buildString {
+                                if (text.isNotEmpty()) append(text)
+                                pendingAttachment?.let { attachment ->
+                                    if (isNotEmpty()) append("\n\n")
+                                    append(attachment.promptText)
+                                }
+                            }.trim()
+
+                            if ((finalPrompt.isNotEmpty() || selectedImageUris.isNotEmpty()) && !uiState.isGenerating && !uiState.isModelLoading) {
+                                inputText = ""
+                                val imagesToPass = selectedImageUris.toList()
+                                pendingAttachment = null
+                                selectedImageUris = emptyList()
+                                attachmentInfo = null
+                                attachmentError = null
+                                viewModel.sendMessage(chatId, finalPrompt, imagesToPass)
+                                scope.launch {
+                                    if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+                                }
+                            }
+                        },
+                        onStop       = { viewModel.stopGeneration() },
+                        isGenerating = uiState.isGenerating,
+                        isLoading    = uiState.isModelLoading,
+                        selectedModelSupportsAttachments = selectedModel?.supportsDocumentAttachments() == true,
+                        pendingAttachment = pendingAttachment,
+                        selectedImageUris = selectedImageUris,
+                        onPickAttachment = {
+                            attachmentError = null
+                            attachmentInfo = null
+                            documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
+                        },
+                        visionAvailable = selectedModel?.supportsVision == true,
+                        onTakePhoto = { attachmentError = null; launchCamera() },
+                        onPickPhoto = {
+                            attachmentError = null
+                            pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        onClearAttachment = {
+                            pendingAttachment = null
+                            attachmentInfo = null
+                        },
+                        onClearImage = { uriToRemove ->
+                            selectedImageUris = selectedImageUris.filter { it != uriToRemove }
+                        },
+                    )
+                    }
+                }
             },
         ) { padding ->
             Column(
@@ -300,6 +504,9 @@ fun ChatScreen(
                     .padding(padding),
             ) {
                 // Status banners
+                if (isTemporary) {
+                    StatusBanner("Temporary chat · not saved", TextMuted)
+                }
                 if (uiState.isModelLoading) {
                     StatusBanner("Loading model…", VioletCore)
                 }
@@ -317,15 +524,54 @@ fun ChatScreen(
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    // Chat text size and density (Settings > Appearance) apply to messages only.
+                    val appearance = com.example.orbitai.ui.theme.LocalAppearance.current
+                    val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+                            baseDensity.density,
+                            baseDensity.fontScale * appearance.chatTextScale,
+                        ),
+                    ) {
                     LazyColumn(
                         state               = listState,
                         modifier            = Modifier.fillMaxSize(),
                         contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (appearance.compactMessages) 4.dp else 12.dp),
                     ) {
+                        val latestReplyId = messages.lastOrNull { it.role == Role.ASSISTANT }?.id
+                        val actionsEnabled = !uiState.isGenerating && !uiState.isModelLoading
                         items(messages, key = { it.id }) { msg ->
-                            MessageBubble(msg)
+                          Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (msg.id == highlightedId) VioletGlowSoft else Color.Transparent),
+                          ) {
+                            MessageBubble(
+                                msg = msg,
+                                isLatestReply = msg.id == latestReplyId,
+                                actionsEnabled = actionsEnabled,
+                                onRegenerate = { viewModel.regenerate(chatId) },
+                                onEditAndResend = { text -> viewModel.editAndResend(chatId, msg.id, text) },
+                                onDelete = { viewModel.deleteMessage(msg.id) },
+                                isSpeaking = speakingId == msg.id,
+                                details = if (showGenerationDetails) generationStats[msg.id]?.label() else null,
+                                onSourceClick = { openSource = it },
+                                onRemind = { viewModel.remindAbout(chatId, msg.content) },
+                                onReadAloud = {
+                                    if (speakingId == msg.id) speaker.stop() else speaker.speakMessage(msg.id, msg.content)
+                                },
+                            )
+                            uiState.memorySuggestion?.takeIf { it.chatId == chatId && it.messageId == msg.id }?.let { suggestion ->
+                                MemorySuggestionChip(
+                                    fact = suggestion.fact,
+                                    onSave = viewModel::saveMemorySuggestion,
+                                    onDismiss = viewModel::dismissMemorySuggestion,
+                                )
+                            }
+                          }
                         }
+                    }
                     }
 
                     if (messages.isEmpty() && !uiState.isGenerating && !uiState.isModelLoading) {
@@ -338,7 +584,7 @@ fun ChatScreen(
                         ) {
                             Image(
                                 painter            = painterResource(R.drawable.vector_logo),
-                                contentDescription = "OrbitAI",
+                                contentDescription = stringResource(R.string.orbitai),
                                 modifier           = Modifier.size(64.dp),
                             )
                             Spacer(Modifier.height(20.dp))
@@ -354,6 +600,11 @@ fun ChatScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextMuted,
                             )
+                            Spacer(Modifier.height(20.dp))
+                            StarterSuggestions(hasActiveSpaces = activeSpaceIds.isNotEmpty()) { suggestion ->
+                                cursorRequest = null
+                                inputText = suggestion
+                            }
                         }
                     }
                 }
@@ -369,119 +620,77 @@ fun ChatScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatTopBar(
-    chat:           Chat?,
-    modes:          List<Mode>,
-    activeModeId:   String,
-    spaces:         List<Space>,
-    activeSpaceIds: Set<String>,
+    chat:            Chat?,
     availableModels: List<LlmModel>,
-    onBack:         () -> Unit,
+    onBack:          () -> Unit,
     onModelSelected: (LlmModel) -> Unit,
-    onSelectMode:   (String) -> Unit,
-    onToggleSpace:  (String) -> Unit,
-    onNavigateToSettings: () -> Unit = {},
+    onExport: () -> Unit = {},
 ) {
-    val activeMode = modes.find { it.id == activeModeId } ?: modes.firstOrNull()
     val title = remember(chat?.title) { displayChatTitle(chat) }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SpaceDeep),
+            .background(SpaceDeep)
+            .padding(start = 10.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        // ── Row 1: back + OrbitAI title + on-device pill ──────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 10.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
-            verticalAlignment     = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onBack,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = TextMuted,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 8.dp)
-            ) {
-                Text(
-                    text  = title,
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize      = 17.sp,
-                        fontWeight    = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp,
-                    ),
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            // On-device / model status pill
-            if (chat != null && availableModels.isNotEmpty()) {
-                OnDeviceModelPill(
-                    chat            = chat,
-                    availableModels = availableModels,
-                    onModelSelected = onModelSelected,
-                )
-            }
-
-            Spacer(Modifier.width(4.dp))
-        }
-
-        // ── Row 2: context strip — mode chip + space chips ─────────────────
-        if (modes.isNotEmpty() || spaces.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (modes.isNotEmpty() && activeMode != null) {
-                    ModeDropdownChip(
-                        modes        = modes,
-                        activeMode   = activeMode,
-                        activeModeId = activeModeId,
-                        onSelectMode = onSelectMode,
-                    )
-                }
-                spaces.forEach { space ->
-                    SpaceToggleChip(
-                        space         = space,
-                        selected      = space.id in activeSpaceIds,
-                        onToggleSpace = onToggleSpace,
-                    )
-                }
-            }
-        }
-
-        // Bottom border
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(GlassBorder),
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onBack,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.back),
+                tint = TextMuted,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+
+        Spacer(Modifier.width(6.dp))
+
+        Text(
+            text  = title,
+            style = MaterialTheme.typography.displaySmall.copy(
+                fontSize      = 16.sp,
+                fontWeight    = FontWeight.SemiBold,
+                letterSpacing = (-0.2).sp,
+            ),
+            color = TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
         )
+
+        // On-device / model status pill
+        if (chat != null && availableModels.isNotEmpty()) {
+            OnDeviceModelPill(
+                chat            = chat,
+                availableModels = availableModels,
+                onModelSelected = onModelSelected,
+            )
+        }
+
+        if (chat != null && chat.messages.isNotEmpty()) {
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.chat_options), tint = TextMuted, modifier = Modifier.size(18.dp))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.export_chat)) }, onClick = { menuOpen = false; onExport() })
+                }
+            }
+        }
     }
 }
 
@@ -511,15 +720,13 @@ private fun OnDeviceModelPill(
     Box {
         Row(
             modifier = Modifier
+                .heightIn(min = 38.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(OnDevicePillBg)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                ) { expanded = true }
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
                 modifier = Modifier
@@ -535,7 +742,7 @@ private fun OnDeviceModelPill(
             )
             Icon(
                 Icons.Default.ExpandMore,
-                contentDescription = "Select model",
+                contentDescription = stringResource(R.string.select_model),
                 tint     = OnDevicePillText.copy(alpha = 0.7f),
                 modifier = Modifier.size(13.dp),
             )
@@ -579,15 +786,16 @@ private fun OnDeviceModelPill(
     }
 }
 
-// ── Mode dropdown chip ────────────────────────────────────────────────────────
+// ── Compact Mode & Space pickers inside composer ─────────────────────────────
 
 @Composable
-private fun ModeDropdownChip(
-    modes:         List<Mode>,
-    activeMode:    Mode,
-    activeModeId:  String,
-    onSelectMode:  (String) -> Unit,
+private fun ComposerModeChip(
+    modes:        List<Mode>,
+    activeMode:   Mode,
+    activeModeId: String,
+    onSelectMode: (String) -> Unit,
 ) {
+    val colors = com.example.orbitai.ui.theme.OrbitTheme.colors
     var expanded by remember { mutableStateOf(false) }
 
     Box {
@@ -595,31 +803,31 @@ private fun ModeDropdownChip(
             modifier = Modifier
                 .height(32.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(SpaceDust)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                ) { expanded = true }
-                .padding(horizontal = 12.dp),
+                .background(colors.surfaceInput)
+                .clickable { expanded = true }
+                .padding(horizontal = 10.dp),
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
+            val accent = activeMode.preset.accentColor?.let { Color(0xFF000000 or it.toLong()) }
             Icon(
                 Icons.Outlined.Layers,
                 contentDescription = null,
-                tint     = TextSecondary,
+                tint     = accent ?: colors.labelSecondary,
                 modifier = Modifier.size(14.dp),
             )
             Text(
-                activeMode.name,
-                style      = MaterialTheme.typography.labelMedium,
-                color      = TextPrimary,
+                text       = activeMode.name,
+                style      = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                color      = colors.labelPrimary,
                 fontWeight = FontWeight.Medium,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
             )
             Icon(
                 Icons.Default.ExpandMore,
-                contentDescription = "Switch mode",
-                tint     = TextMuted,
+                contentDescription = stringResource(R.string.switch_mode),
+                tint     = colors.labelTertiary,
                 modifier = Modifier.size(14.dp),
             )
         }
@@ -634,14 +842,12 @@ private fun ModeDropdownChip(
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    mode.name,
-                                    color      = if (isSelected) VioletCore else TextPrimary,
-                                    style      = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                )
-                            }
+                            Text(
+                                mode.name,
+                                color      = if (isSelected) VioletCore else TextPrimary,
+                                style      = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            )
                             Text(
                                 mode.systemPrompt,
                                 style    = MaterialTheme.typography.bodySmall,
@@ -666,63 +872,97 @@ private fun ModeDropdownChip(
     }
 }
 
-// ── Space toggle chip ─────────────────────────────────────────────────────────
-
 @Composable
-private fun SpaceToggleChip(
-    space:         Space,
-    selected:      Boolean,
-    onToggleSpace: (String) -> Unit,
+private fun ComposerSpaceChip(
+    spaces:         List<Space>,
+    activeSpaceIds: Set<String>,
+    onToggleSpace:  (String) -> Unit,
 ) {
+    val colors = com.example.orbitai.ui.theme.OrbitTheme.colors
+    var expanded by remember { mutableStateOf(false) }
+    val activeSpaces = remember(spaces, activeSpaceIds) { spaces.filter { it.id in activeSpaceIds } }
+    val hasActive = activeSpaces.isNotEmpty()
+    val label = when {
+        activeSpaces.isEmpty() -> stringResource(R.string.tab_spaces)
+        activeSpaces.size == 1 -> activeSpaces.first().name
+        else -> "${activeSpaces.size} spaces"
+    }
+
     val bgColor by animateColorAsState(
-        targetValue   = if (selected) VioletGlow else SpaceDust,
-        animationSpec = tween(200),
-        label         = "space_chip_bg",
+        targetValue   = if (hasActive) VioletGlow else colors.surfaceInput,
+        animationSpec = tween(180),
+        label         = "composer_space_bg",
     )
-    val textColor by animateColorAsState(
-        targetValue   = if (selected) VioletCore else TextSecondary,
-        animationSpec = tween(200),
-        label         = "space_chip_text",
-    )
-    val borderColor by animateColorAsState(
-        targetValue   = if (selected) VioletFrost else Color.Transparent,
-        animationSpec = tween(200),
-        label         = "space_chip_border",
+    val contentColor by animateColorAsState(
+        targetValue   = if (hasActive) VioletCore else colors.labelSecondary,
+        animationSpec = tween(180),
+        label         = "composer_space_fg",
     )
 
-    Row(
-        modifier = Modifier
-            .height(32.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-            ) { onToggleSpace(space.id) }
-            .padding(horizontal = 12.dp),
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
+    Box {
+        Row(
             modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(VioletCore),
-        )
-        Text(
-            text  = space.name,
-            style = MaterialTheme.typography.labelMedium,
-            color = textColor,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-        )
-        if (selected) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                tint     = VioletCore,
-                modifier = Modifier.size(13.dp),
+                .height(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(bgColor)
+                .then(
+                    if (hasActive) Modifier.border(0.75.dp, VioletFrost, RoundedCornerShape(16.dp))
+                    else Modifier
+                )
+                .clickable { expanded = true }
+                .padding(horizontal = 10.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(if (hasActive) VioletCore else colors.labelTertiary),
             )
+            Text(
+                text       = label,
+                style      = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                color      = contentColor,
+                fontWeight = if (hasActive) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+            )
+            Icon(
+                Icons.Default.ExpandMore,
+                contentDescription = stringResource(R.string.tab_spaces),
+                tint     = contentColor.copy(alpha = 0.75f),
+                modifier = Modifier.size(14.dp),
+            )
+        }
+
+        DropdownMenu(
+            expanded         = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor   = SpaceNebula,
+        ) {
+            spaces.forEach { space ->
+                val isSelected = space.id in activeSpaceIds
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            space.name,
+                            color      = if (isSelected) VioletCore else TextPrimary,
+                            style      = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    },
+                    onClick      = { onToggleSpace(space.id) },
+                    trailingIcon = if (isSelected) ({
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint     = VioletCore,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }) else null,
+                )
+            }
         }
     }
 }
@@ -731,13 +971,65 @@ private fun SpaceToggleChip(
 // MESSAGE BUBBLE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(msg: Message) {
+private fun MessageBubble(
+    msg: Message,
+    isLatestReply: Boolean,
+    actionsEnabled: Boolean,
+    onRegenerate: () -> Unit,
+    onEditAndResend: (String) -> Unit,
+    onDelete: () -> Unit,
+    isSpeaking: Boolean = false,
+    onReadAloud: () -> Unit = {},
+    /** Optional generation stats line (Settings > Chat > Show generation details). */
+    details: String? = null,
+    onSourceClick: (com.example.orbitai.feature.chat.MessageSource) -> Unit = {},
+    onRemind: () -> Unit = {},
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     var reportedResponse by remember { mutableStateOf<String?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     reportedResponse?.let { response ->
         ContentReportDialog(response, "chat", onDismiss = { reportedResponse = null })
     }
     val isUser = msg.role == Role.USER
+    val copy = {
+        clipboard.setText(AnnotatedString(markdownToPlainText(msg.content)))
+        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+    }
+    val share = {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, markdownToPlainText(msg.content))
+        }
+        context.startActivity(Intent.createChooser(send, "Share message"))
+    }
+
+    if (editing) {
+        EditMessageDialog(
+            initialText = msg.content,
+            onDismiss = { editing = false },
+            onSend = { text ->
+                editing = false
+                onEditAndResend(text)
+            },
+        )
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.delete_message)) },
+            text = { Text(stringResource(R.string.this_removes_the_message_from)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.delete), color = Destructive) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 
     if (isUser) {
         // User: right-aligned ink bubble
@@ -748,6 +1040,14 @@ private fun MessageBubble(msg: Message) {
             Box(
                 modifier = Modifier
                     .widthIn(max = 296.dp)
+                    .semantics {
+                        customActions = listOfNotNull(
+                            CustomAccessibilityAction("Copy") { copy(); true },
+                            if (actionsEnabled) CustomAccessibilityAction("Edit and resend") { editing = true; true } else null,
+                            if (actionsEnabled) CustomAccessibilityAction("Delete") { confirmDelete = true; true } else null,
+                        )
+                    }
+                    .combinedClickable(onClick = {}, onLongClick = { menuOpen = true }, onLongClickLabel = "Message options")
                     .clip(
                         RoundedCornerShape(
                             topStart    = 20.dp,
@@ -775,7 +1075,7 @@ private fun MessageBubble(msg: Message) {
                                 ) {
                                     Icon(
                                         Icons.Default.AttachFile,
-                                        contentDescription = "Image preview",
+                                        contentDescription = stringResource(R.string.image_preview),
                                         tint = Color.White.copy(alpha = 0.6f),
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -784,13 +1084,35 @@ private fun MessageBubble(msg: Message) {
                         }
                     }
                     if (msg.content.isNotEmpty()) {
-                        SelectionContainer {
-                            MarkdownMessageText(
-                                content   = msg.content,
-                                textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
-                            )
-                        }
+                        MarkdownMessageText(
+                            content   = msg.content,
+                            textColor = if (IsOrbitDarkTheme) Color(0xFF141413) else Color.White,
+                        )
                     }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.copy)) },
+                        leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                        onClick = { menuOpen = false; copy() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.edit_resend)) },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                        enabled = actionsEnabled,
+                        onClick = { menuOpen = false; editing = true },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.remind_me_about_this)) },
+                        leadingIcon = { Icon(Icons.Outlined.Alarm, contentDescription = null) },
+                        onClick = { menuOpen = false; onRemind() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete)) },
+                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                        enabled = actionsEnabled,
+                        onClick = { menuOpen = false; confirmDelete = true },
+                    )
                 }
             }
         }
@@ -826,9 +1148,6 @@ private fun MessageBubble(msg: Message) {
                 }
             }
 
-            if (!msg.isStreaming && msg.content.isNotBlank()) {
-                TextButton(onClick = { reportedResponse = msg.content }) { Text("Report response") }
-            }
             if (msg.isStreaming && msg.content.isEmpty()) {
                 TypingIndicator()
             } else {
@@ -840,275 +1159,105 @@ private fun MessageBubble(msg: Message) {
                     StreamingCursor()
                 }
             }
+            if (!msg.isStreaming && msg.content.isNotBlank()) {
+                val replyReady = stringResource(R.string.reply_ready)
+                Row(
+                    // Announced politely once, when the reply is complete (not on every streamed word).
+                    modifier = Modifier.padding(top = 2.dp).semantics {
+                        liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
+                        contentDescription = replyReady
+                    },
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MessageActionIcon(Icons.Outlined.ContentCopy, "Copy reply", onClick = copy)
+                    if (isLatestReply) {
+                        MessageActionIcon(Icons.Outlined.Refresh, "Regenerate reply", enabled = actionsEnabled, onClick = onRegenerate)
+                    }
+                    MessageActionIcon(
+                        if (isSpeaking) Icons.Outlined.StopCircle else Icons.AutoMirrored.Outlined.VolumeUp,
+                        if (isSpeaking) "Stop reading" else "Read aloud",
+                        onClick = onReadAloud,
+                    )
+                    MessageActionIcon(Icons.Outlined.Share, "Share reply", onClick = share)
+                    MessageActionIcon(Icons.Outlined.Alarm, "Remind me about this", onClick = onRemind)
+                    MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
+                    if (msg.usedMemories.isNotEmpty()) {
+                        var showMemories by remember { mutableStateOf(false) }
+                        TextButton(
+                            onClick = { showMemories = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier.height(36.dp),
+                        ) {
+                            Icon(Icons.Outlined.Psychology, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.memory_used), style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        }
+                        if (showMemories) {
+                            AlertDialog(
+                                onDismissRequest = { showMemories = false },
+                                title = { Text(stringResource(R.string.memories_used)) },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        msg.usedMemories.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+                                        Text(
+                                            "Manage memories in Settings > Memory.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextMuted,
+                                        )
+                                    }
+                                },
+                                confirmButton = { TextButton(onClick = { showMemories = false }) { Text(stringResource(R.string.ok)) } },
+                            )
+                        }
+                    }
+                }
+                if (msg.sources.isNotEmpty() && !msg.isStreaming) SourcesRow(msg.sources, onSourceClick)
+                details?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = TextMuted, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun MessageActionIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(36.dp)) {
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = if (enabled) TextMuted else TextMuted.copy(alpha = 0.35f),
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun EditMessageDialog(initialText: String, onDismiss: () -> Unit, onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf(initialText) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.edit_message)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(), maxLines = 8)
+                Text(stringResource(R.string.replies_after_this_message_will), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSend(text) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.send)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 private fun assistantModeBadgeLabel(msg: Message): String =
     msg.modeName?.trim().orEmpty().ifBlank { "Orbit" }
-
-private sealed interface MarkdownBlock {
-    data class Heading(val level: Int, val text: String) : MarkdownBlock
-    data class Bullet(val text: String) : MarkdownBlock
-    data class Paragraph(val text: String) : MarkdownBlock
-    data class CodeBlock(val language: String, val code: String) : MarkdownBlock
-}
-
-@Composable
-private fun MarkdownMessageText(
-    content:   String,
-    textColor: Color = TextPrimary,
-) {
-    val blocks = remember(content) { parseMarkdownBlocks(content) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        blocks.forEach { block ->
-            when (block) {
-                is MarkdownBlock.Heading -> {
-                    val headingStyle = when (block.level) {
-                        1 -> MaterialTheme.typography.titleLarge
-                        2 -> MaterialTheme.typography.titleMedium
-                        else -> MaterialTheme.typography.titleSmall
-                    }
-                    Text(
-                        text      = parseInlineMarkdown(block.text),
-                        style     = headingStyle,
-                        color     = textColor,
-                        lineHeight = (headingStyle.fontSize.value + 8).sp,
-                    )
-                }
-
-                is MarkdownBlock.Bullet -> {
-                    Row(
-                        verticalAlignment     = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text       = "•",
-                            style      = MaterialTheme.typography.bodyLarge,
-                            color      = textColor,
-                            lineHeight = 25.sp,
-                        )
-                        Text(
-                            text       = parseInlineMarkdown(block.text),
-                            style      = MaterialTheme.typography.bodyLarge,
-                            color      = textColor,
-                            lineHeight = 25.sp,
-                        )
-                    }
-                }
-
-                is MarkdownBlock.Paragraph -> {
-                    Text(
-                        text       = parseInlineMarkdown(block.text),
-                        style      = MaterialTheme.typography.bodyLarge,
-                        color      = textColor,
-                        lineHeight = 25.sp,
-                    )
-                }
-
-                is MarkdownBlock.CodeBlock -> {
-                    CodeBlockView(language = block.language, code = block.code)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CodeBlockView(language: String, code: String) {
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-
-    val codeBlockBg   = if (IsOrbitDarkTheme) Color(0xFF1A1A18) else Color(0xFFF0EFE9)
-    val codeHeaderBg  = if (IsOrbitDarkTheme) Color(0xFF141413) else Color(0xFFE8E7E1)
-    val codeTextColor = if (IsOrbitDarkTheme) Color(0xFFE8E6E1) else Color(0xFF1A1A1A)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(codeBlockBg)
-            .border(
-                width = 1.dp,
-                color = GlassBorder,
-                shape = RoundedCornerShape(10.dp),
-            ),
-    ) {
-        // Header: language + copy
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(codeHeaderBg)
-                .padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text       = language.ifBlank { "code" },
-                style      = MaterialTheme.typography.labelSmall,
-                color      = TextMuted,
-                fontFamily = FontFamily.Monospace,
-            )
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(if (copied) Success.copy(0.15f) else GlassWhite8)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication        = null,
-                    ) {
-                        clipboard.setText(AnnotatedString(code))
-                        copied = true
-                    }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text  = if (copied) "Copied!" else "Copy",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (copied) Success else TextMuted,
-                )
-            }
-        }
-
-        // Code content
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-        ) {
-            SelectionContainer {
-                Text(
-                    text     = code,
-                    style    = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 20.sp,
-                    ),
-                    color    = codeTextColor,
-                    softWrap = false,
-                )
-            }
-        }
-    }
-
-    // Auto-reset "Copied!" label after 2 s
-    LaunchedEffect(copied) {
-        if (copied) {
-            kotlinx.coroutines.delay(2000)
-            copied = false
-        }
-    }
-}
-
-private fun parseMarkdownBlocks(content: String): List<MarkdownBlock> {
-    val blocks = mutableListOf<MarkdownBlock>()
-    val paragraphBuffer = mutableListOf<String>()
-    val lines = content.lines()
-    var i = 0
-
-    fun flushParagraph() {
-        if (paragraphBuffer.isNotEmpty()) {
-            blocks += MarkdownBlock.Paragraph(paragraphBuffer.joinToString("\n").trim())
-            paragraphBuffer.clear()
-        }
-    }
-
-    while (i < lines.size) {
-        val line = lines[i]
-
-        // Fenced code block: opening ```[lang]
-        if (line.trimStart().startsWith("```")) {
-            flushParagraph()
-            val lang = line.trimStart().removePrefix("```").trim()
-            val codeLines = mutableListOf<String>()
-            i++
-            while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
-                codeLines += lines[i]
-                i++
-            }
-            // skip closing ```
-            if (i < lines.size) i++
-            blocks += MarkdownBlock.CodeBlock(language = lang, code = codeLines.joinToString("\n"))
-            continue
-        }
-
-        val headingMatch = Regex("^(#{1,6})\\s+(.+)$").find(line)
-        val bulletMatch  = Regex("^\\s*[-*+]\\s+(.+)$").find(line)
-        val orderedMatch = Regex("^\\s*\\d+\\.\\s+(.+)$").find(line)
-
-        when {
-            headingMatch != null -> {
-                flushParagraph()
-                blocks += MarkdownBlock.Heading(
-                    level = headingMatch.groupValues[1].length,
-                    text  = headingMatch.groupValues[2],
-                )
-            }
-            bulletMatch != null -> {
-                flushParagraph()
-                blocks += MarkdownBlock.Bullet(text = bulletMatch.groupValues[1])
-            }
-            orderedMatch != null -> {
-                flushParagraph()
-                blocks += MarkdownBlock.Bullet(text = orderedMatch.groupValues[1])
-            }
-            line.isBlank() -> flushParagraph()
-            else -> paragraphBuffer += line
-        }
-        i++
-    }
-
-    flushParagraph()
-    return if (blocks.isEmpty()) listOf(MarkdownBlock.Paragraph(content)) else blocks
-}
-
-private fun parseInlineMarkdown(input: String): AnnotatedString = buildAnnotatedString {
-    // Matches in priority order: **bold**, *emphasis*, `code`
-    val pattern = Regex("""\*\*(.+?)\*\*|\*(.+?)\*|`+(.+?)`+""")
-    var lastIndex = 0
-
-    pattern.findAll(input).forEach { match ->
-        if (match.range.first > lastIndex) {
-            append(input.substring(lastIndex, match.range.first))
-        }
-
-        val boldText = match.groups[1]?.value
-        val emphText = match.groups[2]?.value
-        val codeText = match.groups[3]?.value
-
-        when {
-            boldText != null -> {
-                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                append(boldText)
-                pop()
-            }
-            emphText != null -> {
-                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                append(emphText)
-                pop()
-            }
-            codeText != null -> {
-                pushStyle(
-                    SpanStyle(
-                        fontFamily = FontFamily.Monospace,
-                        background = SpaceDust,
-                        color      = VioletCore,
-                    )
-                )
-                append(codeText)
-                pop()
-            }
-        }
-
-        lastIndex = match.range.last + 1
-    }
-
-    if (lastIndex < input.length) {
-        append(input.substring(lastIndex))
-    }
-}
 
 // ── Typing dots ───────────────────────────────────────────────────────────────
 
@@ -1174,139 +1323,22 @@ private fun StreamingCursor() {
 // INPUT BAR — floating bar
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-private enum class VoiceState { Idle, Listening }
-
-@Composable
-private fun rememberVoiceInput(onTextChange: (String) -> Unit): Pair<VoiceState, () -> Unit> {
-    val context  = LocalContext.current
-    val callback by rememberUpdatedState(onTextChange)
-    var state    by remember { mutableStateOf(VoiceState.Idle) }
-    val recognizer = remember(context) {
-        if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(context)
-        }
-    }
-    val voiceScope = rememberCoroutineScope()
-    var showVoiceDisclosure by remember { mutableStateOf(false) }
-    var voiceConsent by remember { mutableStateOf(false) }
-    // Flag to distinguish user-requested stop vs natural end-of-speech pause
-    val active        = remember { booleanArrayOf(false) }
-    // Accumulates confirmed sentences across auto-restarts
-    val confirmedText = remember { StringBuilder() }
-
-    fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-        try {
-            recognizer.startListening(intent)
-        } catch (_: SecurityException) {
-            active[0] = false
-            state = VoiceState.Idle
-            android.widget.Toast.makeText(context, "Microphone permission is required for voice input.", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            confirmedText.clear()
-            active[0] = true
-            startListening()
-        }
-    }
-
-    DisposableEffect(recognizer) {
-        recognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { state = VoiceState.Listening }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {
-                val partial = partialResults
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()?.takeIf { it.isNotBlank() } ?: return
-                // Show confirmed sentences + current partial
-                callback(confirmedText.toString() + partial)
-            }
-            override fun onResults(results: Bundle?) {
-                val result = results
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()?.takeIf { it.isNotBlank() }
-                if (result != null) {
-                    confirmedText.append(result).append(" ")
-                    callback(confirmedText.toString().trimEnd())
-                }
-                // Auto-restart so pauses don't end the session —
-                // only stop when the user taps the button (active[0] = false)
-                if (active[0]) startListening()
-            }
-            override fun onError(error: Int) {
-                if (active[0] && error in listOf(SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
-                    voiceScope.launch {
-                        kotlinx.coroutines.delay(300)
-                        if (active[0]) startListening()
-                    }
-                } else {
-                    active[0] = false
-                    state = VoiceState.Idle
-                    android.widget.Toast.makeText(context, "Voice input stopped. Check speech services and microphone permission, then try again.", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-        onDispose { active[0] = false; recognizer.destroy() }
-    }
-
-    fun beginVoiceInput() {
-        if (!SpeechRecognizer.isRecognitionAvailable(context) && !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            android.widget.Toast.makeText(context, "Speech recognition is unavailable on this device.", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            confirmedText.clear()
-            active[0] = true
-            startListening()
-        } else {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-    if (showVoiceDisclosure) {
-        AlertDialog(
-            onDismissRequest = { showVoiceDisclosure = false },
-            title = { Text("Use voice input?") },
-            text = { Text("Orbit uses your microphone to transcribe speech into a message. It prefers on-device recognition; your device's speech provider may process audio online otherwise. Orbit does not save audio recordings. You can review the text before sending it.") },
-            confirmButton = { TextButton(onClick = { voiceConsent = true; showVoiceDisclosure = false; beginVoiceInput() }) { Text("Continue") } },
-            dismissButton = { TextButton(onClick = { showVoiceDisclosure = false }) { Text("Cancel") } },
-        )
-    }
-
-    val toggle: () -> Unit = {
-        if (active[0]) {
-            active[0] = false
-            recognizer.stopListening()
-            recognizer.cancel()
-            state = VoiceState.Idle
-            confirmedText.clear()
-        } else if (!voiceConsent) {
-            showVoiceDisclosure = true
-        } else {
-            beginVoiceInput()
-        }
-    }
-
-    return state to toggle
-}
-
 @Composable
 private fun ChatInputBar(
+    voiceCallPrompt: com.example.orbitai.viewmodel.VoiceCallPrompt?,
+    onVoiceCall: (String) -> Boolean,
+    onCancelVoiceCall: () -> Unit,
+    onVoicePromptSpoken: (Long) -> Unit,
+    onVoiceUnavailable: () -> Unit,
+    modes: List<Mode>,
+    activeModeId: String,
+    onSelectMode: (String) -> Unit,
+    spaces: List<Space>,
+    activeSpaceIds: Set<String>,
+    onToggleSpace: (String) -> Unit,
     text:         String,
     onTextChange: (String) -> Unit,
+    cursorRequest: Int? = null,
     onSend:       () -> Unit,
     onStop:       () -> Unit,
     isGenerating: Boolean,
@@ -1315,10 +1347,18 @@ private fun ChatInputBar(
     pendingAttachment: PendingAttachment?,
     selectedImageUris: List<Uri>,
     onPickAttachment: () -> Unit,
+    visionAvailable: Boolean,
+    onTakePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
     onClearAttachment: () -> Unit,
     onClearImage: (Uri) -> Unit,
 ) {
-    val (voiceState, toggleVoice) = rememberVoiceInput(onTextChange = onTextChange)
+    val colors = com.example.orbitai.ui.theme.OrbitTheme.colors
+    val activeMode = modes.find { it.id == activeModeId } ?: modes.firstOrNull()
+    val (voiceState, toggleVoice) = rememberVoiceInput(
+        onTextChange, voiceCallPrompt, onVoiceCall, onCancelVoiceCall, onVoicePromptSpoken, onVoiceUnavailable,
+    )
+    val canSend = text.trim().isNotEmpty() || pendingAttachment != null || selectedImageUris.isNotEmpty()
 
     Column(
         modifier = Modifier
@@ -1327,192 +1367,244 @@ private fun ChatInputBar(
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 12.dp)
-            .padding(top = 8.dp, bottom = 10.dp),
+            .padding(top = 4.dp, bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Pending attachment preview
-        pendingAttachment?.let { attachment ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SpaceDust)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    Icons.Default.AttachFile,
-                    contentDescription = null,
-                    tint     = TextSecondary,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text     = attachment.name,
-                    color    = TextPrimary,
-                    style    = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Remove attachment",
-                    tint     = TextMuted,
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication        = null,
-                            onClick           = onClearAttachment,
-                        ),
-                )
-            }
-        }
-
-        // Selected Images preview
-        if (selectedImageUris.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                selectedImageUris.forEach { uri ->
-                    Box(modifier = Modifier.size(64.dp)) {
-                        // We use a basic placeholder box since Coil is not installed
-                        // The true image data will pass to the model
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SpaceDust)
-                                .border(1.dp, GlassBorder, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "IMG",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondary,
-                            )
-                        }
-
-                        // Remove icon overlay
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove image",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(4.dp)
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable { onClearImage(uri) }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Input row
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // Claude-style unified 2-row composer card
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(colors.surface)
+                .border(0.75.dp, colors.separator, RoundedCornerShape(24.dp))
+                .padding(top = 12.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Warm rounded input field
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(SpaceDust)
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Attach icon
-                Box(
+            // Pending attachment preview inside card
+            pendingAttachment?.let { attachment ->
+                Row(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication        = null,
-                            onClick           = onPickAttachment,
-                        ),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surfaceInput)
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
                         Icons.Default.AttachFile,
-                        contentDescription = "Attach file",
-                        tint     = if (selectedModelSupportsAttachments) TextSecondary else TextMuted.copy(alpha = 0.5f),
-                        modifier = Modifier.size(20.dp),
+                        contentDescription = null,
+                        tint     = TextSecondary,
+                        modifier = Modifier.size(15.dp),
                     )
-                }
-
-                // Text field
-                BasicTextField(
-                    value         = text,
-                    onValueChange = onTextChange,
-                    modifier      = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 4.dp),
-                    textStyle     = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
-                    cursorBrush   = SolidColor(TextPrimary),
-                    singleLine    = false,
-                    maxLines      = 5,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction      = ImeAction.Default,
-                    ),
-                    decorationBox = { inner ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (text.isEmpty()) {
-                                Text(
-                                    if (voiceState == VoiceState.Listening) "Listening…" else "Ask anything…",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = TextMuted,
-                                )
-                            }
-                            inner()
-                        }
-                    },
-                )
-
-                // Mic button (inside bar, right side)
-                if (voiceState != VoiceState.Listening && text.isEmpty() && pendingAttachment == null) {
-                    Box(
+                    Text(
+                        text     = attachment.name,
+                        color    = TextPrimary,
+                        style    = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.remove_attachment),
+                        tint     = TextMuted,
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .size(16.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication        = null,
-                                onClick           = toggleVoice,
+                                onClick           = onClearAttachment,
                             ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Default.Mic,
-                            contentDescription = "Voice input",
-                            tint     = TextSecondary,
-                            modifier = Modifier.size(20.dp),
-                        )
+                    )
+                }
+            }
+
+            // Selected Images preview inside card
+            if (selectedImageUris.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    selectedImageUris.forEach { uri ->
+                        Box(modifier = Modifier.size(56.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(colors.surfaceInput)
+                                    .border(0.5.dp, colors.separator, RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "IMG",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextSecondary,
+                                )
+                            }
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.remove_image),
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(3.dp)
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.55f))
+                                    .clickable { onClearImage(uri) },
+                            )
+                        }
                     }
                 }
             }
 
-            // Send / Stop / Mic-active button
-            when {
-                isGenerating -> StopButton(onClick = onStop)
-                voiceState == VoiceState.Listening -> MicButton(isListening = true, onClick = toggleVoice)
-                text.trim().isNotEmpty() || pendingAttachment != null || selectedImageUris.isNotEmpty() ->
-                    SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
-                else -> {
-                    // No button — mic is embedded inside field; no external button needed
+            // Row 1: Text input field
+            var fieldValue by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
+            if (fieldValue.text != text) {
+                fieldValue = TextFieldValue(text, TextRange((cursorRequest ?: text.length).coerceIn(0, text.length)))
+            }
+            BasicTextField(
+                value         = fieldValue,
+                onValueChange = { value ->
+                    fieldValue = value
+                    if (value.text != text) onTextChange(value.text)
+                },
+                modifier      = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                textStyle     = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                cursorBrush   = SolidColor(TextPrimary),
+                singleLine    = false,
+                maxLines      = 5,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction      = ImeAction.Default,
+                ),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (text.isEmpty()) {
+                            Text(
+                                when (voiceState) {
+                                    VoiceState.Listening -> "Listening…"
+                                    VoiceState.Responding -> "One moment…"
+                                    VoiceState.Idle -> "Ask anything…"
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextMuted,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+
+            // Row 2: Bottom toolbar inside composer (Attach + Mode + Space on left, Mic / Send / Stop on right)
+            Row(
+                modifier              = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(
+                    modifier              = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    // Attach icon button
+                    var attachMenu by remember { mutableStateOf(false) }
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colors.surfaceInput)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication        = null,
+                                onClick           = { if (visionAvailable) attachMenu = true else onPickAttachment() },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.camera)) }, onClick = { attachMenu = false; onTakePhoto() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.photos)) }, onClick = { attachMenu = false; onPickPhoto() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.files)) }, onClick = { attachMenu = false; onPickAttachment() })
+                        }
+                        Icon(
+                            Icons.Default.AttachFile,
+                            contentDescription = stringResource(R.string.attach_file),
+                            tint     = if (selectedModelSupportsAttachments) colors.labelSecondary else colors.labelTertiary,
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+
+                    // Mode picker pill
+                    if (modes.isNotEmpty() && activeMode != null) {
+                        ComposerModeChip(
+                            modes        = modes,
+                            activeMode   = activeMode,
+                            activeModeId = activeModeId,
+                            onSelectMode = onSelectMode,
+                        )
+                    }
+
+                    // Space picker pill
+                    if (spaces.isNotEmpty()) {
+                        ComposerSpaceChip(
+                            spaces         = spaces,
+                            activeSpaceIds = activeSpaceIds,
+                            onToggleSpace  = onToggleSpace,
+                        )
+                    }
+                }
+
+                // Right action cluster: Mic + Send / Stop
+                when {
+                    isGenerating -> StopButton(onClick = onStop)
+                    voiceState != VoiceState.Idle -> MicButton(isListening = true, onClick = toggleVoice)
+                    canSend -> {
+                        if (text.isEmpty() && pendingAttachment == null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .clickable(onClick = toggleVoice),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = stringResource(R.string.voice_input),
+                                    tint     = colors.labelSecondary,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                        SendButton(enabled = !isLoading, isLoading = isLoading, onClick = onSend)
+                    }
+                    else -> {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(colors.surfaceInput)
+                                .clickable(onClick = toggleVoice),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = stringResource(R.string.voice_input),
+                                tint     = colors.labelPrimary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1528,7 +1620,7 @@ private fun SendButton(
 ) {
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(34.dp)
             .clip(CircleShape)
             .background(if (enabled) TextPrimary else SpaceDust)
             .clickable(
@@ -1541,16 +1633,16 @@ private fun SendButton(
     ) {
         if (isLoading) {
             CircularProgressIndicator(
-                modifier    = Modifier.size(20.dp),
+                modifier    = Modifier.size(16.dp),
                 color       = SpaceDeep,
                 strokeWidth = 2.dp,
             )
         } else {
             Icon(
                 Icons.AutoMirrored.Filled.Send,
-                contentDescription = "Send",
+                contentDescription = stringResource(R.string.send),
                 tint     = if (enabled) SpaceDeep else TextMuted,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(16.dp),
             )
         }
     }
@@ -1560,7 +1652,7 @@ private fun SendButton(
 private fun StopButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(34.dp)
             .clip(CircleShape)
             .background(DestructiveSoft)
             .border(1.dp, Destructive.copy(alpha = 0.3f), CircleShape)
@@ -1573,9 +1665,9 @@ private fun StopButton(onClick: () -> Unit) {
     ) {
         Icon(
             Icons.Default.Stop,
-            contentDescription = "Stop generation",
+            contentDescription = stringResource(R.string.stop_generation),
             tint     = Destructive,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(18.dp),
         )
     }
 }
@@ -1594,7 +1686,7 @@ private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
     )
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(34.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(CircleShape)
             .background(if (isListening) Destructive else TextPrimary)
@@ -1691,4 +1783,180 @@ private suspend fun readAttachmentForPrompt(
             append(content)
         }
     )
+}
+
+/** "Sources" chips under an answer: which document excerpts it was given. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SourcesRow(sources: List<com.example.orbitai.feature.chat.MessageSource>, onClick: (com.example.orbitai.feature.chat.MessageSource) -> Unit) {
+    Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
+        Text(stringResource(R.string.sources), style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            sources.forEach { source ->
+                val label = if (source.available) com.example.orbitai.feature.spaces.Citations.label(source) else "${source.rank} · Removed document"
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (source.available) TextSecondary else TextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SpaceDust)
+                        .border(1.dp, GlassBorder, RoundedCornerShape(8.dp))
+                        .clickable(onClickLabel = "Show source") { onClick(source) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .widthIn(max = 220.dp),
+                )
+            }
+        }
+    }
+}
+
+/** The excerpt an answer was given, with a way to open the document. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceSheet(source: com.example.orbitai.feature.chat.MessageSource, onOpenDocument: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SpaceNebula) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = if (source.available) source.docName else "Removed document",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+            Text(
+                text = listOfNotNull("Source ${source.rank}", source.page?.let { "page $it" }).joinToString(" · "),
+                style = MaterialTheme.typography.labelMedium,
+                color = TextMuted,
+            )
+            Text(
+                text = source.excerpt,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextPrimary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(VioletGlowSoft)
+                    .padding(12.dp),
+            )
+            if (source.available) {
+                OutlinedButton(onClick = onOpenDocument) { Text(stringResource(R.string.open_document)) }
+            } else {
+                Text(stringResource(R.string.this_document_was_removed_from), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        }
+    }
+}
+
+/** "Remember: Lives in Pune?" under the user message, with Save, Edit and dismiss. */
+@Composable
+private fun MemorySuggestionChip(fact: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var editing by remember(fact) { mutableStateOf(false) }
+    var edited by remember(fact) { mutableStateOf(fact) }
+    if (editing) {
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text(stringResource(R.string.remember)) },
+            text = { OutlinedTextField(value = edited, onValueChange = { edited = it }, maxLines = 3) },
+            confirmButton = {
+                TextButton(enabled = edited.isNotBlank(), onClick = { editing = false; onSave(edited.trim()) }) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 48.dp, top = 2.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(VioletGlowSoft)
+            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+            .padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Psychology, contentDescription = null, tint = TextAccent, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Remember: $fact?",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextPrimary,
+            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = { onSave(fact) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.save)) }
+        TextButton(onClick = { editing = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.edit)) }
+        IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.don_t_remember), tint = TextMuted, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun CommandPaletteMenu(items: List<PaletteItem>, onSelect: (PaletteItem) -> Unit) {
+    if (items.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(SpaceDust)
+            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+            .heightIn(max = 280.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        items.forEach { item ->
+            val (title, subtitle) = when (item) {
+                is PaletteItem.Command -> "/${item.command.name} · ${item.command.title}" to item.command.example
+                is PaletteItem.Prompt -> item.prompt.title to item.prompt.text
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(item) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun StarterSuggestions(hasActiveSpaces: Boolean, onPick: (String) -> Unit) {
+    val suggestions = buildList {
+        if (hasActiveSpaces) add("Summarize the key points of my documents")
+        add("Explain how vaccines work in simple words")
+        add("Write a polite reply declining a meeting")
+        add("/remind in 10 minutes to stretch")
+        add("Type / for commands and saved prompts")
+    }.take(4)
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        suggestions.forEach { suggestion ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
+                    .clickable { onPick(if (suggestion.startsWith("Type /")) "/" else suggestion) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(suggestion, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+        }
+    }
 }

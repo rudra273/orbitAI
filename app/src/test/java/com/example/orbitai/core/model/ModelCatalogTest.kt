@@ -39,4 +39,14 @@ class ModelCatalogTest {
         }
         assertTrue(MODEL_DOWNLOAD_SPECS.getValue("gemma2-2b").files.single().url.contains("Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task"))
     }
+
+    @Test fun checksumsReferToRealSpecFilesAndAreSha256Hex() {
+        MODEL_FILE_SHA256.forEach { (modelId, files) ->
+            val spec = MODEL_DOWNLOAD_SPECS.getValue(modelId)
+            files.forEach { (path, sha) ->
+                assertTrue("$modelId/$path not in spec", spec.files.any { it.relativePath == path })
+                assertTrue(sha.matches(Regex("[0-9a-f]{64}")))
+            }
+        }
+    }
 }

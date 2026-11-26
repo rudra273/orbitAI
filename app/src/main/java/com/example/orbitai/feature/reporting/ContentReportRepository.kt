@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 
 class ContentReportRepository {
     private val client = OkHttpClient.Builder()
+        .addInterceptor(com.example.orbitai.feature.privacy.NetworkLogInterceptor("Content report"))
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)

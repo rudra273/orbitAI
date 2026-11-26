@@ -54,4 +54,10 @@ class AutomationCommandParserTest {
             result,
         )
     }
+
+    @Test
+    fun sharedMultilineTextRoutesToReminderWithoutLosingDetails() {
+        val shared = "Please send the proposal\nBy Friday at 5 PM\nInclude the updated pricing."
+        assertEquals(AutomationRequest.CreateReminder(shared), AutomationCommandParser.parse("/remind $shared"))
+    }
 }

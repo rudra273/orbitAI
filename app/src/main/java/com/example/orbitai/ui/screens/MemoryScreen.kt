@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -106,7 +108,7 @@ fun MemoryScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.back),
                                 tint = TextSecondary,
                             )
                         }
@@ -201,7 +203,7 @@ fun MemoryScreen(
                         ) {
                             Icon(
                                 Icons.Default.Add,
-                                contentDescription = "Add memory",
+                                contentDescription = stringResource(R.string.add_memory),
                                 tint     = MemoryAccent,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -522,7 +524,7 @@ private fun MemoryCard(
             ) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Delete memory",
+                    contentDescription = stringResource(R.string.delete_memory),
                     tint     = TextMuted.copy(0.4f),
                     modifier = Modifier.size(15.dp),
                 )

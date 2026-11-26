@@ -1,5 +1,8 @@
 package com.example.orbitai.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,22 +57,18 @@ import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 
-private val SettingsSurfaceLight = Color(0xFFF9F8F5)
-private val SettingsCardLight = Color(0xFFFFFFFF)
-private val SettingsCardDark = Color(0xFF1E1E1C)
-private val SettingsInkLight = Color(0xFF0D0D0D)
-private val SettingsGreen = Color(0xFF17A865)
-private val SettingsRed = Color(0xFFD94F4F)
-private val SettingsBlue = Color(0xFF3B82F6)
-private val SettingsSans = FontFamily.SansSerif
-private val SettingsMono = FontFamily.Monospace
+private val SettingsGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val SettingsRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
+private val SettingsBlue @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.info
+private val SettingsSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val SettingsMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val SettingsSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val SettingsCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val SettingsInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun SettingsHfTokenScreen(
@@ -93,12 +92,13 @@ fun SettingsHfTokenScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 16.dp)
+                    .padding(start = 4.dp, top = 4.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onBack,
-                    ),
+                    )
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -109,7 +109,7 @@ fun SettingsHfTokenScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Models",
+                    text = stringResource(R.string.models),
                     color = SettingsInk.copy(alpha = 0.40f),
                     fontFamily = SettingsMono,
                     fontSize = 13.sp,
@@ -119,21 +119,21 @@ fun SettingsHfTokenScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
+                    .padding(start = 4.dp, top = 2.dp, bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "HuggingFace Token",
+                    text = stringResource(R.string.huggingface_token),
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
+                        letterSpacing = (-0.3).sp,
                     ),
                     color = SettingsInk,
                     fontFamily = SettingsSans,
                 )
                 Text(
-                    text = "Authenticate to download gated models",
+                    text = stringResource(R.string.authenticate_to_download_gated_models),
                     color = SettingsInk.copy(alpha = 0.35f),
                     fontFamily = SettingsMono,
                     fontSize = 11.sp,
@@ -149,14 +149,14 @@ fun SettingsHfTokenScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "Access Token",
+                            text = stringResource(R.string.access_token),
                             color = SettingsInk,
                             fontFamily = SettingsSans,
                             fontWeight = FontWeight.Medium,
                             fontSize = 13.sp,
                         )
                         Text(
-                            text = "Paste your HuggingFace access token securely.",
+                            text = stringResource(R.string.paste_your_huggingface_access_token),
                             color = SettingsInk.copy(alpha = 0.35f),
                             fontFamily = SettingsMono,
                             fontSize = 11.sp,
@@ -219,7 +219,7 @@ fun SettingsHfTokenScreen(
                                 IconButton(onClick = { showToken = !showToken }) {
                                     Icon(
                                         imageVector = if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = null,
+                                        contentDescription = stringResource(if (showToken) R.string.hide_token else R.string.show_token),
                                         tint = SettingsInk.copy(alpha = 0.55f),
                                         modifier = Modifier.size(18.dp),
                                     )
@@ -238,7 +238,7 @@ fun SettingsHfTokenScreen(
                         )
 
                         SmallOutlineButton(
-                            label = "Clear",
+                            label = stringResource(R.string.clear),
                             color = SettingsRed,
                             onClick = {
                                 token = ""
@@ -262,15 +262,15 @@ fun SettingsHfTokenScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     GuideStep(
                         step = "1",
-                        title = "Generate Token",
-                        description = "You need a free HuggingFace account to generate an Access Token.",
+                        title = stringResource(R.string.generate_token),
+                        description = stringResource(R.string.you_need_a_free_huggingface),
                         buttonLabel = "Create Token",
                         onClick = { uriHandler.openUri("https://huggingface.co/settings/tokens") }
                     )
                     GuideStep(
                         step = "2",
-                        title = "Check Model Licenses",
-                        description = "Models like Gemma 4 require you to read and accept their license before downloading.",
+                        title = stringResource(R.string.check_model_licenses),
+                        description = stringResource(R.string.models_like_gemma_4_require),
                         buttonLabel = "Accept Gemma 4 License",
                         onClick = { uriHandler.openUri("https://huggingface.co/google/gemma-3-2b-it") } // They referred to Gemma 4 e2b, but its currently titled Gemma-3n-2b or Gemma-4 on HF
                     )

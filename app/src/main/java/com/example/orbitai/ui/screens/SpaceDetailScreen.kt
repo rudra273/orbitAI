@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
@@ -45,6 +47,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import kotlinx.coroutines.launch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -116,6 +119,8 @@ fun SpaceDetailScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var showDeleteSpaceConfirm by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var noteEditing by remember { mutableStateOf<NoteDraft?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.addDocumentToSpace(it, spaceId) }
@@ -123,6 +128,31 @@ fun SpaceDetailScreen(
 
     val totalSizeBytes = remember(docs) { docs.sumOf { it.sizeBytes } }
     val totalSizeLabel = remember(totalSizeBytes) { formatSize(totalSizeBytes) }
+
+    noteEditing?.let { draft ->
+        var title by remember(draft) { mutableStateOf(draft.title) }
+        var body by remember(draft) { mutableStateOf(draft.text) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { noteEditing = null },
+            title = { Text(if (draft.docId == null) "New note" else "Edit note") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.OutlinedTextField(title, { title = it }, label = { Text(stringResource(R.string.title)) }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(body, { body = it }, label = { Text(stringResource(R.string.note)) }, minLines = 4, maxLines = 10)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    enabled = body.isNotBlank(),
+                    onClick = {
+                        if (draft.docId == null) viewModel.addNote(spaceId, title, body) else viewModel.updateNote(draft.docId, title, body)
+                        noteEditing = null
+                    },
+                ) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { noteEditing = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 
     Scaffold(
         containerColor = SpaceDeep,
@@ -152,7 +182,10 @@ fun SpaceDetailScreen(
             }
 
             item {
-                DocumentsHeader(onAdd = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) })
+                DocumentsHeader(
+                    onAdd = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) },
+                    onNote = { noteEditing = NoteDraft(null, "", "") },
+                )
             }
 
             if (docs.isEmpty()) {
@@ -164,6 +197,16 @@ fun SpaceDetailScreen(
                     SwipeableDocumentRow(
                         doc = doc,
                         onDelete = { viewModel.deleteDocument(doc.id) },
+                        onRetry = { viewModel.retryDocument(doc.id) },
+                        onOpen = if (doc.name.startsWith(com.example.orbitai.feature.spaces.Notes.NAME_PREFIX)) {
+                            {
+                                scope.launch {
+                                    viewModel.noteText(doc.id)?.let { text ->
+                                        noteEditing = NoteDraft(doc.id, doc.name.removePrefix(com.example.orbitai.feature.spaces.Notes.NAME_PREFIX), text)
+                                    }
+                                }
+                            }
+                        } else null,
                     )
                 }
             }
@@ -177,7 +220,7 @@ fun SpaceDetailScreen(
     if (showDeleteSpaceConfirm && space != null) {
         AlertDialog(
             onDismissRequest = { showDeleteSpaceConfirm = false },
-            title = { Text("Delete this Space?", color = TextPrimary) },
+            title = { Text(stringResource(R.string.delete_this_space), color = TextPrimary) },
             text = {
                 Text(
                     "This removes the Space and all documents inside it.",
@@ -191,11 +234,11 @@ fun SpaceDetailScreen(
                         viewModel.deleteSpace(space.id)
                         onBack()
                     },
-                ) { Text("Delete", color = deleteText) }
+                ) { Text(stringResource(R.string.delete), color = deleteText) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteSpaceConfirm = false }) {
-                    Text("Cancel", color = TextMuted)
+                    Text(stringResource(R.string.cancel), color = TextMuted)
                 }
             },
             containerColor = cardSurface,
@@ -239,7 +282,7 @@ private fun SpaceDetailHeader(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = TextSecondary,
             )
         }
@@ -268,7 +311,7 @@ private fun SpaceDetailHeader(
             ) {
                 Icon(
                     Icons.Default.MoreVert,
-                    contentDescription = "More",
+                    contentDescription = stringResource(R.string.more),
                     tint = TextSecondary,
                 )
             }
@@ -279,14 +322,14 @@ private fun SpaceDetailHeader(
                 containerColor = cardSurface,
             ) {
                 DropdownMenuItem(
-                    text = { Text("Rename", color = TextPrimary) },
+                    text = { Text(stringResource(R.string.rename), color = TextPrimary) },
                     onClick = {
                         onMenuExpandedChange(false)
                         onRename()
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Delete", color = deleteText) },
+                    text = { Text(stringResource(R.string.delete), color = deleteText) },
                     onClick = {
                         onMenuExpandedChange(false)
                         onDelete()
@@ -309,12 +352,12 @@ private fun StatsRow(
         StatCard(
             modifier = Modifier.weight(1f),
             value = documentCount.toString(),
-            label = "Documents",
+            label = stringResource(R.string.documents),
         )
         StatCard(
             modifier = Modifier.weight(1f),
             value = totalSize,
-            label = "Total size",
+            label = stringResource(R.string.total_size),
         )
     }
 }
@@ -355,14 +398,14 @@ private fun StatCard(
 }
 
 @Composable
-private fun DocumentsHeader(onAdd: () -> Unit) {
+private fun DocumentsHeader(onAdd: () -> Unit, onNote: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = "DOCUMENTS",
+            text = stringResource(R.string.documents_2),
             style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(
                 fontSize = 12.sp,
                 letterSpacing = 1.2.sp,
@@ -371,6 +414,21 @@ private fun DocumentsHeader(onAdd: () -> Unit) {
             color = TextMuted,
         )
 
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(addButtonBg)
+                .combinedClickable(onClick = onNote)
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.note),
+                color = addButtonText,
+                style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
+        }
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
@@ -385,11 +443,12 @@ private fun DocumentsHeader(onAdd: () -> Unit) {
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = addButtonText, modifier = Modifier.size(14.dp))
                 Text(
-                    text = "Add",
+                    text = stringResource(R.string.add),
                     color = addButtonText,
                     style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 )
             }
+        }
         }
     }
 }
@@ -399,6 +458,8 @@ private fun DocumentsHeader(onAdd: () -> Unit) {
 private fun SwipeableDocumentRow(
     doc: RagDocument,
     onDelete: () -> Unit,
+    onRetry: () -> Unit,
+    onOpen: (() -> Unit)? = null,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -431,7 +492,7 @@ private fun SwipeableDocumentRow(
                 ) {
                     Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = deleteText, modifier = Modifier.size(16.dp))
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.delete),
                         color = deleteText,
                         style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
                     )
@@ -442,6 +503,8 @@ private fun SwipeableDocumentRow(
         DocumentRowContent(
             doc = doc,
             onLongPressDelete = onDelete,
+            onRetry = onRetry,
+            onOpen = onOpen,
         )
     }
 }
@@ -450,6 +513,8 @@ private fun SwipeableDocumentRow(
 private fun DocumentRowContent(
     doc: RagDocument,
     onLongPressDelete: () -> Unit,
+    onRetry: () -> Unit,
+    onOpen: (() -> Unit)? = null,
 ) {
     val dateStr = remember(doc.addedAt) {
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(doc.addedAt))
@@ -462,7 +527,7 @@ private fun DocumentRowContent(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(recessedBg)
-            .combinedClickable(onClick = {}, onLongClick = onLongPressDelete)
+            .combinedClickable(onClick = { onOpen?.invoke() }, onLongClick = onLongPressDelete)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -486,13 +551,31 @@ private fun DocumentRowContent(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
+            val isError = doc.status == RagStatus.ERROR
             Text(
-                text = if (isProcessing) "Processing..." else "$sizeStr · $dateStr",
+                text = when {
+                    doc.status == RagStatus.PENDING -> "Waiting to index…"
+                    isProcessing && doc.pagesTotal > 0 && doc.pagesDone < doc.pagesTotal ->
+                        "Reading page ${doc.pagesDone + 1} of ${doc.pagesTotal}…"
+                    isProcessing -> "Indexing…"
+                    isError -> doc.errorMessage ?: "Couldn't index this file."
+                    doc.status == RagStatus.DONE -> "$sizeStr · $dateStr · ${doc.chunkCount} ${if (doc.chunkCount == 1) "section" else "sections"}"
+                    else -> "$sizeStr · $dateStr"
+                },
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = if (isProcessing) processingTint else TextMuted,
+                color = when {
+                    isProcessing -> processingTint
+                    isError -> deleteText
+                    else -> TextMuted
+                },
+                maxLines = if (isError) 3 else 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
+        if (doc.status == RagStatus.ERROR) {
+            androidx.compose.material3.TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+        }
         DocumentStatusIndicator(status = doc.status)
     }
 }
@@ -510,7 +593,7 @@ private fun DocumentStatusIndicator(status: RagStatus) {
             ) {
                 Icon(
                     Icons.Default.Check,
-                    contentDescription = "Indexed",
+                    contentDescription = stringResource(R.string.indexed),
                     tint = Color.White,
                     modifier = Modifier.size(12.dp),
                 )
@@ -530,7 +613,7 @@ private fun DocumentStatusIndicator(status: RagStatus) {
             )
             Icon(
                 Icons.Default.HourglassEmpty,
-                contentDescription = "Processing",
+                contentDescription = stringResource(R.string.processing),
                 tint = processingTint,
                 modifier = Modifier
                     .size(16.dp)
@@ -541,7 +624,7 @@ private fun DocumentStatusIndicator(status: RagStatus) {
         RagStatus.ERROR -> {
             Icon(
                 Icons.Default.WarningAmber,
-                contentDescription = "Error",
+                contentDescription = stringResource(R.string.error),
                 tint = deleteText,
                 modifier = Modifier.size(16.dp),
             )
@@ -561,12 +644,12 @@ private fun EmptyDocumentsCard() {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            text = "No documents yet",
+            text = stringResource(R.string.no_documents_yet),
             color = TextPrimary,
             style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
         )
         Text(
-            text = "Tap + Add to include files in this Space.",
+            text = stringResource(R.string.tap_add_to_include_files),
             color = TextMuted,
             style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
         )
@@ -589,7 +672,7 @@ private fun DeleteSpaceButton(onClick: () -> Unit) {
         ) {
             Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = deleteText, modifier = Modifier.size(16.dp))
             Text(
-                text = "Delete this Space",
+                text = stringResource(R.string.delete_this_space_2),
                 color = deleteText,
                 style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             )
@@ -607,7 +690,7 @@ private fun RenameSpaceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename Space", color = TextPrimary) },
+        title = { Text(stringResource(R.string.rename_space), color = TextPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -639,12 +722,12 @@ private fun RenameSpaceDialog(
                 onClick = { onConfirm(name) },
                 enabled = name.isNotBlank() && name.trim() != initialName.trim(),
             ) {
-                Text("Save", color = addButtonText)
+                Text(stringResource(R.string.save), color = addButtonText)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextMuted)
+                Text(stringResource(R.string.cancel), color = TextMuted)
             }
         },
         containerColor = cardSurface,
@@ -656,3 +739,5 @@ private fun formatSize(bytes: Long): String = when {
     bytes >= 1_024 -> "%.1f KB".format(bytes / 1_024f)
     else -> "$bytes B"
 }
+
+private data class NoteDraft(val docId: String?, val title: String, val text: String)

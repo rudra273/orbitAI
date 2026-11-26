@@ -1,5 +1,6 @@
 package com.example.orbitai.viewmodel
 
+import com.example.orbitai.appContainer
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,13 +14,17 @@ import kotlinx.coroutines.launch
 
 class MemoryViewModel(application: Application) : AndroidViewModel(application) {
 
-    val repository = MemoryRepository(application)
+    val repository = application.appContainer.memoryRepository
 
     val memories: StateFlow<List<MemoryEntity>> = repository.memories
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun deleteMemory(id: String) {
         viewModelScope.launch(Dispatchers.IO) { repository.deleteMemory(id) }
+    }
+
+    fun updateMemory(id: String, content: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.updateMemory(id, content) }
     }
 
     fun clearAll() {

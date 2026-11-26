@@ -1,5 +1,7 @@
 package com.example.orbitai.ui.screens
 
+import com.example.orbitai.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,6 +41,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
+import com.example.orbitai.core.model.DeviceFit
+import com.example.orbitai.core.model.ModelFit
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -74,25 +82,19 @@ import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.viewmodel.DownloadViewModel
 
-private val SettingsSurfaceLight = Color(0xFFF9F8F5)
-private val SettingsCardLight = Color(0xFFFFFFFF)
-private val SettingsCardDark = Color(0xFF1E1E1C)
-private val SettingsSearchLight = Color(0xFFEEEDE8)
-private val SettingsSearchDark = Color(0xFF1E1E1C)
-private val SettingsInkLight = Color(0xFF0D0D0D)
-private val SettingsGreen = Color(0xFF17A865)
-private val SettingsRed = Color(0xFFD94F4F)
-private val SettingsSans = FontFamily.SansSerif
-private val SettingsMono = FontFamily.Monospace
+private val SettingsGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val SettingsRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
+private val SettingsSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val SettingsMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val SettingsSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val SettingsCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val SettingsSearchBg: Color
-    @Composable get() = if (IsOrbitDarkTheme) SettingsSearchDark else SettingsSearchLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceInput
 private val SettingsInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun ModelSettingsScreen(
@@ -112,8 +114,12 @@ fun ModelSettingsScreen(
     var showGeminiKey by remember { mutableStateOf(false) }
     var showAllModels by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var activeEmbedderId by remember { mutableStateOf(downloadViewModel.activeEmbeddingModelId) }
+    val reindexRemaining by downloadViewModel.reindexRemaining(activeEmbedderId).collectAsState(0)
 
-    val topPickIds = setOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b")
+    val recommendedId = downloadViewModel.recommendedModelId
+    val topPickIds = (listOfNotNull(recommendedId) + listOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b"))
+        .distinct()
     // Sort top picks based on the order in the set
     val topPickModels = topPickIds.mapNotNull { id -> AVAILABLE_MODELS.find { it.id == id } }
         .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
@@ -133,12 +139,13 @@ fun ModelSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 16.dp)
+                    .padding(start = 4.dp, top = 4.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onBack,
-                    ),
+                    )
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -149,7 +156,7 @@ fun ModelSettingsScreen(
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings),
                     color = SettingsInk.copy(alpha = 0.40f),
                     fontFamily = SettingsMono,
                     fontSize = 13.sp,
@@ -159,21 +166,21 @@ fun ModelSettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
+                    .padding(start = 4.dp, top = 2.dp, bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Models",
+                    text = stringResource(R.string.models),
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
+                        letterSpacing = (-0.3).sp,
                     ),
                     color = SettingsInk,
                     fontFamily = SettingsSans,
                 )
                 Text(
-                    text = "Download, configure & manage",
+                    text = stringResource(R.string.download_configure_manage),
                     color = SettingsInk.copy(alpha = 0.35f),
                     fontFamily = SettingsMono,
                     fontSize = 11.sp,
@@ -231,6 +238,36 @@ fun ModelSettingsScreen(
         item { SectionHeader("ON-DEVICE LLMs") }
 
         item {
+            var wifiOnly by remember { mutableStateOf(downloadViewModel.downloadSettings.largeModelsOnWifiOnly) }
+            FlatCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.download_large_models_on_wi), color = SettingsInk, fontFamily = SettingsSans, fontSize = 14.sp)
+                        Text(
+                            "This phone: ${formatModelSize(downloadViewModel.deviceSpecs.totalRamBytes)} RAM · ${formatModelSize(downloadViewModel.deviceSpecs.freeModelStorageBytes())} free",
+                            color = SettingsInk.copy(alpha = 0.6f),
+                            fontFamily = SettingsMono,
+                            fontSize = 11.sp,
+                        )
+                        Text(
+                            "Models over 1 GB wait for Wi-Fi. Downloads continue in the background and resume after interruptions.",
+                            color = SettingsInk.copy(alpha = 0.45f),
+                            fontFamily = SettingsSans,
+                            fontSize = 11.sp,
+                        )
+                    }
+                    Switch(
+                        checked = wifiOnly,
+                        onCheckedChange = {
+                            wifiOnly = it
+                            downloadViewModel.setLargeModelsOnWifiOnly(it)
+                        },
+                    )
+                }
+            }
+        }
+
+        item {
             FlatCard(padding = 0.dp) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     topPickModels.forEachIndexed { index, model ->
@@ -246,7 +283,9 @@ fun ModelSettingsScreen(
                             },
                             onDelete = { downloadViewModel.deleteModel(model) },
                             onCancel = { downloadViewModel.cancelDownload(model) },
-                            isOrbitRecommended = model.id == "gemma4-e2b",
+                            onPause = { downloadViewModel.pauseDownload(model) },
+                            fit = downloadViewModel.fitOf(model),
+                            isRecommendedForPhone = model.id == recommendedId,
                         )
                         if (index != topPickModels.lastIndex) HairlineDivider()
                     }
@@ -303,6 +342,8 @@ fun ModelSettingsScreen(
                                 },
                                 onDelete = { downloadViewModel.deleteModel(model) },
                                 onCancel = { downloadViewModel.cancelDownload(model) },
+                                onPause = { downloadViewModel.pauseDownload(model) },
+                                fit = downloadViewModel.fitOf(model),
                             )
                             if (index != allModels.lastIndex) HairlineDivider()
                         }
@@ -320,11 +361,25 @@ fun ModelSettingsScreen(
                             EmbeddingModelRow(
                                 model = model,
                                 progress = embeddingProgressMap[model.id],
+                                isActive = activeEmbedderId == model.id,
+                                onUse = { downloadViewModel.useEmbeddingModel(model); activeEmbedderId = model.id },
                                 onDownload = { downloadViewModel.startEmbeddingDownload(model) },
-                                onDelete = { downloadViewModel.deleteEmbeddingModel(model) },
+                                onDelete = {
+                                    downloadViewModel.deleteEmbeddingModel(model)
+                                    if (activeEmbedderId == model.id) activeEmbedderId = downloadViewModel.activeEmbeddingModelId
+                                },
                                 onCancel = { downloadViewModel.cancelEmbeddingDownload(model) },
                             )
                             if (index != embedModels.lastIndex) HairlineDivider()
+                        }
+                        if (reindexRemaining > 0) {
+                            Text(
+                                text = "Updating search for your documents and memories: $reindexRemaining left. Until then they are found by keywords.",
+                                color = SettingsInk.copy(alpha = 0.55f),
+                                fontFamily = SettingsSans,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
                         }
                     }
                 }
@@ -339,7 +394,7 @@ fun ModelSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "HuggingFace Config",
+                        text = stringResource(R.string.huggingface_config),
                         color = SettingsInk,
                         fontFamily = SettingsSans,
                         fontWeight = FontWeight.Medium,
@@ -351,14 +406,14 @@ fun ModelSettingsScreen(
                     ) {
                         if (tokenStore.hasToken()) {
                             Text(
-                                text = "✓ Configured",
+                                text = stringResource(R.string.configured),
                                 color = SettingsGreen,
                                 fontFamily = SettingsMono,
                                 fontSize = 11.sp,
                             )
                         } else {
                             Text(
-                                text = "No Token",
+                                text = stringResource(R.string.no_token),
                                 color = SettingsInk.copy(alpha = 0.45f),
                                 fontFamily = SettingsMono,
                                 fontSize = 11.sp,
@@ -395,14 +450,14 @@ fun ModelSettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
-                                text = "Gemini API",
+                                text = stringResource(R.string.gemini_api),
                                 color = SettingsInk,
                                 fontFamily = SettingsSans,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
                             )
                             Text(
-                                text = "Cloud provider integration",
+                                text = stringResource(R.string.cloud_provider_integration),
                                 color = SettingsInk.copy(alpha = 0.38f),
                                 fontFamily = SettingsSans,
                                 fontSize = 11.sp,
@@ -428,7 +483,7 @@ fun ModelSettingsScreen(
                         ) {
                             CompactInputField(
                                 value = geminiModelName,
-                                placeholder = "gemini-flash-latest",
+                                placeholder = stringResource(R.string.gemini_flash_latest),
                                 onValueChange = {
                                     geminiModelName = it
                                     geminiSaved = false
@@ -436,7 +491,7 @@ fun ModelSettingsScreen(
                             )
                             CompactInputField(
                                 value = geminiApiKey,
-                                placeholder = "api key",
+                                placeholder = stringResource(R.string.api_key),
                                 isPassword = !showGeminiKey,
                                 onValueChange = {
                                     geminiApiKey = it
@@ -465,7 +520,7 @@ fun ModelSettingsScreen(
                                     },
                                 )
                                 SmallOutlineButton(
-                                    label = "Clear",
+                                    label = stringResource(R.string.clear),
                                     color = SettingsRed,
                                     onClick = {
                                         geminiModelName = ""
@@ -482,10 +537,12 @@ fun ModelSettingsScreen(
             }
         }
 
+        item { CustomModelSection() }
+
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OrbitAI · On-device LLM",
+                text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
                 color = SettingsInk.copy(alpha = 0.20f),
                 fontFamily = SettingsMono,
@@ -500,6 +557,8 @@ fun ModelSettingsScreen(
 private fun EmbeddingModelRow(
     model: EmbeddingModelConfig,
     progress: DownloadProgress?,
+    isActive: Boolean,
+    onUse: () -> Unit,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
@@ -513,19 +572,19 @@ private fun EmbeddingModelRow(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Model", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            title = { Text(stringResource(R.string.delete_model), fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
             text = { Text("Are you sure you want to delete ${model.displayName}? You will need to re-download it to use it again.", fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f)) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     onDelete()
                 }) {
-                    Text("Delete", color = SettingsRed, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.delete), color = SettingsRed, fontFamily = SettingsSans)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = SettingsInk, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.cancel), color = SettingsInk, fontFamily = SettingsSans)
                 }
             },
             containerColor = SettingsCard,
@@ -585,7 +644,19 @@ private fun EmbeddingModelRow(
                             .background(SettingsGreen),
                     )
                     Text(
-                        text = "Delete",
+                        text = if (isActive) "In use" else "Use",
+                        color = if (isActive) SettingsGreen else SettingsInk,
+                        fontFamily = SettingsMono,
+                        fontSize = 9.sp,
+                        modifier = Modifier.clickable(
+                            enabled = !isActive,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onUse,
+                        ),
+                    )
+                    Text(
+                        text = stringResource(R.string.delete),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -610,7 +681,7 @@ private fun EmbeddingModelRow(
                         fontSize = 9.sp,
                     )
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -655,30 +726,58 @@ private fun ModelRow(
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
-    isOrbitRecommended: Boolean = false,
+    onPause: () -> Unit = {},
+    fit: ModelFit = ModelFit.GOOD,
+    isRecommendedForPhone: Boolean = false,
 ) {
+    var confirmLargeDownload by remember { mutableStateOf(false) }
+    if (confirmLargeDownload) {
+        AlertDialog(
+            onDismissRequest = { confirmLargeDownload = false },
+            title = { Text(stringResource(R.string.model_may_not_run), fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            text = {
+                Text(
+                    "${model.displayName} probably needs more memory than this phone has. It may fail to load or close Orbit. Download anyway?",
+                    fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmLargeDownload = false; onDownload() }) {
+                    Text(stringResource(R.string.download), color = SettingsRed, fontFamily = SettingsSans)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLargeDownload = false }) { Text(stringResource(R.string.cancel), color = SettingsInk, fontFamily = SettingsSans) }
+            },
+            containerColor = SettingsCard,
+            shape = RoundedCornerShape(14.dp),
+        )
+    }
+    val startDownload = { if (fit == ModelFit.TOO_LARGE) confirmLargeDownload = true else onDownload() }
     val status = progress?.status ?: DownloadStatus.IDLE
     val isInstalled = status == DownloadStatus.COMPLETED
-    val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.PAUSED
+    val isDownloading = status == DownloadStatus.DOWNLOADING || status == DownloadStatus.VERIFYING
+    val isWaiting = status == DownloadStatus.PAUSED && progress?.canResume != true
+    val isResumable = status == DownloadStatus.PAUSED && progress?.canResume == true
     val isFailed = status == DownloadStatus.FAILED
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Model", fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
+            title = { Text(stringResource(R.string.delete_model), fontFamily = SettingsSans, fontSize = 18.sp, color = SettingsInk) },
             text = { Text("Are you sure you want to delete ${model.displayName}? You will need to re-download it to use it again.", fontFamily = SettingsSans, fontSize = 14.sp, color = SettingsInk.copy(alpha = 0.8f)) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     onDelete()
                 }) {
-                    Text("Delete", color = SettingsRed, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.delete), color = SettingsRed, fontFamily = SettingsSans)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = SettingsInk, fontFamily = SettingsSans)
+                    Text(stringResource(R.string.cancel), color = SettingsInk, fontFamily = SettingsSans)
                 }
             },
             containerColor = SettingsCard,
@@ -706,7 +805,7 @@ private fun ModelRow(
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
                 )
-                if (isOrbitRecommended) {
+                if (isRecommendedForPhone) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
@@ -714,7 +813,7 @@ private fun ModelRow(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "RECOMMENDED FOR ORBIT",
+                            text = stringResource(R.string.recommended_for_this_phone),
                             color = Color(0xFF5B4FE8),
                             fontFamily = SettingsMono,
                             fontSize = 7.sp,
@@ -730,7 +829,7 @@ private fun ModelRow(
                             .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "TOKEN REQ",
+                            text = stringResource(R.string.token_req),
                             color = SettingsInk.copy(alpha = 0.5f),
                             fontFamily = SettingsMono,
                             fontSize = 8.sp,
@@ -746,7 +845,11 @@ private fun ModelRow(
                 )
             }
             Text(
-                text = if (isFailed) (progress?.error ?: "Download failed") else model.description,
+                text = when {
+                    isFailed -> progress?.error ?: "Download failed"
+                    status == DownloadStatus.PAUSED -> progress?.error ?: "Paused"
+                    else -> model.description
+                },
                 color = if (isFailed) SettingsRed else SettingsInk.copy(alpha = 0.38f),
                 fontFamily = SettingsSans,
                 fontSize = 11.sp,
@@ -755,7 +858,20 @@ private fun ModelRow(
             )
             MODEL_DOWNLOAD_SPECS[model.id]?.totalSizeBytes?.let { size ->
                 Text(
-                    text = "Download size: ${formatModelSize(size)}",
+                    text = buildAnnotatedString {
+                        append("${formatModelSize(size)} · ${DeviceFit.bestFor(model)} · ")
+                        withStyle(SpanStyle(color = when (fit) {
+                            ModelFit.GOOD -> SettingsGreen
+                            ModelFit.SLOW -> Color(0xFFD48806)
+                            ModelFit.TOO_LARGE -> SettingsRed
+                        })) {
+                            append(when (fit) {
+                                ModelFit.GOOD -> "Fits this phone"
+                                ModelFit.SLOW -> "May be slow"
+                                ModelFit.TOO_LARGE -> "Too large for this phone"
+                            })
+                        }
+                    },
                     color = SettingsInk.copy(alpha = 0.60f),
                     fontFamily = SettingsMono,
                     fontSize = 11.sp,
@@ -776,7 +892,7 @@ private fun ModelRow(
                             .background(SettingsGreen),
                     )
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.delete),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -789,19 +905,34 @@ private fun ModelRow(
                 }
             }
 
-            isDownloading -> {
+            isDownloading || isWaiting || isResumable -> {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    if (isDownloading) {
+                        Text(
+                            text = if (status == DownloadStatus.VERIFYING) "Verifying" else "${progress?.progressPercent ?: 0}%",
+                            color = SettingsInk.copy(alpha = 0.55f),
+                            fontFamily = SettingsMono,
+                            fontSize = 9.sp,
+                        )
+                    }
+                    if (isDownloading || isResumable) {
+                        Text(
+                            text = if (isDownloading) "Pause" else "Resume",
+                            color = SettingsInk.copy(alpha = 0.75f),
+                            fontFamily = SettingsMono,
+                            fontSize = 9.sp,
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = if (isDownloading) onPause else startDownload,
+                            ),
+                        )
+                    }
                     Text(
-                        text = "${progress?.progressPercent ?: 0}%",
-                        color = SettingsInk.copy(alpha = 0.55f),
-                        fontFamily = SettingsMono,
-                        fontSize = 9.sp,
-                    )
-                    Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         color = SettingsRed,
                         fontFamily = SettingsMono,
                         fontSize = 9.sp,
@@ -823,7 +954,7 @@ private fun ModelRow(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onDownload,
+                            onClick = startDownload,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {

@@ -14,6 +14,8 @@ interface LlmConversationEngine {
         systemInstruction: String,
         settings: InferenceSettings,
         toolSchemas: List<Any> = emptyList(),
+        /** Earlier turns to start the conversation with. */
+        history: List<PromptTurn> = emptyList(),
     ): ConversationSession
 
     fun close()
@@ -33,6 +35,9 @@ interface ConversationSession : AutoCloseable {
         maxDecodedTokens: Int,
         onDelta: suspend (String) -> Unit,
     ): TurnResult
+
+    /** Stops an in-progress turn in the native engine. Safe to call from any thread. */
+    fun cancel()
 }
 
 /**

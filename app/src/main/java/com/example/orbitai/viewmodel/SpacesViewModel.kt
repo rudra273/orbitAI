@@ -1,5 +1,6 @@
 package com.example.orbitai.viewmodel
 
+import com.example.orbitai.appContainer
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -16,8 +17,8 @@ import kotlinx.coroutines.launch
 
 class SpacesViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = SpaceRepository(application)
-    private val modelDownloader = ModelDownloader(application)
+    private val repository = application.appContainer.spaceRepository
+    private val modelDownloader = application.appContainer.modelDownloader
 
     val spaces: StateFlow<List<Space>> = repository.spaces
 
@@ -46,7 +47,19 @@ class SpacesViewModel(application: Application) : AndroidViewModel(application) 
         repository.addDocumentToSpace(uri, spaceId)
     }
 
+    fun addNote(spaceId: String, title: String, text: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.addNote(spaceId, title, text) }
+    }
+
+    fun updateNote(docId: String, title: String, text: String) {
+        viewModelScope.launch(Dispatchers.IO) { repository.updateNote(docId, title, text) }
+    }
+
+    suspend fun noteText(docId: String): String? = repository.noteText(docId)
+
     fun isSemanticModelReady(): Boolean = modelDownloader.isEmbeddingDownloaded(GECKO_EMBEDDING)
+
+    fun retryDocument(id: String) = repository.retryDocument(id)
 
     fun deleteDocument(id: String) {
         viewModelScope.launch(Dispatchers.IO) {

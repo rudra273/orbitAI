@@ -13,6 +13,8 @@ data class LlmModel(
     val promptStyle: PromptStyle = PromptStyle.GEMMA,
     val supportsVision: Boolean = false,
     val isChatSelectable: Boolean = true,
+    /** Conservative prompt + output token budget used to trim history (see PromptBudget). */
+    val contextTokens: Int = 2048,
 )
 
 enum class ModelProvider {
@@ -57,6 +59,7 @@ val AVAILABLE_MODELS = listOf(
         description = "Balanced quality & speed",
         paramCount = "4B",
         format = ModelFormat.LITERTLM,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma3-2b",
@@ -66,6 +69,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "2B",
         format = ModelFormat.LITERTLM,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma4-e2b",
@@ -75,6 +79,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "2B",
         format = ModelFormat.LITERTLM,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma4-e4b",
@@ -84,6 +89,28 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "4B",
         format = ModelFormat.LITERTLM,
         supportsVision = true,
+        contextTokens = 4096,
+    ),
+    LlmModel(
+        id = "qwen35-0.8b",
+        displayName = "Qwen 3.5 0.8B",
+        fileName = "Qwen3.5-0.8B_int8.litertlm",
+        description = "Qwen 3.5 · very small and fast, text only",
+        paramCount = "0.8B",
+        format = ModelFormat.LITERTLM,
+        promptStyle = PromptStyle.QWEN,
+        contextTokens = 4096,
+    ),
+    LlmModel(
+        id = "qwen35-0.8b-vl",
+        displayName = "Qwen 3.5 0.8B Vision",
+        fileName = "Qwen3.5-0.8B-VL_int8.litertlm",
+        description = "Qwen 3.5 · small model that also understands images",
+        paramCount = "0.8B",
+        format = ModelFormat.LITERTLM,
+        promptStyle = PromptStyle.QWEN,
+        supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "gemma2-2b",
@@ -91,6 +118,7 @@ val AVAILABLE_MODELS = listOf(
         fileName = "gemma2-2b-it-cpu-int8.task",
         description = "Stable CPU model • wide device support",
         paramCount = "2B",
+        contextTokens = 1280,  // KV cache size from the file name (ekv1280)
     ),
     LlmModel(
         id = "onnx-gemma3-4b-it",
@@ -100,6 +128,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "4B",
         format = ModelFormat.ONNX_GENAI,
         supportsVision = true,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-gemma3-270m-it",
@@ -117,6 +146,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "3.8B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.PHI,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-phi4-mini",
@@ -126,6 +156,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "3.8B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.PHI,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-phi4",
@@ -135,6 +166,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "14B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.PHI,
+        contextTokens = 4096,
     ),
     LlmModel(
         id = "onnx-llama3.2-3b",
@@ -144,6 +176,7 @@ val AVAILABLE_MODELS = listOf(
         paramCount = "3B",
         format = ModelFormat.ONNX_GENAI,
         promptStyle = PromptStyle.LLAMA3,
+        contextTokens = 4096,
     ),
 )
 
@@ -167,10 +200,23 @@ val GECKO_EMBEDDING = EmbeddingModelConfig(
     description      = "On-device semantic search for RAG · Google USE",
 )
 
-val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING)
+/** multilingual-e5-small: ungated (MIT), multilingual, int8 ONNX. Files pinned to a verified revision. */
+val E5_SMALL_EMBEDDING = EmbeddingModelConfig(
+    id                = "multilingual-e5-small",
+    sizeBytes         = 118_054_593L + 17_082_730L,
+    displayName       = "Multilingual E5 Small",
+    fileName          = "multilingual-e5-small-int8.onnx",
+    tokenizerFileName = "multilingual-e5-small-tokenizer.json",
+    description       = "Better search for Spaces and Memory, includes Hindi · MIT license, no sign-in",
+)
+
+val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING, E5_SMALL_EMBEDDING)
 
 val EMBEDDING_DOWNLOAD_URLS = mapOf(
     "gecko-embedding" to "https://storage.googleapis.com/mediapipe-models/text_embedder/universal_sentence_encoder/float32/latest/universal_sentence_encoder.tflite",
+    "multilingual-e5-small" to "https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78/onnx/model_int8.onnx",
 )
 
-val EMBEDDING_TOKENIZER_URLS = mapOf<String, String>()
+val EMBEDDING_TOKENIZER_URLS = mapOf(
+    "multilingual-e5-small" to "https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78/tokenizer.json",
+)

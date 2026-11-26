@@ -17,6 +17,8 @@ val SUPPORTED_DOCUMENT_MIME_TYPES = arrayOf(
     "application/xml",
     "text/xml",
     "text/html",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/epub+zip",
     "image/*",
 )
 
@@ -30,6 +32,8 @@ private val extensionToMimeType = mapOf(
     "xml" to "application/xml",
     "html" to "text/html",
     "htm" to "text/html",
+    "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "epub" to "application/epub+zip",
 )
 
 fun normalizeDocumentMimeType(rawMimeType: String?, fileName: String): String {
