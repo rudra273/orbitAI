@@ -139,13 +139,13 @@ fun ModelSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 16.dp)
+                    .padding(start = 4.dp, top = 4.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onBack,
                     )
-                    .heightIn(min = 48.dp),
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -166,15 +166,15 @@ fun ModelSettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
+                    .padding(start = 4.dp, top = 2.dp, bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     text = stringResource(R.string.models),
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
+                        letterSpacing = (-0.3).sp,
                     ),
                     color = SettingsInk,
                     fontFamily = SettingsSans,

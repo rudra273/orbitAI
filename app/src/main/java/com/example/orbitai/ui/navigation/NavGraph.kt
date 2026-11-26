@@ -280,6 +280,7 @@ fun OrbitNavGraph(
                 modifier         = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
                     .then(swipeModifier),
             ) {
 
@@ -553,7 +554,6 @@ private fun OrbitBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(top = 14.dp)
                 .background(colors.surface)
                 .navigationBarsPadding(),
         ) {
@@ -566,7 +566,7 @@ private fun OrbitBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(56.dp)
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -576,7 +576,7 @@ private fun OrbitBottomBar(
                 TabButton(TABS[1], currentRoute == TABS[1].route, modifier = Modifier.weight(1f)) {
                     onNavigate(TABS[1].route)
                 }
-                Spacer(modifier = Modifier.width(68.dp))
+                Spacer(modifier = Modifier.width(62.dp))
                 TabButton(TABS[2], currentRoute == TABS[2].route, modifier = Modifier.weight(1f)) {
                     onNavigate(TABS[2].route)
                 }
@@ -586,10 +586,11 @@ private fun OrbitBottomBar(
             }
         }
 
-        // Refined raised center Orbit button sitting cleanly in a circular halo above the bar edge
+        // Refined raised center Orbit button overlapping the bar edge without adding top layout height
         OrbitNavButton(
             modifier = Modifier
-                .align(Alignment.TopCenter),
+                .align(Alignment.TopCenter)
+                .offset(y = (-10).dp),
             onClick = { OrbitBubbleService.trigger(context) },
         )
     }
@@ -634,7 +635,7 @@ private fun OrbitNavButton(
     // Outer halo blends cleanly into the top bar edge
     Box(
         modifier = modifier
-            .size(62.dp)
+            .size(54.dp)
             .clip(CircleShape)
             .background(colors.surface)
             .border(width = 0.75.dp, color = ringColor, shape = CircleShape)
@@ -654,7 +655,7 @@ private fun OrbitNavButton(
     ) {
         Box(
             modifier = Modifier
-                .size(50.dp)
+                .size(44.dp)
                 .clip(CircleShape)
                 .background(innerBg),
             contentAlignment = Alignment.Center,
@@ -662,7 +663,7 @@ private fun OrbitNavButton(
             Image(
                 painter            = painterResource(R.drawable.vector_logo),
                 contentDescription = stringResource(R.string.orbit),
-                modifier           = Modifier.size(26.dp),
+                modifier           = Modifier.size(24.dp),
             )
         }
     }
@@ -693,7 +694,7 @@ private fun TabButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier            = modifier
-            .heightIn(min = 52.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .selectable(
                 selected = selected,
@@ -703,15 +704,15 @@ private fun TabButton(
                     onClick()
                 },
             )
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
     ) {
         Icon(
             imageVector        = if (selected) tab.iconActive else tab.iconDefault,
             contentDescription = null,
             tint               = tint,
-            modifier           = Modifier.size(22.dp),
+            modifier           = Modifier.size(21.dp),
         )
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
             text       = label,
             style      = OrbitTheme.typography.caption1,

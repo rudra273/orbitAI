@@ -129,8 +129,8 @@ fun SettingsScreen(
             contentPadding = PaddingValues(
                 start = spacing.screenHorizontal,
                 end = spacing.screenHorizontal,
-                top = spacing.xs,
-                bottom = spacing.xxl,
+                top = 0.dp,
+                bottom = spacing.xl,
             ),
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Text
@@ -50,12 +49,12 @@ fun OrbitTopLevelHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 68.dp)
+                .heightIn(min = 48.dp)
                 .padding(
                     start = spacing.screenHorizontal,
                     end = spacing.xs,
-                    top = spacing.md,
-                    bottom = spacing.sm,
+                    top = 6.dp,
+                    bottom = 6.dp,
                 ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -68,7 +67,7 @@ fun OrbitTopLevelHeader(
             ) {
                 Text(
                     text = title,
-                    style = typography.title1,
+                    style = typography.title2,
                     color = colors.labelPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -113,14 +112,13 @@ fun OrbitSubScreenTopBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(colors.background)
-            .statusBarsPadding(),
+            .background(colors.background),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .padding(horizontal = spacing.xxs, vertical = spacing.xxs),
+                .heightIn(min = 48.dp)
+                .padding(horizontal = spacing.xxs, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OrbitIconButton(
@@ -135,7 +133,7 @@ fun OrbitSubScreenTopBar(
             ) {
                 Text(
                     text = title,
-                    style = typography.title3,
+                    style = typography.headline,
                     color = colors.labelPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
