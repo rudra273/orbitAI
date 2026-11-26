@@ -352,4 +352,14 @@
     <string name="reply_ready">जवाब तैयार है</string>
     <string name="show_token">टोकन दिखाएँ</string>
     <string name="hide_token">टोकन छिपाएँ</string>
+    <string name="tab_chats">चैट्स</string>
+    <string name="tab_spaces">Spaces</string>
+    <string name="tab_modes">मोड</string>
+    <string name="tab_settings">सेटिंग्स</string>
+    <string name="clear_search">खोज साफ़ करें</string>
+    <string name="section_ai">AI</string>
+    <string name="section_system">सिस्टम</string>
+    <string name="section_about">जानकारी</string>
+    <string name="section_tools">टूल्स</string>
+    <string name="section_notes">नोट्स</string>
 </resources>

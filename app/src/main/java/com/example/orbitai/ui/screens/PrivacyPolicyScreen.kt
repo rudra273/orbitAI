@@ -23,16 +23,20 @@ import com.example.orbitai.BuildConfig
 fun PrivacyPolicyScreen(onBack: () -> Unit) {
     val uriHandler = LocalUriHandler.current
     BackHandler(onBack = onBack)
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.orbitai_privacy_policy),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.orbitai_privacy_policy), style = MaterialTheme.typography.headlineMedium)
-            }
             item { PrivacySection("Data on your device", "Orbit stores chats, imported document text, memories, reminders, model files, settings and API keys in app storage on your device. Local AI models process your prompts on the device. Orbit does not include advertising or analytics SDKs. Android cloud backup and device transfer of Orbit's app data are disabled.") }
             item { PrivacySection("Optional Gemini cloud AI", "Before sending a Gemini request, Orbit asks for your confirmation. The request may contain your message, chat history, attached images and document text, relevant memories, and excerpts from selected Spaces. Google receives these data and your API key to generate a response under its Gemini API terms and privacy practices. Choose a local model to use on-device inference.") }
             item { PrivacySection("Microphone and screen capture", "Microphone access is used when you activate voice input. Orbit prefers on-device speech recognition when available; your device's speech service may send audio to its provider otherwise. Orbit does not save audio recordings. Screen capture requires Android's approval for each capture and is processed by the bubble's local model. Screenshots are used temporarily and are not saved as image files. The floating bubble needs permission to display over other apps. You can stop it from its notification or disable it in Settings.") }

@@ -68,9 +68,9 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleLaunchIntent(intent)
 
         val themeStore = ThemeSettingsStore(this)
-        val darkWindowBg = android.graphics.Color.parseColor("#141413")
+        val darkWindowBg = android.graphics.Color.parseColor("#141416")
         val blackWindowBg = android.graphics.Color.BLACK
-        val lightWindowBg = android.graphics.Color.parseColor("#F7F6F3")
+        val lightWindowBg = android.graphics.Color.parseColor("#F2F2F7")
         val systemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         fun windowBg(appearance: com.example.orbitai.core.common.Appearance, dark: Boolean) = when {

@@ -73,29 +73,14 @@ import com.example.orbitai.ui.theme.TextSecondary
 import com.example.orbitai.ui.theme.VioletCore
 import com.example.orbitai.viewmodel.SpacesViewModel
 
-private val CardBorderLight = Color(0xFFE8E5E0)
-private val CardBorderDark = Color(0xFF2A2A28)
-private val CardSurfaceLight = Color(0xFFFFFFFF)
-private val CardSurfaceDark = Color(0xFF1E1E1C)
-private val SearchBgLight = Color(0xFFEEEDE8)
-private val SearchBgDark = Color(0xFF1E1E1C)
-private val DocRowBgLight = Color(0xFFF5F4F0)
-private val DocRowBgDark = Color(0xFF252523)
-private val OpenButtonBgLight = Color(0xFFEEEDE8)
-private val OpenButtonBgDark = Color(0xFF252523)
-private val DividerLight = Color(0xFFE8E5E0)
-private val DividerDark = Color(0xFF2A2A28)
-private val ProcessingLight = Color(0xFF5B4FE8)
-private val ProcessingDark = Color(0xFFA89EFF)
-private val IndexedGreen = Color(0xFF17A865)
-
-private val cardBorder @Composable get() = if (IsOrbitDarkTheme) CardBorderDark else CardBorderLight
-private val cardSurface @Composable get() = if (IsOrbitDarkTheme) CardSurfaceDark else CardSurfaceLight
-private val searchBg @Composable get() = if (IsOrbitDarkTheme) SearchBgDark else SearchBgLight
-private val docRowBg @Composable get() = if (IsOrbitDarkTheme) DocRowBgDark else DocRowBgLight
-private val openButtonBg @Composable get() = if (IsOrbitDarkTheme) OpenButtonBgDark else OpenButtonBgLight
-private val dividerColor @Composable get() = if (IsOrbitDarkTheme) DividerDark else DividerLight
-private val processingTint @Composable get() = if (IsOrbitDarkTheme) ProcessingDark else ProcessingLight
+private val cardBorder @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.separator
+private val cardSurface @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
+private val searchBg @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceInput
+private val docRowBg @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceInput
+private val openButtonBg @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceInput
+private val dividerColor @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.separator
+private val processingTint @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accent
+private val IndexedGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -233,50 +218,18 @@ private fun SpacesTopBar(
     documentCount: Int,
     onCreate: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SpaceDeep)
-            .padding(start = 20.dp, end = 16.dp, top = 18.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
+    val colors = com.example.orbitai.ui.theme.OrbitTheme.colors
+    com.example.orbitai.ui.components.OrbitTopLevelHeader(
+        title = stringResource(R.string.spaces),
+        subtitle = "$spaceCount knowledge base${if (spaceCount != 1) "s" else ""} · $documentCount document${if (documentCount != 1) "s" else ""}",
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = stringResource(R.string.spaces),
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.5).sp,
-                ),
-                color = TextPrimary,
-            )
-            Text(
-                text = "$spaceCount knowledge base${if (spaceCount != 1) "s" else ""} · $documentCount document${if (documentCount != 1) "s" else ""}",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = TextMuted,
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(TextPrimary)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onCreate,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = stringResource(R.string.create_space),
-                tint = SpaceDeep,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        com.example.orbitai.ui.components.OrbitIconButton(
+            icon = Icons.Default.Add,
+            contentDescription = stringResource(R.string.create_space),
+            onClick = onCreate,
+            tint = colors.labelOnInk,
+            containerColor = colors.inkPrimary,
+        )
     }
 }
 
@@ -286,44 +239,12 @@ private fun SearchBar(
     onChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(searchBg)
-            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            Icons.Default.Search,
-            contentDescription = null,
-            tint = TextMuted,
-            modifier = Modifier.size(18.dp),
-        )
-        BasicTextField(
-            value = query,
-            onValueChange = onChange,
-            modifier = Modifier.weight(1f),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
-            cursorBrush = SolidColor(TextPrimary),
-            singleLine = true,
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (query.isEmpty()) {
-                        Text(
-                            "Search spaces or documents...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextMuted,
-                        )
-                    }
-                    inner()
-                }
-            },
-        )
-    }
+    com.example.orbitai.ui.components.OrbitSearchField(
+        query = query,
+        onQueryChange = onChange,
+        placeholder = "Search spaces or documents...",
+        modifier = modifier,
+    )
 }
 
 @Composable

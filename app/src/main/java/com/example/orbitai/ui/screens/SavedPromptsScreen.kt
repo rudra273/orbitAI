@@ -58,18 +58,25 @@ fun SavedPromptsScreen(onBack: () -> Unit) {
         )
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.saved_prompts),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.saved_prompts), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Type / in a chat to use them. Put ${CommandPalette.PLACEHOLDER} where you want to type, e.g. \"Translate ${CommandPalette.PLACEHOLDER} to Hindi\".",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                    color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
                 )
             }
             item {

@@ -84,11 +84,26 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
         dismissButton = { TextButton(onClick = { disclosure = false }) { Text(stringResource(R.string.cancel)) } },
     )
 
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    androidx.compose.material3.Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.message_replies),
+                onBack = onBack,
+            )
+        },
+    ) { scaffoldPadding ->
+    LazyColumn(
+        modifier = Modifier.padding(scaffoldPadding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         item {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_tools)) }
-            Text(stringResource(R.string.message_replies), style = MaterialTheme.typography.headlineSmall)
-            Text(stringResource(R.string.review_and_reply_to_active))
+            Text(
+                stringResource(R.string.review_and_reply_to_active),
+                style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
+            )
             val toggleReplies: (Boolean) -> Unit = { value ->
                 if (value) disclosure = true else {
                     settings.enabled = false
@@ -199,5 +214,6 @@ fun NotificationRepliesScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { closeReply() }) { Text(stringResource(R.string.cancel)) } },
         )
+    }
     }
 }

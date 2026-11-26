@@ -65,18 +65,25 @@ fun VoiceSettingsScreen(onBack: () -> Unit) {
         speaker.speakMessage("preview", "This is how Orbit will sound when it reads replies.")
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.voice),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.voice), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Tap the speaker icon under a reply to hear it. Talking to Orbit by voice works in the Orbit Bubble.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                    color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
                 )
             }
             item {

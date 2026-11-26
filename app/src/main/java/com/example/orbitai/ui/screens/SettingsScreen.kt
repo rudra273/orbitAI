@@ -1,92 +1,60 @@
 package com.example.orbitai.ui.screens
 
-import com.example.orbitai.R
-import androidx.compose.ui.res.stringResource
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NewReleases
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.DeveloperBoard
-import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.orbitai.ui.theme.IsOrbitDarkTheme
-import com.example.orbitai.ui.theme.SpaceDeep
-import com.example.orbitai.ui.theme.TextPrimary
+import com.example.orbitai.R
+import com.example.orbitai.ui.components.OrbitGroupedCard
+import com.example.orbitai.ui.components.OrbitInsetDivider
+import com.example.orbitai.ui.components.OrbitListRow
+import com.example.orbitai.ui.components.OrbitSectionHeader
+import com.example.orbitai.ui.components.OrbitStatusBadge
+import com.example.orbitai.ui.components.OrbitTopLevelHeader
+import com.example.orbitai.ui.theme.OrbitTheme
 import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
-
-private val SettingsSurfaceLight = Color(0xFFF9F8F5)
-private val SettingsCardLight = Color(0xFFFFFFFF)
-private val SettingsCardDark = Color(0xFF1E1E1C)
-private val SettingsInkLight = Color(0xFF0D0D0D)
-private val SettingsSans = FontFamily.SansSerif
-private val SettingsMono = FontFamily.Monospace
-
-private val SettingsSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
-private val SettingsCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
-private val SettingsInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
-
-private data class SettingsRow(
-    val icon: ImageVector,
-    val title: String,
-    val description: String,
-    val onClick: (() -> Unit)? = null,
-    val showChevron: Boolean = true,
-    val trailing: (@Composable () -> Unit)? = null,
-)
 
 @Composable
 fun SettingsScreen(
@@ -96,11 +64,15 @@ fun SettingsScreen(
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    var showWhatsNew by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var showWhatsNew by rememberSaveable { mutableStateOf(false) }
     if (showWhatsNew) com.example.orbitai.feature.update.WhatsNewDialog { showWhatsNew = false }
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
+
     val context = LocalContext.current
     val updateState by appUpdateViewModel.uiState.collectAsState()
+    val colors = OrbitTheme.colors
+    val spacing = OrbitTheme.spacing
+
     val versionDescription = remember(
         updateState.installedVersion,
         updateState.latestVersion,
@@ -112,14 +84,15 @@ fun SettingsScreen(
         updateState.errorMessage,
         updateState.installMessage,
     ) {
+        val installed = updateState.installedVersion.ifBlank { "Unknown" }
         when {
-            updateState.isDownloading -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Downloading update"
-            updateState.isChecking -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Checking for updates"
+            updateState.isDownloading -> "Installed $installed · Downloading update"
+            updateState.isChecking -> "Installed $installed · Checking for updates"
             !updateState.installMessage.isNullOrBlank() -> updateState.installMessage.orEmpty()
             updateState.isUpdateAvailable && !updateState.latestVersion.isNullOrBlank() ->
-                "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · New ${updateState.latestVersion} available"
-            !updateState.errorMessage.isNullOrBlank() -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Tap to retry"
-            else -> "Installed ${updateState.installedVersion.ifBlank { "Unknown" }} · Up to date"
+                "Installed $installed · New ${updateState.latestVersion} available"
+            !updateState.errorMessage.isNullOrBlank() -> "Installed $installed · Tap to retry"
+            else -> "Installed $installed · Up to date"
         }
     }
     val versionActionLabel = remember(
@@ -133,442 +106,209 @@ fun SettingsScreen(
         when {
             updateState.isDownloading -> "${updateState.downloadProgress}%"
             updateState.isChecking -> "Checking"
-            updateState.isUpdateAvailable -> "Open"
+            updateState.isUpdateAvailable -> "Update"
             !updateState.errorMessage.isNullOrBlank() -> "Retry"
             else -> "Current"
         }
     }
 
-    val aiRows = run {
-        listOf(
-            SettingsRow(
-                icon = Icons.Default.DeveloperBoard,
-                title = stringResource(R.string.models),
-                description = stringResource(R.string.download_configure_manage),
+    Scaffold(
+        containerColor = colors.background,
+        topBar = {
+            OrbitTopLevelHeader(
+                title = stringResource(R.string.settings),
+                subtitle = stringResource(R.string.orbitai_on_device_llm),
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .padding(padding),
+            contentPadding = PaddingValues(
+                start = spacing.screenHorizontal,
+                end = spacing.screenHorizontal,
+                top = spacing.xs,
+                bottom = spacing.xxl,
             ),
-            SettingsRow(
-                icon = Icons.Default.Psychology,
-                title = stringResource(R.string.memory),
-                description = stringResource(R.string.stored_memories_and_controls),
-            ),
-            SettingsRow(
-                icon = Icons.Default.Build,
-                title = stringResource(R.string.tools),
-                description = stringResource(R.string.tool_availability_and_support),
-            ),
-            SettingsRow(
-                icon = Icons.Default.Bookmarks,
-                title = stringResource(R.string.saved_prompts),
-                description = stringResource(R.string.reusable_prompts_for_the_menu),
-            ),
-            SettingsRow(
-                icon = Icons.Default.Forum,
-                title = stringResource(R.string.chat),
-                description = stringResource(R.string.smart_titles_and_generation_details),
-            ),
-            SettingsRow(
-                icon = Icons.Default.RecordVoiceOver,
-                title = stringResource(R.string.voice),
-                description = stringResource(R.string.read_aloud_speech_speed_and),
-            ),
-        )
-    }
-
-    val aboutRows = listOf(
-            SettingsRow(
-                icon = Icons.Default.Tag,
-                title = stringResource(R.string.version),
-                description = versionDescription,
-                showChevron = false,
-                trailing = {
-                    StatusChip(
-                        label = versionActionLabel,
-                        emphasized = updateState.isUpdateAvailable || updateState.isReadyToInstall,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            item { OrbitSectionHeader(stringResource(R.string.section_ai)) }
+            item {
+                OrbitGroupedCard {
+                    OrbitListRow(
+                        icon = Icons.Default.DeveloperBoard,
+                        title = stringResource(R.string.models),
+                        subtitle = stringResource(R.string.download_configure_manage),
+                        onClick = { onNavigate("settings/model") },
                     )
-                },
-            ),
-            SettingsRow(
-                icon = Icons.Default.Gavel,
-                title = stringResource(R.string.privacy_policy),
-                description = stringResource(R.string.read_our_data_and_privacy),
-                onClick = { onNavigate("settings/privacy") },
-            ),
-            SettingsRow(
-                icon = Icons.Default.BugReport,
-                title = stringResource(R.string.diagnostics),
-                description = stringResource(R.string.review_and_send_crash_reports),
-                onClick = { onNavigate("settings/diagnostics") },
-            ),
-        )
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SettingsSurface),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 0.dp, top = 18.dp, bottom = 0.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings),
-                        style = androidx.compose.material3.MaterialTheme.typography.displaySmall.copy(
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.5).sp,
-                        ),
-                        color = SettingsInk,
-                        fontFamily = SettingsSans,
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.Psychology,
+                        title = stringResource(R.string.memory),
+                        subtitle = stringResource(R.string.stored_memories_and_controls),
+                        onClick = { onNavigate("settings/memory") },
                     )
-                    Text(
-                        text = stringResource(R.string.orbitai_on_device_llm),
-                        color = SettingsInk.copy(alpha = 0.35f),
-                        fontFamily = SettingsMono,
-                        fontSize = 11.sp,
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.Build,
+                        title = stringResource(R.string.tools),
+                        subtitle = stringResource(R.string.tool_availability_and_support),
+                        onClick = { onNavigate("settings/tools") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.Bookmarks,
+                        title = stringResource(R.string.saved_prompts),
+                        subtitle = stringResource(R.string.reusable_prompts_for_the_menu),
+                        onClick = { onNavigate("settings/saved_prompts") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.Forum,
+                        title = stringResource(R.string.chat),
+                        subtitle = stringResource(R.string.smart_titles_and_generation_details),
+                        onClick = { onNavigate("settings/chat") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.RecordVoiceOver,
+                        title = stringResource(R.string.voice),
+                        subtitle = stringResource(R.string.read_aloud_speech_speed_and),
+                        onClick = { onNavigate("settings/voice") },
                     )
                 }
             }
-        }
 
-        item { SettingsSectionHeader("AI") }
-        item {
-            GroupedCard {
-                SettingsGroupRow(
-                    row = aiRows[0],
-                    onClick = { onNavigate("settings/model") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = aiRows[1],
-                    onClick = { onNavigate("settings/memory") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = aiRows[2],
-                    onClick = { onNavigate("settings/tools") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = aiRows[3],
-                    onClick = { onNavigate("settings/saved_prompts") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = aiRows[4],
-                    onClick = { onNavigate("settings/chat") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = aiRows[5],
-                    onClick = { onNavigate("settings/voice") },
-                )
-            }
-        }
-
-        item { SettingsSectionHeader("SYSTEM") }
-        item {
-            GroupedCard {
-                SettingsGroupRow(
-                    row = SettingsRow(
+            item { OrbitSectionHeader(stringResource(R.string.section_system)) }
+            item {
+                OrbitGroupedCard {
+                    OrbitListRow(
                         icon = Icons.Default.ChatBubble,
                         title = stringResource(R.string.orbit_bubble),
-                        description = stringResource(R.string.floating_assistant_behavior),
-                    ),
-                    onClick = { onNavigate("settings/orbit_bubble") },
-                )
-                HairlineDivider()
-                val languageContext = androidx.compose.ui.platform.LocalContext.current
-                SettingsGroupRow(
-                    row = SettingsRow(
+                        subtitle = stringResource(R.string.floating_assistant_behavior),
+                        onClick = { onNavigate("settings/orbit_bubble") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.Language,
                         title = stringResource(R.string.app_language),
-                        description = stringResource(R.string.app_language_description),
-                    ),
-                    onClick = {
-                        languageContext.startActivity(
-                            android.content.Intent(
-                                android.provider.Settings.ACTION_APP_LOCALE_SETTINGS,
-                                android.net.Uri.fromParts("package", languageContext.packageName, null),
-                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    },
-                )
-                HairlineDivider()
-                val assistantContext = androidx.compose.ui.platform.LocalContext.current
-                SettingsGroupRow(
-                    row = SettingsRow(
+                        subtitle = stringResource(R.string.app_language_description),
+                        onClick = {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APP_LOCALE_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null),
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.ChatBubble,
                         title = stringResource(R.string.assistant_gesture),
-                        description = stringResource(R.string.open_orbit_with_the_power),
-                    ),
-                    onClick = {
-                        val open = android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)
-                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        runCatching { assistantContext.startActivity(open) }.onFailure {
-                            assistantContext.startActivity(
-                                android.content.Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                    },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = SettingsRow(
+                        subtitle = stringResource(R.string.open_orbit_with_the_power),
+                        onClick = {
+                            val open = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            runCatching { context.startActivity(open) }.onFailure {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.NightsStay,
                         title = stringResource(R.string.appearance),
-                        description = "${appearance.mode.label} theme · chat text ${(appearance.chatTextScale * 100).toInt()}%",
-                    ),
-                    onClick = { onNavigate("settings/appearance") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = SettingsRow(
+                        subtitle = "${appearance.mode.label} · ${(appearance.chatTextScale * 100).toInt()}% text",
+                        onClick = { onNavigate("settings/appearance") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.Backup,
                         title = stringResource(R.string.backup_restore),
-                        description = stringResource(R.string.encrypted_file_of_your_chats),
-                    ),
-                    onClick = { onNavigate("settings/backup") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = SettingsRow(
+                        subtitle = stringResource(R.string.encrypted_file_of_your_chats),
+                        onClick = { onNavigate("settings/backup") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.Lock,
                         title = stringResource(R.string.privacy_center),
-                        description = stringResource(R.string.what_is_stored_network_activity),
-                    ),
-                    onClick = { onNavigate("settings/privacy_center") },
-                )
+                        subtitle = stringResource(R.string.what_is_stored_network_activity),
+                        onClick = { onNavigate("settings/privacy_center") },
+                    )
+                }
             }
-        }
 
-        item { SettingsSectionHeader("ABOUT") }
-        item {
-            GroupedCard {
-                SettingsGroupRow(
-                    row = aboutRows[0],
-                    onClick = {
-                        if (updateState.isDownloading) {
-                            return@SettingsGroupRow
-                        }
-                        if (updateState.isUpdateAvailable) {
-                            appUpdateViewModel.openUpdatePage()
-                        } else {
-                            appUpdateViewModel.checkForUpdates()
-                        }
-                    },
-                )
-                HairlineDivider()
-                SettingsGroupRow(row = aboutRows[1], onClick = aboutRows[1].onClick)
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = SettingsRow(
+            item { OrbitSectionHeader(stringResource(R.string.section_about)) }
+            item {
+                OrbitGroupedCard {
+                    val emphasized = updateState.isUpdateAvailable || updateState.isReadyToInstall
+                    OrbitListRow(
+                        icon = Icons.Default.Tag,
+                        title = stringResource(R.string.version),
+                        subtitle = versionDescription,
+                        showChevron = false,
+                        trailing = {
+                            OrbitStatusBadge(
+                                label = versionActionLabel,
+                                containerColor = if (emphasized) colors.successContainer else colors.surfaceInput,
+                                contentColor = if (emphasized) colors.onSuccessContainer else colors.labelSecondary,
+                            )
+                        },
+                        onClick = {
+                            if (updateState.isDownloading) return@OrbitListRow
+                            if (updateState.isUpdateAvailable) {
+                                appUpdateViewModel.openUpdatePage()
+                            } else {
+                                appUpdateViewModel.checkForUpdates()
+                            }
+                        },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.Gavel,
+                        title = stringResource(R.string.privacy_policy),
+                        subtitle = stringResource(R.string.read_our_data_and_privacy),
+                        onClick = { onNavigate("settings/privacy") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
+                        icon = Icons.Default.BugReport,
+                        title = stringResource(R.string.diagnostics),
+                        subtitle = stringResource(R.string.review_and_send_crash_reports),
+                        onClick = { onNavigate("settings/diagnostics") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.Info,
                         title = stringResource(R.string.onboarding_open),
-                        description = stringResource(R.string.onboarding_open_desc),
-                    ),
-                    onClick = { onNavigate("onboarding") },
-                )
-                HairlineDivider()
-                SettingsGroupRow(
-                    row = SettingsRow(
+                        subtitle = stringResource(R.string.onboarding_open_desc),
+                        onClick = { onNavigate("onboarding") },
+                    )
+                    OrbitInsetDivider()
+                    OrbitListRow(
                         icon = Icons.Default.NewReleases,
                         title = "What's new in Orbit ${com.example.orbitai.feature.update.WhatsNew.VERSION}.0",
-                        description = stringResource(R.string.see_the_headline_features),
-                    ),
-                    onClick = { showWhatsNew = true },
-                )
+                        subtitle = stringResource(R.string.see_the_headline_features),
+                        onClick = { showWhatsNew = true },
+                    )
+                }
             }
-        }
 
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.orbitai_on_device_llm),
-                modifier = Modifier.fillMaxWidth(),
-                color = SettingsInk.copy(alpha = 0.20f),
-                fontFamily = SettingsMono,
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusChip(
-    label: String,
-    emphasized: Boolean,
-) {
-    val backgroundColor = if (emphasized) Color(0xFF1F6B45) else SettingsInk.copy(alpha = 0.08f)
-    val textColor = if (emphasized) Color.White else SettingsInk.copy(alpha = 0.70f)
-
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(backgroundColor)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            color = textColor,
-            fontFamily = SettingsMono,
-            fontWeight = FontWeight.Medium,
-            fontSize = 10.sp,
-            letterSpacing = 0.3.sp,
-        )
-    }
-}
-
-@Composable
-private fun GroupedCard(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(SettingsCard)
-            .border(
-                width = 1.dp,
-                color = SettingsInk.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(14.dp),
-            )
-            .padding(horizontal = 10.dp),
-        content = content,
-    )
-}
-
-@Composable
-private fun SettingsSectionHeader(text: String) {
-    Text(
-        text = text,
-        color = SettingsInk.copy(alpha = 0.30f),
-        fontFamily = SettingsMono,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 1.2.sp,
-        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
-    )
-}
-
-@Composable
-private fun SettingsGroupRow(
-    row: SettingsRow,
-    onClick: (() -> Unit)?,
-) {
-    val clickModifier = if (onClick != null) {
-        Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = onClick,
-        )
-    } else {
-        Modifier
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(clickModifier)
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(SettingsInk.copy(alpha = 0.06f))
-                .border(
-                    width = 1.dp,
-                    color = SettingsInk.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(9.dp),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = row.icon,
-                contentDescription = null,
-                tint = SettingsInk.copy(alpha = 0.72f),
-                modifier = Modifier.size(18.dp),
-            )
-        }
-
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(
-                text = row.title,
-                color = SettingsInk,
-                fontFamily = SettingsSans,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-            )
-            Text(
-                text = row.description,
-                color = SettingsInk.copy(alpha = 0.38f),
-                fontFamily = SettingsSans,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        when {
-            row.trailing != null -> row.trailing()
-            row.showChevron -> {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = null,
-                    tint = SettingsInk.copy(alpha = 0.45f),
-                    modifier = Modifier.size(13.dp),
+            item {
+                Spacer(modifier = Modifier.height(spacing.md))
+                Text(
+                    text = stringResource(R.string.orbitai_on_device_llm),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = OrbitTheme.typography.caption1,
+                    color = colors.labelTertiary,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
     }
-}
-
-@Composable
-private fun InkToggle(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    val checkedTrack = if (IsOrbitDarkTheme) Color(0xFFE8E6E1) else SettingsInk
-    val uncheckedTrack = if (IsOrbitDarkTheme) Color(0xFF2A2A28) else SettingsInk.copy(alpha = 0.18f)
-    val knobColor = if (checked && IsOrbitDarkTheme) SpaceDeep else Color.White
-
-    Box(
-        modifier = Modifier
-            .size(width = 38.dp, height = 22.dp)
-            .clip(CircleShape)
-            .background(if (checked) checkedTrack else uncheckedTrack)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { onCheckedChange(!checked) },
-            )
-            .padding(horizontal = 3.dp),
-        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(16.dp)
-                .clip(CircleShape)
-                .background(knobColor),
-        )
-    }
-}
-
-@Composable
-private fun HairlineDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(0.5.dp)
-            .background(SettingsInk.copy(alpha = 0.08f)),
-    )
 }

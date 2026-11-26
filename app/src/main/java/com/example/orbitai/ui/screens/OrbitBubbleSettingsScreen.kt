@@ -66,20 +66,16 @@ import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 
-private val BubbleSurfaceLight = Color(0xFFF9F8F5)
-private val BubbleCardLight = Color(0xFFFFFFFF)
-private val BubbleCardDark = Color(0xFF1E1E1C)
-private val BubbleInkLight = Color(0xFF0D0D0D)
-private val BubbleGreen = Color(0xFF17A865)
-private val BubbleSans = FontFamily.SansSerif
-private val BubbleMono = FontFamily.Monospace
+private val BubbleGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val BubbleSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val BubbleMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val BubbleSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else BubbleSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val BubbleCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) BubbleCardDark else BubbleCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val BubbleInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else BubbleInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun OrbitBubbleSettingsScreen(

@@ -86,17 +86,24 @@ fun BackupScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.backup_restore),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-            Text(stringResource(R.string.backup_restore), style = MaterialTheme.typography.headlineMedium)
             Text(
                 "Orbit keeps everything on this phone, so a new phone or a reinstall starts empty. A backup is one file you keep, " +
                     "locked with a passphrase only you know. Downloaded models aren't included; download them again after restoring.",
-                style = MaterialTheme.typography.bodyMedium,
+                style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
             )
             OutlinedTextField(
                 value = passphrase,

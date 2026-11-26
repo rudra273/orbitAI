@@ -57,29 +57,24 @@ import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.SpaceNebula
 import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.viewmodel.ChatViewModel
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 
-private val InkLight = Color(0xFF0D0D0D)
-private val InkDark = Color(0xFFF0EFE9)
-private val Violet = Color(0xFF5B4FE8)
-private val Green = Color(0xFF17A865)
-private val DeleteRed = Color(0xFFD94F4F)
-private val PopupDark = Color(0xFF1E1E1C)
-private val SearchBgLight = Color(0xFFF9F8F5) // Or similar to SpaceDeep if needed
-private val SearchBgDark = Color(0xFF1E1E1C)
+private val surfaceColor @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
+private val inkColor @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
+private val dividerColor @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.separator
+private val popupSurface @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceElevated
+private val tagBackground @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accentContainer
+private val Violet @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accent
+private val Green @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val DeleteRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
 
-private val surfaceColor @Composable get() = SpaceDeep
-private val inkColor @Composable get() = if (IsOrbitDarkTheme) InkDark else InkLight
-private val dividerColor @Composable get() = inkColor.copy(alpha = if (IsOrbitDarkTheme) 0.12f else 0.06f)
-private val popupSurface @Composable get() = if (IsOrbitDarkTheme) PopupDark else SpaceNebula
-private val tagBackground @Composable get() = Violet.copy(alpha = if (IsOrbitDarkTheme) 0.18f else 0.10f)
-
-private val Sans = FontFamily.SansSerif
-private val Mono = FontFamily.Monospace
+private val Sans = com.example.orbitai.ui.theme.OrbitUiFont
+private val Mono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private data class ChatGroup(val title: String, val chats: List<ChatSummary>)
 private sealed interface ChatListItem {
@@ -151,8 +146,49 @@ fun HomeScreen(
         )
     }
 
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    val haptics = com.example.orbitai.ui.theme.rememberOrbitHaptics()
+    var pendingDeleteChat by remember { mutableStateOf<ChatSummary?>(null) }
+
+    pendingDeleteChat?.let { chatToDelete ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDeleteChat = null },
+            containerColor = popupSurface,
+            title = {
+                Text(
+                    text = "Delete \"${displayTitle(chatToDelete)}\"?",
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.title3,
+                    color = inkColor,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.this_can_t_be_undone),
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                    color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    haptics.confirm()
+                    viewModel.deleteChat(chatToDelete.id)
+                    pendingDeleteChat = null
+                }) {
+                    Text(stringResource(R.string.delete), color = DeleteRed)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingDeleteChat = null }) {
+                    Text(stringResource(R.string.cancel), color = inkColor)
+                }
+            },
+        )
+    }
+
     Scaffold(
         containerColor = surfaceColor,
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         topBar = {
           if (selectionMode) {
             SelectionBar(
@@ -186,9 +222,9 @@ fun HomeScreen(
             ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(inkColor.copy(alpha = 0.12f))
+                    .background(com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceElevated)
                     .clickable(onClick = { viewModel.openTemporaryChat(onOpenChat) }),
                 contentAlignment = Alignment.Center,
             ) {
@@ -200,28 +236,19 @@ fun HomeScreen(
                 )
             }
             Box(
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(com.example.orbitai.ui.theme.OrbitTheme.colors.inkPrimary)
+                    .clickable(onClick = { viewModel.openNewChat(onOpenChat) }),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(inkColor)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { viewModel.openNewChat(onOpenChat) },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.new_chat),
-                        tint = surfaceColor,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.new_chat),
+                    tint = com.example.orbitai.ui.theme.OrbitTheme.colors.labelOnInk,
+                    modifier = Modifier.size(24.dp),
+                )
             }
             }
         },
@@ -263,10 +290,27 @@ fun HomeScreen(
                                     if (selectionMode) selected = if (id in selected) selected - id else selected + id
                                     else onOpenChat(id)
                                 },
-                                onDelete = { viewModel.deleteChat(id) },
+                                onDelete = { pendingDeleteChat = item.chat },
                                 onRename = { renaming = item.chat },
-                                onTogglePin = { viewModel.setPinned(listOf(id), !item.chat.isPinned) },
-                                onToggleArchive = { viewModel.setArchived(listOf(id), !item.chat.isArchived) },
+                                onTogglePin = {
+                                    haptics.selection()
+                                    viewModel.setPinned(listOf(id), !item.chat.isPinned)
+                                },
+                                onToggleArchive = {
+                                    val nowArchived = !item.chat.isArchived
+                                    haptics.selection()
+                                    viewModel.setArchived(listOf(id), nowArchived)
+                                    coroutineScope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = if (nowArchived) "Chat archived" else "Chat moved to Chats",
+                                            actionLabel = "Undo",
+                                            duration = androidx.compose.material3.SnackbarDuration.Short,
+                                        )
+                                        if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                            viewModel.setArchived(listOf(id), !nowArchived)
+                                        }
+                                    }
+                                },
                                 onSelect = { selected = selected + id },
                             )
                         }
@@ -348,142 +392,80 @@ private fun ChatHistoryTopBar(
     onClearAll: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val colors = com.example.orbitai.ui.theme.OrbitTheme.colors
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(surfaceColor)
-            .padding(start = 20.dp, end = 16.dp, top = 18.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = if (searchActive) Alignment.CenterVertically else Alignment.Top,
-    ) {
-        if (searchActive) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+    if (searchActive) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colors.background)
+                .padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            com.example.orbitai.ui.components.OrbitIconButton(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = inkColor,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onSearchToggle
-                    )
+                onClick = onSearchToggle,
             )
-            Spacer(Modifier.size(12.dp))
-            androidx.compose.foundation.text.BasicTextField(
-                value = searchQuery,
-                onValueChange = onSearchChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(inkColor.copy(alpha = 0.05f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                textStyle = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
-                    color = inkColor,
-                    fontFamily = Sans
-                ),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(inkColor),
-                singleLine = true,
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (searchQuery.isEmpty()) {
+            com.example.orbitai.ui.components.OrbitSearchField(
+                query = searchQuery,
+                onQueryChange = onSearchChange,
+                placeholder = "Search chats...",
+                modifier = Modifier.weight(1f),
+            )
+        }
+    } else {
+        com.example.orbitai.ui.components.OrbitTopLevelHeader(
+            title = title,
+            subtitle = "$chatCount conversation${if (chatCount == 1) "" else "s"}",
+        ) {
+            com.example.orbitai.ui.components.OrbitIconButton(
+                icon = Icons.Default.Search,
+                contentDescription = stringResource(R.string.search),
+                onClick = onSearchToggle,
+            )
+            Box {
+                com.example.orbitai.ui.components.OrbitIconButton(
+                    icon = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.more_options),
+                    onClick = { menuExpanded = true },
+                )
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    shape = com.example.orbitai.ui.theme.OrbitTheme.shapes.input,
+                    containerColor = colors.surfaceElevated,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 2.dp,
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, colors.separator),
+                ) {
+                    DropdownMenuItem(
+                        text = {
                             Text(
-                                "Search chats...", 
-                                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                color = inkColor.copy(alpha = 0.4f),
-                                fontFamily = Sans
+                                if (archivedView) "All chats" else "Archived chats",
+                                style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                                color = colors.labelPrimary,
                             )
-                        }
-                        inner()
-                    }
-                }
-            )
-        } else {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = title,
-                    style = androidx.compose.material3.MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
-                    ),
-                    color = inkColor,
-                )
-                Text(
-                    text = "$chatCount conversation${if (chatCount == 1) "" else "s"}",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = inkColor.copy(alpha = 0.5f),
-                )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onSearchToggle
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = stringResource(R.string.search),
-                        tint = inkColor,
-                        modifier = Modifier.size(20.dp),
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onToggleArchived()
+                        },
                     )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { menuExpanded = true }
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.more_options),
-                        tint = inkColor,
-                        modifier = Modifier.size(20.dp),
+                    if (!archivedView) DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Clear all chats",
+                                style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                                color = colors.destructive,
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onClearAll()
+                        },
                     )
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                        shape = RoundedCornerShape(8.dp),
-                        containerColor = popupSurface,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, inkColor.copy(alpha = 0.10f)),
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(if (archivedView) "All chats" else "Archived chats", color = inkColor, fontFamily = Sans, fontSize = 14.sp) },
-                            onClick = {
-                                menuExpanded = false
-                                onToggleArchived()
-                            },
-                        )
-                        if (!archivedView) DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    "Clear all chats", 
-                                    color = DeleteRed, 
-                                    fontFamily = Sans, 
-                                    fontSize = 14.sp 
-                                ) 
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onClearAll()
-                            }
-                        )
-                    }
                 }
             }
         }
@@ -492,13 +474,9 @@ private fun ChatHistoryTopBar(
 
 @Composable
 private fun GroupHeader(label: String, isFirst: Boolean = false) {
-    Text(
-        text = label,
-        color = inkColor.copy(alpha = 0.35f),
-        fontFamily = Mono,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(top = if (isFirst) 4.dp else 12.dp, bottom = 4.dp),
+    com.example.orbitai.ui.components.OrbitSectionHeader(
+        title = label,
+        modifier = Modifier.padding(top = if (isFirst) 0.dp else 12.dp),
     )
 }
 
@@ -521,14 +499,12 @@ private fun ChatRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp)
+                    .heightIn(min = 72.dp)
                     .combinedClickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
                         onClick = onOpen,
                         onLongClick = { if (selectionMode) onOpen() else menuExpanded = true },
                     )
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (selectionMode) {
@@ -536,24 +512,21 @@ private fun ChatRow(
                     Spacer(Modifier.size(4.dp))
                 }
                 if (chat.isPinned) {
-                    Icon(Icons.Default.PushPin, contentDescription = stringResource(R.string.pinned), tint = inkColor.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.PushPin, contentDescription = stringResource(R.string.pinned), tint = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.size(6.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = displayTitle(chat),
+                        style = com.example.orbitai.ui.theme.OrbitTheme.typography.callout,
                         color = inkColor,
-                        fontFamily = Sans,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = previewText(chat),
-                        color = inkColor.copy(alpha = 0.5f),
-                        fontFamily = Sans,
-                        fontSize = 13.sp,
+                        style = com.example.orbitai.ui.theme.OrbitTheme.typography.footnote,
+                        color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp),
@@ -562,13 +535,13 @@ private fun ChatRow(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 3.dp),
+                            .padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (isOnDeviceModel(chat.modelId)) {
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
+                                    .size(7.dp)
                                     .clip(CircleShape)
                                     .background(Green),
                             )
@@ -577,9 +550,8 @@ private fun ChatRow(
 
                         Text(
                             text = "${formatChatTimestamp(chatTimestamp(chat))} · ${displayModelName(chat.modelId)}",
-                            color = inkColor.copy(alpha = 0.4f),
-                            fontFamily = Mono,
-                            fontSize = 10.sp,
+                            style = com.example.orbitai.ui.theme.OrbitTheme.typography.caption1,
+                            color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelTertiary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
@@ -589,13 +561,12 @@ private fun ChatRow(
                         if (spaceTag != null) {
                             Text(
                                 text = spaceTag,
-                                color = Violet,
-                                fontFamily = Mono,
-                                fontSize = 10.sp,
+                                style = com.example.orbitai.ui.theme.OrbitTheme.typography.caption1,
+                                color = com.example.orbitai.ui.theme.OrbitTheme.colors.onAccentContainer,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(RoundedCornerShape(6.dp))
                                     .background(tagBackground)
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
                             )
                         }
                     }
@@ -752,59 +723,14 @@ private fun EmptyChats(
     onDownloadModel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    com.example.orbitai.ui.components.OrbitEmptyState(
+        title = stringResource(R.string.no_conversations_yet),
+        subtitle = if (hasModels) "Start a new chat to begin" else "Download a model to start using OrbitAI",
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = stringResource(R.string.no_conversations_yet),
-            color = inkColor.copy(alpha = 0.4f),
-            fontFamily = Sans,
-            fontSize = 18.sp,
-        )
-        Text(
-            text = if (hasModels) "Start a new chat to begin" else "Download a model to start using OrbitAI",
-            color = inkColor.copy(alpha = 0.3f),
-            fontFamily = Mono,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        if (!hasModels) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 18.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(inkColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDownloadModel,
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = null,
-                        tint = surfaceColor,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.download_a_model_to_use),
-                        color = surfaceColor,
-                        fontFamily = Sans,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-        }
-    }
+        actionLabel = if (!hasModels) stringResource(R.string.download_a_model_to_use) else null,
+        actionIcon = if (!hasModels) Icons.Default.Download else null,
+        onAction = if (!hasModels) onDownloadModel else null,
+    )
 }
 
 private fun buildListItems(allChats: List<ChatSummary>): List<ChatListItem> {

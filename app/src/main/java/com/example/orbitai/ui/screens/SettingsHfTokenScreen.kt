@@ -57,22 +57,18 @@ import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 
-private val SettingsSurfaceLight = Color(0xFFF9F8F5)
-private val SettingsCardLight = Color(0xFFFFFFFF)
-private val SettingsCardDark = Color(0xFF1E1E1C)
-private val SettingsInkLight = Color(0xFF0D0D0D)
-private val SettingsGreen = Color(0xFF17A865)
-private val SettingsRed = Color(0xFFD94F4F)
-private val SettingsBlue = Color(0xFF3B82F6)
-private val SettingsSans = FontFamily.SansSerif
-private val SettingsMono = FontFamily.Monospace
+private val SettingsGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val SettingsRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
+private val SettingsBlue @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.info
+private val SettingsSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val SettingsMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val SettingsSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else SettingsSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val SettingsCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) SettingsCardDark else SettingsCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val SettingsInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else SettingsInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun SettingsHfTokenScreen(

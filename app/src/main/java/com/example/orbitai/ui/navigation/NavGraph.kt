@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -487,8 +488,9 @@ private fun rememberTabSwipeModifier(
     onNavigate: (String) -> Unit,
 ): Modifier {
     if (currentRoute !in SWIPE_NAV_ROUTES) return Modifier
+    val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
 
-    return Modifier.pointerInput(currentRoute) {
+    return Modifier.pointerInput(currentRoute, isRtl) {
         var totalDrag = 0f
         detectHorizontalDragGestures(
             onHorizontalDrag = { _, dragAmount ->
@@ -496,11 +498,12 @@ private fun rememberTabSwipeModifier(
             },
             onDragEnd = {
                 val threshold = 90f
+                val adjustedDrag = if (isRtl) -totalDrag else totalDrag
                 val currentIndex = SWIPE_NAV_ROUTES.indexOf(currentRoute)
                 val targetRoute = when {
-                    totalDrag <= -threshold && currentIndex < SWIPE_NAV_ROUTES.lastIndex ->
+                    adjustedDrag <= -threshold && currentIndex < SWIPE_NAV_ROUTES.lastIndex ->
                         SWIPE_NAV_ROUTES[currentIndex + 1]
-                    totalDrag >= threshold && currentIndex > 0 ->
+                    adjustedDrag >= threshold && currentIndex > 0 ->
                         SWIPE_NAV_ROUTES[currentIndex - 1]
                     else -> null
                 }
@@ -515,21 +518,21 @@ private fun rememberTabSwipeModifier(
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// BOTTOM BAR
+// STANDARD EDGE-TO-EDGE BOTTOM BAR WITH REFINED CENTER BUMP
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 private data class TabItem(
     val route:       String,
-    val label:       String,
+    val labelRes:    Int,
     val iconDefault: ImageVector,
     val iconActive:  ImageVector,
 )
 
 private val TABS = listOf(
-    TabItem(Screen.Chat.route,     "Chats",    Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
-    TabItem(Screen.Spaces.route,   "Spaces",   Icons.Outlined.FolderOpen,        Icons.Filled.Folder),
-    TabItem(Screen.Modes.route,    "Modes",    Icons.Outlined.Layers,            Icons.Filled.Layers),
-    TabItem(Screen.Settings.route, "Settings", Icons.Outlined.Settings,          Icons.Filled.Settings),
+    TabItem(Screen.Chat.route,     R.string.tab_chats,    Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
+    TabItem(Screen.Spaces.route,   R.string.tab_spaces,   Icons.Outlined.FolderOpen,        Icons.Filled.Folder),
+    TabItem(Screen.Modes.route,    R.string.tab_modes,    Icons.Outlined.Layers,            Icons.Filled.Layers),
+    TabItem(Screen.Settings.route, R.string.tab_settings, Icons.Outlined.Settings,          Icons.Filled.Settings),
 )
 
 @Composable
@@ -538,95 +541,57 @@ private fun OrbitBottomBar(
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val dockShape = remember {
-        GenericShape { size, _ ->
-            val width = size.width
-            val height = size.height
-            val cornerRadius = height * 0.28f
-            val notchHalfWidth = height * 0.42f
-            val notchDepth = height * 0.34f
-            val shoulder = notchHalfWidth * 0.72f
-            val centerX = width / 2f
-
-            moveTo(0f, height)
-            lineTo(0f, cornerRadius)
-            quadraticTo(0f, 0f, cornerRadius, 0f)
-            lineTo(centerX - notchHalfWidth, 0f)
-            cubicTo(
-                centerX - shoulder,
-                0f,
-                centerX - notchHalfWidth * 0.62f,
-                notchDepth,
-                centerX,
-                notchDepth,
-            )
-            cubicTo(
-                centerX + notchHalfWidth * 0.62f,
-                notchDepth,
-                centerX + shoulder,
-                0f,
-                centerX + notchHalfWidth,
-                0f,
-            )
-            lineTo(width - cornerRadius, 0f)
-            quadraticTo(width, 0f, width, cornerRadius)
-            lineTo(width, height)
-            close()
-        }
-    }
+    val colors = OrbitTheme.colors
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SpaceDeep)
-            .padding(horizontal = 14.dp),
+            .background(Color.Transparent),
     ) {
-        Box(
+        // Standard full-width edge-to-edge bar anchored at the bottom with top hairline separator
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(94.dp)
-                .padding(bottom = 8.dp, top = 6.dp),
+                .align(Alignment.BottomCenter)
+                .padding(top = 14.dp)
+                .background(colors.surface)
+                .navigationBarsPadding(),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(76.dp)
-                    .align(Alignment.BottomCenter)
-                    .clip(dockShape)
-                    .background(SpaceDeep)
-                    .border(1.dp, GlassBorder, dockShape),
+                    .height(0.5.dp)
+                    .background(colors.separator),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    TabButton(TABS[0], currentRoute == TABS[0].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[0].route)
-                    }
-                    TabButton(TABS[1], currentRoute == TABS[1].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[1].route)
-                    }
-                    Spacer(modifier = Modifier.width(76.dp))
-                    TabButton(TABS[2], currentRoute == TABS[2].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[2].route)
-                    }
-                    TabButton(TABS[3], currentRoute == TABS[3].route, modifier = Modifier.weight(1f)) {
-                        onNavigate(TABS[3].route)
-                    }
+                TabButton(TABS[0], currentRoute == TABS[0].route, modifier = Modifier.weight(1f)) {
+                    onNavigate(TABS[0].route)
+                }
+                TabButton(TABS[1], currentRoute == TABS[1].route, modifier = Modifier.weight(1f)) {
+                    onNavigate(TABS[1].route)
+                }
+                Spacer(modifier = Modifier.width(68.dp))
+                TabButton(TABS[2], currentRoute == TABS[2].route, modifier = Modifier.weight(1f)) {
+                    onNavigate(TABS[2].route)
+                }
+                TabButton(TABS[3], currentRoute == TABS[3].route, modifier = Modifier.weight(1f)) {
+                    onNavigate(TABS[3].route)
                 }
             }
-
-            OrbitNavButton(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = 2.dp),
-                onClick = { OrbitBubbleService.trigger(context) },
-            )
         }
+
+        // Refined raised center Orbit button sitting cleanly in a circular halo above the bar edge
+        OrbitNavButton(
+            modifier = Modifier
+                .align(Alignment.TopCenter),
+            onClick = { OrbitBubbleService.trigger(context) },
+        )
     }
 }
 
@@ -639,67 +604,66 @@ private fun OrbitNavButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = OrbitTheme.colors
+    val motion = OrbitTheme.motion
+    val haptics = rememberOrbitHaptics()
     var isActivated by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isActivated) 1.08f else 1f,
-        animationSpec = tween(durationMillis = 220),
+        targetValue = if (isActivated && !motion.reduceMotion) 1.06f else 1f,
+        animationSpec = motion.snappySpring(),
         label = "orbit_nav_scale",
     )
-    val buttonColor by animateColorAsState(
-        targetValue = if (isActivated) VioletCore.copy(alpha = 0.20f) else TextPrimary.copy(alpha = 0.06f),
-        animationSpec = tween(durationMillis = 220),
+    val innerBg by animateColorAsState(
+        targetValue = if (isActivated) colors.accentContainer else colors.surfaceElevated,
+        animationSpec = motion.standardSpring(),
         label = "orbit_nav_bg",
     )
     val ringColor by animateColorAsState(
-        targetValue = if (isActivated) VioletGlow.copy(alpha = 0.55f) else GlassBorder,
-        animationSpec = tween(durationMillis = 220),
+        targetValue = if (isActivated) colors.accent else colors.separator,
+        animationSpec = motion.standardSpring(),
         label = "orbit_nav_ring",
     )
 
     LaunchedEffect(isActivated) {
         if (isActivated) {
-            kotlinx.coroutines.delay(1100)
+            kotlinx.coroutines.delay(900)
             isActivated = false
         }
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier            = modifier,
+    // Outer halo blends cleanly into the top bar edge
+    Box(
+        modifier = modifier
+            .size(62.dp)
+            .clip(CircleShape)
+            .background(colors.surface)
+            .border(width = 0.75.dp, color = ringColor, shape = CircleShape)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClick = {
+                    haptics.confirm()
+                    isActivated = true
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
-                .size(62.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
+                .size(50.dp)
                 .clip(CircleShape)
-                .background(SpaceDeep)
-                .border(width = 1.5.dp, color = ringColor, shape = CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                    onClick           = {
-                        isActivated = true
-                        onClick()
-                    },
-                ),
+                .background(innerBg),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(buttonColor),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter            = painterResource(R.drawable.vector_logo),
-                    contentDescription = stringResource(R.string.orbit),
-                    modifier           = Modifier.size(26.dp),
-                )
-            }
+            Image(
+                painter            = painterResource(R.drawable.vector_logo),
+                contentDescription = stringResource(R.string.orbit),
+                modifier           = Modifier.size(26.dp),
+            )
         }
     }
 }
@@ -715,30 +679,46 @@ private fun TabButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val tint = TextPrimary.copy(alpha = if (selected) 1f else 0.4f)
+    val colors = OrbitTheme.colors
+    val motion = OrbitTheme.motion
+    val haptics = rememberOrbitHaptics()
+    val label = stringResource(tab.labelRes)
+    val tint by animateColorAsState(
+        targetValue = if (selected) colors.labelPrimary else colors.labelSecondary,
+        animationSpec = motion.standardSpring(),
+        label = "tab_tint",
+    )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier            = modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null,
-                onClick           = onClick,
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .selectable(
+                selected = selected,
+                role = androidx.compose.ui.semantics.Role.Tab,
+                onClick = {
+                    if (!selected) haptics.selection()
+                    onClick()
+                },
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         Icon(
             imageVector        = if (selected) tab.iconActive else tab.iconDefault,
-            contentDescription = tab.label,
+            contentDescription = null,
             tint               = tint,
             modifier           = Modifier.size(22.dp),
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            text       = tab.label,
-            style      = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            text       = label,
+            style      = OrbitTheme.typography.caption1,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color      = tint,
+            maxLines   = 1,
+            overflow   = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
     }
 }

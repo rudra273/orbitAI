@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -44,28 +45,43 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
         reports = withContext(Dispatchers.IO) { store.readReports() }
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.diagnostics),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.diagnostics), style = MaterialTheme.typography.headlineMedium)
-            }
             item {
                 Text(
                     "Reports are saved only on this device when Orbit crashes, stops responding, or is closed by " +
                         "Android for low memory. They contain the app version, device model, Android version, the " +
                         "model that was loaded and a technical stack trace. They never include your chats, memories, " +
                         "documents, tokens or API keys. Nothing is sent unless you tap Share.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                    color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
                 )
             }
             val text = reports
             if (text == null) {
-                item { Text(stringResource(R.string.loading)) }
+                item {
+                    com.example.orbitai.ui.components.OrbitGroupedCard {
+                        androidx.compose.foundation.layout.Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            com.example.orbitai.ui.components.OrbitSkeleton(Modifier.fillMaxWidth(0.7f), height = 14.dp)
+                            com.example.orbitai.ui.components.OrbitSkeleton(Modifier.fillMaxWidth(0.9f), height = 14.dp)
+                        }
+                    }
+                }
             } else if (text.isBlank()) {
                 item { Text(stringResource(R.string.no_reports_orbit_hasn_t), style = MaterialTheme.typography.bodyMedium) }
             } else {

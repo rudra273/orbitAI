@@ -40,29 +40,48 @@ fun ChatSettingsScreen(onBack: () -> Unit) {
     var languageMenu by remember { mutableStateOf(false) }
     BackHandler(onBack = onBack)
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.chat),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.chat), style = MaterialTheme.typography.headlineMedium)
-            }
-            item {
-                SettingSwitch(
-                    title = stringResource(R.string.smart_titles),
-                    description = stringResource(R.string.after_the_first_reply_the),
-                    checked = smartTitles,
-                ) { smartTitles = it; store.smartTitles = it }
-            }
-            item {
-                SettingSwitch(
-                    title = stringResource(R.string.show_generation_details),
-                    description = stringResource(R.string.under_each_new_reply_time),
-                    checked = details,
-                ) { details = it; store.showGenerationDetails = it }
+                com.example.orbitai.ui.components.OrbitGroupedCard {
+                    com.example.orbitai.ui.components.OrbitListRow(
+                        title = stringResource(R.string.smart_titles),
+                        subtitle = stringResource(R.string.after_the_first_reply_the),
+                        showChevron = false,
+                        trailing = {
+                            com.example.orbitai.ui.components.OrbitSwitch(
+                                checked = smartTitles,
+                                onCheckedChange = { smartTitles = it; store.smartTitles = it },
+                            )
+                        },
+                        onClick = { smartTitles = !smartTitles; store.smartTitles = smartTitles },
+                    )
+                    com.example.orbitai.ui.components.OrbitInsetDivider(startIndent = 16.dp)
+                    com.example.orbitai.ui.components.OrbitListRow(
+                        title = stringResource(R.string.show_generation_details),
+                        subtitle = stringResource(R.string.under_each_new_reply_time),
+                        showChevron = false,
+                        trailing = {
+                            com.example.orbitai.ui.components.OrbitSwitch(
+                                checked = details,
+                                onCheckedChange = { details = it; store.showGenerationDetails = it },
+                            )
+                        },
+                        onClick = { details = !details; store.showGenerationDetails = details },
+                    )
+                }
             }
             item {
                 Column {

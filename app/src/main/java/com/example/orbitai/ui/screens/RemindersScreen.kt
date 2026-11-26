@@ -53,10 +53,21 @@ fun RemindersScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     review?.takeIf { it.chatId.isBlank() }?.let { ReminderReviewDialog(it, viewModel::dismissReminderReview, viewModel::confirmReminder, state.loadError) }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    androidx.compose.material3.Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.orbit_reminders),
+                onBack = onBack,
+            )
+        },
+    ) { scaffoldPadding ->
+    LazyColumn(
+        modifier = Modifier.padding(scaffoldPadding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         item {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_tools)) }
-            Text(stringResource(R.string.orbit_reminders), style = MaterialTheme.typography.headlineSmall)
             TextButton(onClick = { viewModel.editReminder() }) { Text(stringResource(R.string.new_reminder)) }
             Text(if (exact) "Precise alarms enabled" else "Timing is approximate until Alarms & reminders access is enabled.")
             TextButton(onClick = {
@@ -109,5 +120,6 @@ fun RemindersScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }

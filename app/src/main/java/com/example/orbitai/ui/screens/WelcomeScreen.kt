@@ -54,20 +54,16 @@ import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.viewmodel.MemoryViewModel
 
-private val WelcomeSurfaceLight = Color(0xFFF9F8F5)
-private val WelcomeCardLight = Color(0xFFFFFFFF)
-private val WelcomeCardDark = Color(0xFF1E1E1C)
-private val WelcomeInkLight = Color(0xFF0D0D0D)
-private val WelcomeAccent = Color(0xFF5B4FE8)
-private val WelcomeSans = FontFamily.SansSerif
-private val WelcomeMono = FontFamily.Monospace
+private val WelcomeAccent @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accent
+private val WelcomeSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val WelcomeMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val WelcomeSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else WelcomeSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val WelcomeCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) WelcomeCardDark else WelcomeCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val WelcomeInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else WelcomeInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun WelcomeScreen(

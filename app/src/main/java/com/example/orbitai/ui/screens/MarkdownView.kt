@@ -89,15 +89,16 @@ fun MarkdownMessageText(
             when (block) {
                 is MdBlock.Heading -> {
                     val style = when (block.level) {
-                        1 -> MaterialTheme.typography.titleLarge
-                        2 -> MaterialTheme.typography.titleMedium
-                        else -> MaterialTheme.typography.titleSmall
+                        1 -> OrbitTheme.typography.title2
+                        2 -> OrbitTheme.typography.title3.copy(fontFamily = OrbitEditorialFont)
+                        else -> OrbitTheme.typography.headline
                     }
                     Text(
                         text = rememberInline(block.text) { pendingUrl = it },
                         style = style,
                         color = textColor,
-                        lineHeight = (style.fontSize.value + 8).sp,
+                        lineHeight = (style.fontSize.value + 7).sp,
+                        modifier = Modifier.padding(top = if (block.level <= 2) 6.dp else 2.dp),
                     )
                 }
 

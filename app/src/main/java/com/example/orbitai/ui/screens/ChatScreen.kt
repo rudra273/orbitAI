@@ -776,15 +776,13 @@ private fun OnDeviceModelPill(
     Box {
         Row(
             modifier = Modifier
+                .heightIn(min = 38.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(OnDevicePillBg)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                ) { expanded = true }
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
                 modifier = Modifier
@@ -858,14 +856,11 @@ private fun ModeDropdownChip(
     Box {
         Row(
             modifier = Modifier
-                .height(32.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .heightIn(min = 38.dp)
+                .clip(RoundedCornerShape(19.dp))
                 .background(SpaceDust)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null,
-                ) { expanded = true }
-                .padding(horizontal = 12.dp),
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {

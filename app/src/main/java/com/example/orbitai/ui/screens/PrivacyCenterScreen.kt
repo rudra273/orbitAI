@@ -91,52 +91,69 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
         )
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.privacy_center),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.privacy_center), style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    "Everything Orbit keeps lives on this phone. Below you can see how much, which network calls the app made, and clear it.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "Everything Orbit keeps lives on this phone. Review storage, recent network requests, and permissions below.",
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                    color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
                 )
             }
 
-            item { Text(stringResource(R.string.stored_on_this_phone), style = MaterialTheme.typography.labelSmall) }
+            item { com.example.orbitai.ui.components.OrbitSectionHeader(stringResource(R.string.stored_on_this_phone)) }
             item {
                 val r = report
-                if (r == null) Text(stringResource(R.string.measuring), style = MaterialTheme.typography.bodyMedium)
-                else Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        StorageRow("Chats", "${r.chats}") {
-                            confirm = ClearAction("Delete all chats?", "Every chat and message is removed.") { center.clearChats() }
+                if (r == null) {
+                    com.example.orbitai.ui.components.OrbitGroupedCard {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            com.example.orbitai.ui.components.OrbitSkeleton(Modifier.fillMaxWidth(0.75f), height = 16.dp)
+                            com.example.orbitai.ui.components.OrbitSkeleton(Modifier.fillMaxWidth(0.55f), height = 16.dp)
+                            com.example.orbitai.ui.components.OrbitSkeleton(Modifier.fillMaxWidth(0.85f), height = 16.dp)
                         }
-                        StorageRow("Memories", "${r.memories}") {
-                            confirm = ClearAction("Delete all memories?", "Facts Orbit remembered about you are removed.") { center.clearMemories() }
+                    }
+                } else {
+                    com.example.orbitai.ui.components.OrbitGroupedCard {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            StorageRow("Chats", "${r.chats}") {
+                                confirm = ClearAction("Delete all chats?", "Every chat and message is removed.") { center.clearChats() }
+                            }
+                            StorageRow("Memories", "${r.memories}") {
+                                confirm = ClearAction("Delete all memories?", "Facts Orbit remembered about you are removed.") { center.clearMemories() }
+                            }
+                            StorageRow("Spaces", "${r.spaces} Spaces, ${r.documents} documents") {
+                                confirm = ClearAction("Delete all Spaces?", "Spaces and their indexed documents are removed. Your original files are not touched.") { center.clearSpaces() }
+                            }
+                            StorageRow("Downloaded models", formatModelSize(r.modelBytes)) {
+                                confirm = ClearAction("Delete downloaded models?", "You will need to download a model again to chat.") { center.deleteModels() }
+                            }
+                            StorageRow("Temporary files", formatModelSize(r.cacheBytes)) {
+                                confirm = ClearAction("Clear temporary files?", "Cached exports and previews are removed.") { center.clearCache() }
+                            }
+                            Text(
+                                "Database on disk: ${formatModelSize(r.databaseBytes)} (chats, memories, Spaces, reminders: ${r.reminders}).",
+                                style = com.example.orbitai.ui.theme.OrbitTheme.typography.caption1,
+                                color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelTertiary,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
                         }
-                        StorageRow("Spaces", "${r.spaces} Spaces, ${r.documents} documents") {
-                            confirm = ClearAction("Delete all Spaces?", "Spaces and their indexed documents are removed. Your original files are not touched.") { center.clearSpaces() }
-                        }
-                        StorageRow("Downloaded models", formatModelSize(r.modelBytes)) {
-                            confirm = ClearAction("Delete downloaded models?", "You will need to download a model again to chat.") { center.deleteModels() }
-                        }
-                        StorageRow("Temporary files", formatModelSize(r.cacheBytes)) {
-                            confirm = ClearAction("Clear temporary files?", "Cached exports and previews are removed.") { center.clearCache() }
-                        }
-                        Text(
-                            "Database on disk: ${formatModelSize(r.databaseBytes)} (chats, memories, Spaces, reminders: ${r.reminders}).",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
                     }
                 }
             }
 
-            item { Text(stringResource(R.string.network_activity_last_30_days), style = MaterialTheme.typography.labelSmall) }
+            item { com.example.orbitai.ui.components.OrbitSectionHeader(stringResource(R.string.network_activity_last_30_days)) }
             item {
                 Text(
                     "Only the website, the reason and the time are recorded here, on this phone. Never what you typed, keys or addresses with details.",

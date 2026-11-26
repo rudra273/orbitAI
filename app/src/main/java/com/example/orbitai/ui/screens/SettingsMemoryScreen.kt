@@ -59,21 +59,17 @@ import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 import com.example.orbitai.viewmodel.MemoryViewModel
 
-private val MemorySurfaceLight = Color(0xFFF9F8F5)
-private val MemoryCardLight = Color(0xFFFFFFFF)
-private val MemoryCardDark = Color(0xFF1E1E1C)
-private val MemoryInkLight = Color(0xFF0D0D0D)
-private val MemoryGreen = Color(0xFF17A865)
-private val MemoryRed = Color(0xFFD94F4F)
-private val MemorySans = FontFamily.SansSerif
-private val MemoryMono = FontFamily.Monospace
+private val MemoryGreen @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
+private val MemoryRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
+private val MemorySans = com.example.orbitai.ui.theme.OrbitUiFont
+private val MemoryMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val MemorySurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else MemorySurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val MemoryCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) MemoryCardDark else MemoryCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val MemoryInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else MemoryInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun MemorySettingsScreen(

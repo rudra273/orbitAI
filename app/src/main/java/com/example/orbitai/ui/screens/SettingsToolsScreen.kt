@@ -52,19 +52,15 @@ import com.example.orbitai.ui.theme.IsOrbitDarkTheme
 import com.example.orbitai.ui.theme.SpaceDeep
 import com.example.orbitai.ui.theme.TextPrimary
 
-private val ToolsSurfaceLight = Color(0xFFF9F8F5)
-private val ToolsCardLight = Color(0xFFFFFFFF)
-private val ToolsCardDark = Color(0xFF1E1E1C)
-private val ToolsInkLight = Color(0xFF0D0D0D)
-private val ToolsSans = FontFamily.SansSerif
-private val ToolsMono = FontFamily.Monospace
+private val ToolsSans = com.example.orbitai.ui.theme.OrbitUiFont
+private val ToolsMono = com.example.orbitai.ui.theme.OrbitMonoFont
 
 private val ToolsSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else ToolsSurfaceLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.background
 private val ToolsCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) ToolsCardDark else ToolsCardLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surface
 private val ToolsInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else ToolsInkLight
+    @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.labelPrimary
 
 @Composable
 fun ToolsSettingsScreen(
@@ -74,112 +70,93 @@ fun ToolsSettingsScreen(
     onOpenReplies: () -> Unit,
     onOpenDigest: () -> Unit,
 ) {
-
+    val colors = com.example.orbitai.ui.theme.OrbitTheme.colors
+    androidx.compose.material3.Scaffold(
+        containerColor = colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.tools),
+                subtitle = stringResource(R.string.tool_availability_and_support),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(ToolsSurface),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
+            .background(colors.background)
+            .padding(padding),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 16.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onBack,
-                    )
-                    .heightIn(min = 48.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = ToolsInk.copy(alpha = 0.40f),
-                    modifier = Modifier.size(14.dp),
-                )
-                Text(
-                    text = stringResource(R.string.settings),
-                    color = ToolsInk.copy(alpha = 0.40f),
-                    fontFamily = ToolsMono,
-                    fontSize = 13.sp,
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 8.dp, bottom = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.tools),
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
-                    ),
-                    color = ToolsInk,
-                    fontFamily = ToolsSans,
-                )
-                Text(
-                    text = stringResource(R.string.tool_availability_and_support),
-                    color = ToolsInk.copy(alpha = 0.35f),
-                    fontFamily = ToolsMono,
-                    fontSize = 11.sp,
-                )
-            }
-        }
-
-        item { ToolsSectionHeader("TOOLS") }
+        item { com.example.orbitai.ui.components.OrbitSectionHeader(stringResource(R.string.section_tools)) }
         item {
             Text(
                 text = stringResource(R.string.orbit_asks_before_every_action),
-                color = ToolsInk.copy(alpha = 0.5f),
-                fontFamily = ToolsSans,
-                fontSize = 12.sp,
+                style = com.example.orbitai.ui.theme.OrbitTheme.typography.footnote,
+                color = colors.labelSecondary,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
         item {
-            ToolsGroupedCard {
+            com.example.orbitai.ui.components.OrbitGroupedCard {
                 com.example.orbitai.feature.automation.OrbitTool.entries.forEachIndexed { index, tool ->
                     var enabled by remember { mutableStateOf(toolSettingsStore.isEnabled(tool)) }
-                    ToolToggleRow(
+                    com.example.orbitai.ui.components.OrbitListRow(
                         icon = Icons.Default.Build,
                         title = tool.title + (tool.command?.let { "  ·  /$it" } ?: ""),
-                        description = tool.description,
-                        checked = enabled,
-                        onCheckedChange = {
-                            enabled = it
-                            toolSettingsStore.setEnabled(tool, it)
+                        subtitle = tool.description,
+                        showChevron = false,
+                        trailing = {
+                            com.example.orbitai.ui.components.OrbitSwitch(
+                                checked = enabled,
+                                onCheckedChange = {
+                                    enabled = it
+                                    toolSettingsStore.setEnabled(tool, it)
+                                },
+                            )
+                        },
+                        onClick = {
+                            enabled = !enabled
+                            toolSettingsStore.setEnabled(tool, enabled)
                         },
                     )
-                    if (index != com.example.orbitai.feature.automation.OrbitTool.entries.lastIndex) ToolsHairlineDivider()
+                    if (index != com.example.orbitai.feature.automation.OrbitTool.entries.lastIndex) {
+                        com.example.orbitai.ui.components.OrbitInsetDivider()
+                    }
                 }
             }
         }
 
         item {
-            androidx.compose.material3.TextButton(onClick = onOpenReminders) { Text(stringResource(R.string.saved_reminders)) }
+            com.example.orbitai.ui.components.OrbitGroupedCard {
+                com.example.orbitai.ui.components.OrbitListRow(
+                    icon = Icons.Default.Event,
+                    title = stringResource(R.string.saved_reminders),
+                    onClick = onOpenReminders,
+                )
+                com.example.orbitai.ui.components.OrbitInsetDivider()
+                com.example.orbitai.ui.components.OrbitListRow(
+                    icon = Icons.AutoMirrored.Filled.Message,
+                    title = stringResource(R.string.message_replies),
+                    onClick = onOpenReplies,
+                )
+                com.example.orbitai.ui.components.OrbitInsetDivider()
+                com.example.orbitai.ui.components.OrbitListRow(
+                    icon = Icons.Default.MailOutline,
+                    title = stringResource(R.string.digest_open),
+                    onClick = onOpenDigest,
+                )
+            }
         }
+        item { com.example.orbitai.ui.components.OrbitSectionHeader(stringResource(R.string.section_notes)) }
         item {
-            androidx.compose.material3.TextButton(onClick = onOpenReplies) { Text(stringResource(R.string.message_replies)) }
-        }
-        item {
-            androidx.compose.material3.TextButton(onClick = onOpenDigest) { Text(stringResource(R.string.digest_open)) }
-        }
-        item { ToolsSectionHeader("NOTES") }
-        item {
-            ToolsGroupedCard {
-                ToolInfoRow(
+            com.example.orbitai.ui.components.OrbitGroupedCard {
+                com.example.orbitai.ui.components.OrbitListRow(
                     icon = Icons.Default.Build,
                     title = stringResource(R.string.execution),
-                    description = stringResource(R.string.only_tools_that_support_safe),
+                    subtitle = stringResource(R.string.only_tools_that_support_safe),
+                    showChevron = false,
                 )
             }
         }
@@ -189,12 +166,12 @@ fun ToolsSettingsScreen(
             Text(
                 text = stringResource(R.string.orbitai_on_device_llm),
                 modifier = Modifier.fillMaxWidth(),
-                color = ToolsInk.copy(alpha = 0.20f),
-                fontFamily = ToolsMono,
-                fontSize = 10.sp,
+                style = com.example.orbitai.ui.theme.OrbitTheme.typography.caption1,
+                color = colors.labelTertiary,
                 textAlign = TextAlign.Center,
             )
         }
+    }
     }
 }
 

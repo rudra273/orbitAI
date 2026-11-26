@@ -96,16 +96,26 @@ fun DigestScreen(onBack: () -> Unit) {
         )
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = com.example.orbitai.ui.theme.OrbitTheme.colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitSubScreenTopBar(
+                title = stringResource(R.string.digest_title),
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-                Text(stringResource(R.string.digest_title), style = MaterialTheme.typography.headlineMedium)
-                Text(stringResource(R.string.digest_intro), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.digest_intro),
+                    style = com.example.orbitai.ui.theme.OrbitTheme.typography.subheadline,
+                    color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelSecondary,
+                )
             }
             item {
                 val toggleDigest: (Boolean) -> Unit = { wanted ->

@@ -47,22 +47,18 @@ import com.example.orbitai.core.database.Mode
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
 
-private val ModesSurfaceLight = Color(0xFFF9F8F5)
-private val ModesCardLight = Color(0xFFFFFFFF)
-private val ModesCardDark = Color(0xFF1E1E1C)
-private val ModesInkLight = Color(0xFF0D0D0D)
-private val ModesActiveGreen = Color(0xFF17A865)
-private val ModesDeleteRed = Color(0xFFD94F4F)
-private val ModesSans = FontFamily.SansSerif
-private val ModesMono = FontFamily.Monospace
+private val ModesActiveGreen @Composable get() = OrbitTheme.colors.success
+private val ModesDeleteRed @Composable get() = OrbitTheme.colors.destructive
+private val ModesSans = OrbitUiFont
+private val ModesMono = OrbitMonoFont
 private val ModeCardHeight = 152.dp
 
 private val ModesSurface: Color
-    @Composable get() = if (IsOrbitDarkTheme) SpaceDeep else ModesSurfaceLight
+    @Composable get() = OrbitTheme.colors.background
 private val ModesCard: Color
-    @Composable get() = if (IsOrbitDarkTheme) ModesCardDark else ModesCardLight
+    @Composable get() = OrbitTheme.colors.surface
 private val ModesInk: Color
-    @Composable get() = if (IsOrbitDarkTheme) TextPrimary else ModesInkLight
+    @Composable get() = OrbitTheme.colors.labelPrimary
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MODES SCREEN — list + inline edit destination
@@ -97,15 +93,13 @@ fun ModesScreen(viewModel: ModesViewModel) {
         label = "modes_nav",
     ) { dest ->
         when (dest) {
-            is ModesDestination.List -> Column {
-                ModeLibraryBar(viewModel)
-                ModeListScreen(
-                    modes      = modes,
-                    onEditMode = { destination = ModesDestination.Edit(it) },
-                    onCreateNew = { destination = ModesDestination.Edit(null) },
-                    inferenceForMode = { modeId -> viewModel.inferenceForMode(modeId) },
-                )
-            }
+            is ModesDestination.List -> ModeListScreen(
+                modes = modes,
+                onEditMode = { destination = ModesDestination.Edit(it) },
+                onCreateNew = { destination = ModesDestination.Edit(null) },
+                inferenceForMode = { modeId -> viewModel.inferenceForMode(modeId) },
+                libraryBar = { ModeLibraryBar(viewModel) },
+            )
             is ModesDestination.Edit -> {
               var preset by remember(dest.mode?.id) { mutableStateOf(dest.mode?.preset ?: com.example.orbitai.core.database.ModePreset()) }
               val spaces by viewModel.spaces.collectAsState()
@@ -157,74 +151,50 @@ private fun ModeListScreen(
     onEditMode: (Mode) -> Unit,
     onCreateNew: () -> Unit,
     inferenceForMode: (String) -> InferenceSettings,
+    libraryBar: @Composable () -> Unit = {},
 ) {
     val customModes = remember(modes) { modes.filterNot { it.isDefault } }
     val builtInModes = remember(modes) { modes.filter { it.isDefault } }
     val gridEntries = remember(customModes) { customModes + listOf<Mode?>(null) }
+    val colors = OrbitTheme.colors
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ModesSurface)
-            .padding(horizontal = 16.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 4.dp, top = 18.dp, bottom = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = stringResource(R.string.modes),
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp,
-                    ),
-                    color = ModesInk,
-                )
-                Text(
-                    text = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = ModesInk.copy(alpha = 0.35f),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(ModesInk)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onCreateNew,
-                    ),
-                contentAlignment = Alignment.Center,
+    Scaffold(
+        containerColor = colors.background,
+        topBar = {
+            com.example.orbitai.ui.components.OrbitTopLevelHeader(
+                title = stringResource(R.string.modes),
+                subtitle = "${modes.size} mode${if (modes.size == 1) "" else "s"}",
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
+                com.example.orbitai.ui.components.OrbitIconButton(
+                    icon = Icons.Default.Add,
                     contentDescription = stringResource(R.string.create_mode),
-                    tint = if (IsOrbitDarkTheme) SpaceDeep else Color.White,
-                    modifier = Modifier.size(18.dp),
+                    onClick = onCreateNew,
+                    tint = colors.labelOnInk,
+                    containerColor = colors.inkPrimary,
                 )
             }
-        }
-
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 10.dp),
-            contentPadding = PaddingValues(bottom = 26.dp),
+                .background(colors.background)
+                .padding(padding),
+            contentPadding = PaddingValues(
+                start = OrbitTheme.spacing.screenHorizontal,
+                end = OrbitTheme.spacing.screenHorizontal,
+                top = OrbitTheme.spacing.xs,
+                bottom = OrbitTheme.spacing.xxl,
+            ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            item { libraryBar() }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     gridEntries.chunked(2).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             rowItems.forEach { mode ->
                                 if (mode == null) {
@@ -251,28 +221,19 @@ private fun ModeListScreen(
 
             if (builtInModes.isNotEmpty()) {
                 item {
-                    Text(
-                        text = stringResource(R.string.built_in),
-                        color = ModesInk.copy(alpha = 0.30f),
-                        fontFamily = ModesMono,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
+                    com.example.orbitai.ui.components.OrbitSectionHeader(
+                        title = stringResource(R.string.built_in),
                     )
                 }
                 item {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    com.example.orbitai.ui.components.OrbitGroupedCard {
                         builtInModes.forEachIndexed { index, mode ->
                             BuiltInModeRow(
                                 mode = mode,
                                 onClick = { onEditMode(mode) },
                             )
                             if (index != builtInModes.lastIndex) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(1.dp)
-                                        .background(ModesInk.copy(alpha = 0.06f)),
-                                )
+                                com.example.orbitai.ui.components.OrbitInsetDivider(startIndent = 16.dp)
                             }
                         }
                     }
@@ -289,24 +250,21 @@ private fun FlatModeCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = OrbitTheme.colors
+    val shapes = OrbitTheme.shapes
     val emoji = extractLeadingEmoji(mode.name) ?: "🙂"
     val title = stripLeadingEmoji(mode.name)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(ModesCard)
-            .border(
-                width = 1.dp,
-                color = ModesInk.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(14.dp),
+            .clip(shapes.card)
+            .background(colors.surface)
+            .then(
+                if (colors.isDark) Modifier.border(0.5.dp, colors.separator, shapes.card)
+                else Modifier,
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .height(ModeCardHeight)
-            .padding(12.dp),
+            .clickable(onClick = onClick)
+            .heightIn(min = ModeCardHeight)
+            .padding(14.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -319,15 +277,12 @@ private fun FlatModeCard(
             ) {
                 Text(
                     text = emoji,
-                    fontFamily = ModesSans,
                     fontSize = 18.sp,
                 )
                 Text(
                     text = title,
-                    color = ModesInk,
-                    fontFamily = ModesSans,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
+                    style = OrbitTheme.typography.callout,
+                    color = colors.labelPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -338,13 +293,12 @@ private fun FlatModeCard(
             }
             Text(
                 text = compactPrompt(mode.systemPrompt),
-                color = ModesInk.copy(alpha = 0.42f),
-                fontFamily = ModesSans,
-                fontSize = 11.sp,
+                style = OrbitTheme.typography.footnote,
+                color = colors.labelSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MetaPill("T ${"%.2f".format(inference.temperature)}")
                 MetaPill("TOK ${inference.maxDecodedTokens}")
@@ -357,7 +311,7 @@ private fun FlatModeCard(
 private fun ActiveDot() {
     Box(
         modifier = Modifier
-            .size(6.dp)
+            .size(7.dp)
             .clip(CircleShape)
             .background(ModesActiveGreen),
     )
@@ -365,17 +319,17 @@ private fun ActiveDot() {
 
 @Composable
 private fun MetaPill(text: String) {
+    val colors = OrbitTheme.colors
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(ModesInk.copy(alpha = 0.06f))
-            .padding(horizontal = 7.dp, vertical = 3.dp),
+            .background(colors.surfaceInput)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
             text = text,
-            color = ModesInk.copy(alpha = 0.55f),
-            fontFamily = ModesMono,
-            fontSize = 9.sp,
+            style = OrbitTheme.typography.caption1.tabular(),
+            color = colors.labelSecondary,
         )
     }
 }
@@ -385,20 +339,18 @@ private fun NewModeCell(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = OrbitTheme.colors
+    val shapes = OrbitTheme.shapes
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(shapes.card)
             .dashedRoundedBorder(
-                color = ModesInk.copy(alpha = 0.18f),
-                cornerRadius = 14.dp,
+                color = colors.border,
+                cornerRadius = shapes.cardRadius,
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .height(ModeCardHeight)
-            .padding(12.dp),
+            .clickable(onClick = onClick)
+            .heightIn(min = ModeCardHeight)
+            .padding(14.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -406,29 +358,23 @@ private fun NewModeCell(
         ) {
             Text(
                 text = "+",
-                color = ModesInk.copy(alpha = 0.30f),
-                fontFamily = ModesSans,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
+                style = OrbitTheme.typography.title2,
+                color = colors.labelSecondary,
             )
             Text(
                 text = stringResource(R.string.new_mode),
-                color = ModesInk.copy(alpha = 0.35f),
-                fontFamily = ModesSans,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
+                style = OrbitTheme.typography.callout,
+                color = colors.labelPrimary,
             )
             Text(
                 text = stringResource(R.string.prompt_tuning),
-                color = ModesInk.copy(alpha = 0.30f),
-                fontFamily = ModesSans,
-                fontSize = 11.sp,
+                style = OrbitTheme.typography.caption1,
+                color = colors.labelSecondary,
             )
             Text(
                 text = stringResource(R.string.add_emoji_prompt_and_parameters),
-                color = ModesInk.copy(alpha = 0.24f),
-                fontFamily = ModesSans,
-                fontSize = 10.sp,
+                style = OrbitTheme.typography.caption1,
+                color = colors.labelTertiary,
             )
         }
     }
@@ -439,51 +385,27 @@ private fun BuiltInModeRow(
     mode: Mode,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = mode.name,
-                color = ModesInk,
-                fontFamily = ModesSans,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = compactPrompt(mode.systemPrompt),
-                color = ModesInk.copy(alpha = 0.38f),
-                fontFamily = ModesSans,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (mode.isActive) {
-                ActiveDot()
+    com.example.orbitai.ui.components.OrbitListRow(
+        title = mode.name,
+        subtitle = compactPrompt(mode.systemPrompt),
+        trailing = if (mode.isActive) {
+            {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActiveDot()
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null,
+                        tint = Color.Transparent,
+                        modifier = Modifier.size(0.dp),
+                    )
+                }
             }
-            Text(
-                text = "›",
-                color = ModesInk.copy(alpha = 0.55f),
-                fontFamily = ModesSans,
-                fontSize = 16.sp,
-            )
-        }
-    }
+        } else null,
+        onClick = onClick,
+    )
 }
 
 private fun compactPrompt(prompt: String): String {
