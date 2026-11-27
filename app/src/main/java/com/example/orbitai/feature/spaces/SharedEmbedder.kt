@@ -2,11 +2,13 @@ package com.example.orbitai.feature.spaces
 
 import android.content.Context
 import com.example.orbitai.core.model.E5_SMALL_EMBEDDING
+import com.example.orbitai.core.model.EMBEDDINGGEMMA2_EMBEDDING
 import com.example.orbitai.core.model.GECKO_EMBEDDING
 import com.example.orbitai.feature.spaces.embedding.E5TextEmbedder
 import com.example.orbitai.feature.spaces.embedding.EmbedKind
 import com.example.orbitai.feature.spaces.embedding.Embedded
 import com.example.orbitai.feature.spaces.embedding.EmbedderSettings
+import com.example.orbitai.feature.spaces.embedding.EmbeddingGemmaTextEmbedder
 import com.example.orbitai.feature.spaces.embedding.TextEmbedder
 
 /**
@@ -41,6 +43,7 @@ class SharedEmbedder(private val context: Context) {
 
     private fun create(modelId: String): TextEmbedder? = when (modelId) {
         E5_SMALL_EMBEDDING.id -> E5TextEmbedder.create(context)
+        EMBEDDINGGEMMA2_EMBEDDING.id -> EmbeddingGemmaTextEmbedder.create(context)
         else -> EmbeddingModel.create(context)?.let { UseTextEmbedder(it) }
     }
 

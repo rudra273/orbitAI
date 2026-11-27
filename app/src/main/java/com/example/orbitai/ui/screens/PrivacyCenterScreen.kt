@@ -73,14 +73,14 @@ fun PrivacyCenterScreen(onBack: () -> Unit) {
     val permissions = remember(refresh) {
         fun granted(permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
         listOf(
-            PermissionRow("Microphone", "Talk to the Orbit Bubble. Audio is turned into text on the phone.", granted(Manifest.permission.RECORD_AUDIO)),
+            PermissionRow("Microphone", "Use voice input. Your Android speech service may process audio online.", granted(Manifest.permission.RECORD_AUDIO)),
             PermissionRow("Contacts", "Find a contact by name for WhatsApp, SMS and calls.", granted(Manifest.permission.READ_CONTACTS)),
             PermissionRow("Phone calls", "Place a call after you confirm.", granted(Manifest.permission.CALL_PHONE)),
-            PermissionRow("Notifications", "Show reminders.", granted(Manifest.permission.POST_NOTIFICATIONS)),
+            PermissionRow("Notifications", "Show reminders and status for the floating bubble and model downloads.", granted(Manifest.permission.POST_NOTIFICATIONS)),
             PermissionRow("Draw over other apps", "Show the Orbit Bubble above other apps.", Settings.canDrawOverlays(context)),
             PermissionRow(
                 "Notification access",
-                "Suggest message replies, only for apps you pick.",
+                "Draft replies and summarize notifications on your device for apps you select.",
                 context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context),
             ),
             PermissionRow(

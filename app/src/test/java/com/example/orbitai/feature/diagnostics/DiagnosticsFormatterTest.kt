@@ -7,7 +7,7 @@ import org.junit.Test
 class DiagnosticsFormatterTest {
 
     private val info = DiagnosticsInfo(
-        appVersion = "2.0.0 (20000)",
+        appVersion = "1.0.0 (10104)",
         device = "samsung SM-S928B (qcom)",
         androidVersion = "16 (API 36)",
         modelState = "gemma4-e2b on GPU",
@@ -16,7 +16,7 @@ class DiagnosticsFormatterTest {
 
     @Test fun crashReportHasContextAndStackTrace() {
         val report = DiagnosticsFormatter.crashReport(info, "main", IllegalStateException("Model failed"))
-        listOf("2.0.0 (20000)", "SM-S928B", "API 36", "gemma4-e2b on GPU", "IllegalStateException", "Model failed", "\"main\"")
+        listOf("1.0.0 (10104)", "SM-S928B", "API 36", "gemma4-e2b on GPU", "IllegalStateException", "Model failed", "\"main\"")
             .forEach { assertTrue("missing $it", report.contains(it)) }
     }
 

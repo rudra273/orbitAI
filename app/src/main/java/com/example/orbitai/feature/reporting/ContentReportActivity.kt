@@ -11,7 +11,7 @@ class ContentReportActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val response = intent.getStringExtra(EXTRA_RESPONSE).orEmpty()
-        if (response.isBlank()) {
+        if (!ContentReportRepository.isConfigured || response.isBlank()) {
             finish()
             return
         }

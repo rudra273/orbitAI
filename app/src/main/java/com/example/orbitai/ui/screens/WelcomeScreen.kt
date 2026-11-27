@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -279,45 +280,44 @@ fun WelcomeScreen(
                         .clip(RoundedCornerShape(16.dp))
                         .background(WelcomeAccent.copy(alpha = if (IsOrbitDarkTheme) 0.12f else 0.08f))
                         .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(
+                        Row(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.use_orbit_bubble),
-                                    color = WelcomeInk,
-                                    fontFamily = WelcomeSans,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 15.sp,
-                                )
-                                RecommendedTag()
-                            }
                             Text(
-                                text = stringResource(R.string.use_a_floating_assistant_over),
-                                color = WelcomeInk.copy(alpha = 0.56f),
+                                text = stringResource(R.string.use_orbit_bubble),
+                                color = WelcomeInk,
                                 fontFamily = WelcomeSans,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
                             )
+                            RecommendedTag()
                         }
 
-                        Spacer(modifier = Modifier.size(12.dp))
                         WelcomeToggle(
                             checked = useBubble,
                             onCheckedChange = { useBubble = it },
                         )
                     }
+
+                    Text(
+                        text = stringResource(R.string.use_a_floating_assistant_over),
+                        color = WelcomeInk.copy(alpha = 0.56f),
+                        fontFamily = WelcomeSans,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                    )
 
                     Text(
                         text = stringResource(R.string.you_can_turn_this_off),
@@ -358,7 +358,7 @@ private fun RecommendedTag() {
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(WelcomeAccent.copy(alpha = 0.14f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 7.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -366,7 +366,10 @@ private fun RecommendedTag() {
             color = WelcomeAccent,
             fontFamily = WelcomeMono,
             fontSize = 10.sp,
+            lineHeight = 12.sp,
             fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }

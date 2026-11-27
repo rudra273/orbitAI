@@ -34,11 +34,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1008,10 +1008,12 @@ private fun AppearanceSliderRow(
     previewContent: @Composable (() -> Unit)? = null,
     onValueChange: (Float) -> Unit,
 ) {
-    var sliderValue by remember(value) { mutableFloatStateOf(value.coerceIn(range.start, range.endInclusive)) }
+    val sliderState = remember(range) {
+        SliderState(value.coerceIn(range.start, range.endInclusive), 0, range)
+    }
 
     LaunchedEffect(value) {
-        sliderValue = value.coerceIn(range.start, range.endInclusive)
+        sliderState.value = value.coerceIn(range.start, range.endInclusive)
     }
 
     Column(
@@ -1047,12 +1049,11 @@ private fun AppearanceSliderRow(
         }
 
         Slider(
-            value = sliderValue,
+            state = sliderState,
             onValueChange = {
-                sliderValue = it
+                sliderState.value = it
                 onValueChange(it)
             },
-            valueRange = range,
             thumb = {
                 Box(
                     modifier = Modifier

@@ -1,10 +1,10 @@
 package com.example.orbitai.reminders
 
-import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.orbitai.core.database.AppDatabase
 import com.example.orbitai.core.database.ReminderEntity
+import com.example.orbitai.database.createHistoricalDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -43,15 +43,8 @@ class ReminderPersistenceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "migration-test-${UUID.randomUUID()}.db"
         try {
-            val fixture = Room.databaseBuilder(context, AppDatabase::class.java, name).build()
-            fixture.openHelper.writableDatabase.execSQL(
-                "INSERT INTO memories (id, content, source, createdAt) VALUES ('kept', 'Keep this memory', 'manual', 1)"
-            )
-            fixture.close()
-            // Version 11 has the same schema except for the new reminders table.
-            SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
-                it.execSQL("DROP TABLE reminders")
-                it.version = 11
+            createHistoricalDatabase(context, name, version = 11) { db ->
+                db.execSQL("INSERT INTO memories (id, content, source, createdAt) VALUES ('kept', 'Keep this memory', 'manual', 1)")
             }
             val upgraded = Room.databaseBuilder(context, AppDatabase::class.java, name)
                 .addMigrations(*AppDatabase.ALL_MIGRATIONS).build()
@@ -70,14 +63,9 @@ class ReminderPersistenceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "reminder-upgrade-${UUID.randomUUID()}.db"
         try {
-            val fixture = Room.databaseBuilder(context, AppDatabase::class.java, name).build()
-            fixture.openHelper.writableDatabase.let { db ->
-                db.execSQL("DROP TABLE reminders")
-                AppDatabase.MIGRATION_11_12.migrate(db)
+            createHistoricalDatabase(context, name, version = 12) { db ->
                 db.execSQL("INSERT INTO reminders (id, title, description, triggerAt, delivered) VALUES ('kept', 'Call Mom', '', 12345, 0)")
             }
-            fixture.close()
-            SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use { it.version = 12 }
             val upgraded = Room.databaseBuilder(context, AppDatabase::class.java, name)
                 .addMigrations(*AppDatabase.ALL_MIGRATIONS).build()
             try {

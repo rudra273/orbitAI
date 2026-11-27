@@ -277,17 +277,6 @@
     </issue>
 
     <issue
-        id="PermissionImpliesUnsupportedChromeOsHardware"
-        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot;>` tag"
-        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.CALL_PHONE&quot; />"
-        errorLine2="     ~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/AndroidManifest.xml"
-            line="28"
-            column="6"/>
-    </issue>
-
-    <issue
         id="TrustAllX509TrustManager"
         message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
         <location
@@ -410,17 +399,6 @@
         message="Found bitmap drawable `res/drawable/logodark.png` in densityless folder">
         <location
             file="src/main/res/drawable/logodark.png"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl)).apply {"
-        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/example/orbitai/feature/update/AppUpdateRepository.kt"
-            line="64"
-            column="49"/>
     </issue>
 
     <issue

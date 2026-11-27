@@ -8,10 +8,19 @@ package com.example.orbitai.core.model
  */
 val MODEL_FILE_SHA256: Map<String, Map<String, String>> = mapOf(
     "qwen35-0.8b" to mapOf(
-        "Qwen3.5-0.8B_int8.litertlm" to "64ed396fcdae75e5158945c77a08142b1322ce1bbf1be4d2198783119a1169e8",
+        "Qwen3.5-0.8B_mixed48_h1024.litertlm" to "61c65dbcaa86461184df1b60a82941c5d3e65fb535411d1b2192ccf222e98b35",
     ),
     "qwen35-0.8b-vl" to mapOf(
-        "Qwen3.5-0.8B-VL_int8.litertlm" to "e3360b658c929ff35ab740a21f5e4b688096a72e351b8d347e26ccda314121b7",
+        "Qwen3.5-0.8B-VL_int8.litertlm" to "7413f51eafb82e7cf0b707fa506eddfc76c10433b26fa8f0dc2f051970d2feb5",
+    ),
+    "qwen35-2b" to mapOf(
+        "Qwen3.5-2B_int8.litertlm" to "c2438cb9c050220e667366b4beeca4daac56e693b226420674f53fc40f007c49",
+    ),
+    "qwen35-2b-vl" to mapOf(
+        "Qwen3.5-2B-VL_int8.litertlm" to "90ece8de37537b757ef21075a7d17c14bc11ac29793dada058a5be7c3fe03ccc",
+    ),
+    "qwen35-4b" to mapOf(
+        "Qwen3.5-4B_mixed_int4.litertlm" to "878e5d1926ecc4930e24c62de43a7038edeeb0c57446231086b139892984a5fd",
     ),
     "gemma4-e2b" to mapOf(
         "gemma-4-E2B-it-int4.litertlm" to "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",

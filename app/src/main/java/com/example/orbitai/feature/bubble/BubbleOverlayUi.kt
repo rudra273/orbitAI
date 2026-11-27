@@ -22,6 +22,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.example.orbitai.R
+import com.example.orbitai.feature.reporting.ContentReportActivity
+import com.example.orbitai.feature.reporting.ContentReportRepository
 
 internal fun Context.dpToPx(dp: Float): Int = (dp * resources.displayMetrics.density + 0.5f).toInt()
 
@@ -415,25 +417,27 @@ class BubbleOverlayUi(
             text = "Thinking..."
         }
         root.addView(statusText)
-        root.addView(TextView(context).apply {
-            text = "Report response"
-            contentDescription = "Report this AI response to the developer"
-            setTextColor(theme.secondaryText)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setPadding(dp(14), dp(8), dp(14), dp(8))
-            minHeight = dp(48)
-            setOnClickListener {
-                val response = resultTextView?.text?.toString().orEmpty()
-                if (response.isNotBlank()) {
-                    context.startActivity(Intent(context,
-                        com.example.orbitai.feature.reporting.ContentReportActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        putExtra(com.example.orbitai.feature.reporting.ContentReportActivity.EXTRA_RESPONSE, response)
-                    })
-                    hideResultOverlay()
+        if (ContentReportRepository.isConfigured) {
+            root.addView(TextView(context).apply {
+                text = "Report response"
+                contentDescription = "Report this AI response to the developer"
+                setTextColor(theme.secondaryText)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                minHeight = dp(48)
+                setOnClickListener {
+                    val response = resultTextView?.text?.toString().orEmpty()
+                    if (response.isNotBlank()) {
+                        context.startActivity(Intent(context,
+                            ContentReportActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            putExtra(ContentReportActivity.EXTRA_RESPONSE, response)
+                        })
+                        hideResultOverlay()
+                    }
                 }
-            }
-        })
+            })
+        }
 
         // Drag response card anywhere (bounded to visible area)
         var initialX = 0

@@ -5,7 +5,7 @@ Pull requests are welcome. Open an issue first for larger changes.
 ## Workflow
 
 - Work happens on `dev`; `main` is for releases. Open pull requests against `dev`.
-- Roadmap items are numbered `fNNN` in `docs/roadmap/issues/`; mention the number in the commit message and update the item's `**Status:**` line and the table in `docs/roadmap/v2.0-plan.md` when you finish it.
+- Roadmap items are numbered `fNNN` in `docs/roadmap/issues/`; mention the number in the commit message and update the item's `**Status:**` line and the table in `docs/roadmap/v1.0.0-plan.md` when you finish it.
 - Keep changes to what the issue asks. No unrequested refactors or new dependencies; if a dependency version conflicts, report the exact error instead of working around it.
 
 ## Checks
@@ -23,7 +23,7 @@ Lint reports a handful of warnings that are already in `app/lint-baseline.xml`; 
 - Bump `AppDatabase.VERSION` and add a hand-written `Migration` to `ALL_MIGRATIONS`. There are no auto-migrations.
 - Commit the new schema JSON in `app/schemas/` and extend `app/src/androidTest/.../database/MigrationTest.kt`.
 - Run the instrumented tests on a device: `./gradlew installDebugAndroidTest`, then
-  `adb shell am instrument -w com.example.orbitai.test/androidx.test.runner.AndroidJUnitRunner`.
+  `adb shell am instrument -w com.orbitai.test/androidx.test.runner.AndroidJUnitRunner`.
 
 ## Code conventions
 

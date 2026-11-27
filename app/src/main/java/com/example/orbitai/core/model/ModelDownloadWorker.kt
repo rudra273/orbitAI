@@ -52,10 +52,7 @@ class ModelDownloadWorker(
             if (progress.status != DownloadStatus.DOWNLOADING || now - lastReportAt >= REPORT_INTERVAL_MS) {
                 lastReportAt = now
                 setProgress(progress.toWorkData())
-                notificationManager.notify(
-                    notificationId,
-                    buildNotification(model, progress.bytesDownloaded, progress.totalBytes, progress.status),
-                )
+                setForeground(foregroundInfo(model, notificationId, progress.bytesDownloaded, progress.totalBytes, progress.status))
             }
         }
 
@@ -94,6 +91,7 @@ class ModelDownloadWorker(
             .setProgress(100, if (total > 0) ((done * 100) / total).toInt() else 0, total <= 0 || status == DownloadStatus.VERIFYING)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(0, "Pause", WorkManager.getInstance(applicationContext).createCancelPendingIntent(id))
             .build()
 
@@ -105,7 +103,7 @@ class ModelDownloadWorker(
     }
 
     companion object {
-        private const val CHANNEL_ID = "orbitai_model_downloads"
+        internal const val CHANNEL_ID = "orbitai_model_downloads"
         private const val NOTIFICATION_ID_BASE = 40_000
         private const val REPORT_INTERVAL_MS = 500L
         private const val MAX_ATTEMPTS = 5

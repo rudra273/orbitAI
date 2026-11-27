@@ -15,6 +15,8 @@ data class LlmModel(
     val isChatSelectable: Boolean = true,
     /** Conservative prompt + output token budget used to trim history (see PromptBudget). */
     val contextTokens: Int = 2048,
+    /** Phone chips (Build.SOC_MODEL, e.g. "SM8750") this file is compiled for; empty = no NPU build. */
+    val npuSocModels: Set<String> = emptySet(),
 )
 
 enum class ModelProvider {
@@ -94,7 +96,7 @@ val AVAILABLE_MODELS = listOf(
     LlmModel(
         id = "qwen35-0.8b",
         displayName = "Qwen 3.5 0.8B",
-        fileName = "Qwen3.5-0.8B_int8.litertlm",
+        fileName = "Qwen3.5-0.8B_mixed48_h1024.litertlm",
         description = "Qwen 3.5 · very small and fast, text only",
         paramCount = "0.8B",
         format = ModelFormat.LITERTLM,
@@ -110,6 +112,37 @@ val AVAILABLE_MODELS = listOf(
         format = ModelFormat.LITERTLM,
         promptStyle = PromptStyle.QWEN,
         supportsVision = true,
+        contextTokens = 4096,
+    ),
+    LlmModel(
+        id = "qwen35-2b",
+        displayName = "Qwen 3.5 2B",
+        fileName = "Qwen3.5-2B_int8.litertlm",
+        description = "Qwen 3.5 · balanced size and quality, text only",
+        paramCount = "2B",
+        format = ModelFormat.LITERTLM,
+        promptStyle = PromptStyle.QWEN,
+        contextTokens = 4096,
+    ),
+    LlmModel(
+        id = "qwen35-2b-vl",
+        displayName = "Qwen 3.5 2B Vision",
+        fileName = "Qwen3.5-2B-VL_int8.litertlm",
+        description = "Qwen 3.5 · balanced model that also understands images",
+        paramCount = "2B",
+        format = ModelFormat.LITERTLM,
+        promptStyle = PromptStyle.QWEN,
+        supportsVision = true,
+        contextTokens = 4096,
+    ),
+    LlmModel(
+        id = "qwen35-4b",
+        displayName = "Qwen 3.5 4B",
+        fileName = "Qwen3.5-4B_mixed_int4.litertlm",
+        description = "Qwen 3.5 · strongest Qwen for phones, text only",
+        paramCount = "4B",
+        format = ModelFormat.LITERTLM,
+        promptStyle = PromptStyle.QWEN,
         contextTokens = 4096,
     ),
     LlmModel(
@@ -210,9 +243,19 @@ val E5_SMALL_EMBEDDING = EmbeddingModelConfig(
     description       = "Better search for Spaces and Memory, includes Hindi · MIT license, no sign-in",
 )
 
-val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING, E5_SMALL_EMBEDDING)
+/** EmbeddingGemma 2 Text 270M: ungated (Apache-2.0), 100+ languages, LiteRT-LM. File pinned to a verified revision. */
+val EMBEDDINGGEMMA2_EMBEDDING = EmbeddingModelConfig(
+    id          = "embeddinggemma-2-270m",
+    sizeBytes   = 164_626_432L,
+    displayName = "EmbeddingGemma 2",
+    fileName    = "embeddinggemma-2-text-270m.litertlm",
+    description = "Best search for Spaces and Memory, 100+ languages incl. Hindi · Apache-2.0, no sign-in",
+)
+
+val AVAILABLE_EMBEDDING_MODELS = listOf(GECKO_EMBEDDING, E5_SMALL_EMBEDDING, EMBEDDINGGEMMA2_EMBEDDING)
 
 val EMBEDDING_DOWNLOAD_URLS = mapOf(
+    "embeddinggemma-2-270m" to "https://huggingface.co/litert-community/embeddinggemma-2-text-270m-litert-lm/resolve/9be6e8b90982095dc05c2bd162e4b954ee4dbac7/embeddinggemma-2-text-270m.litertlm",
     "gecko-embedding" to "https://storage.googleapis.com/mediapipe-models/text_embedder/universal_sentence_encoder/float32/latest/universal_sentence_encoder.tflite",
     "multilingual-e5-small" to "https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78/onnx/model_int8.onnx",
 )

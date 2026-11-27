@@ -46,3 +46,21 @@ Ungated, MIT license, 100 languages including Hindi. Orbit downloads two files f
 | tokenizer.json | 17,082,730 B | 0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39 |
 
 Checked on a computer with ONNX Runtime and the Hugging Face tokenizer: it matches English and Hindi questions to the right passage across both languages. Orbit's own tokenizer (`UnigramTokenizer`) reproduces the reference token ids for 23 test texts (English, Hindi, Tamil, Gujarati, Japanese, symbols). It does not reproduce zero-width spaces. The check runs when `ORBIT_E5_TOKENIZER` points at `tokenizer.json`. Not yet run on a phone.
+
+## LiteRT-LM 0.20.0 catalog update (2026-11-28)
+
+Runtime moved from LiteRT-LM 0.17.1 to 0.20.0. Its classes are Java 25 bytecode, so JVM unit tests run on a Java 25 toolchain and CI uses JDK 25. Sizes and SHA-256 digests come from the Hugging Face LFS metadata of each pinned revision and are in `ModelChecksums.kt`.
+
+| Model ID | Change | File | Download size | Provider revision |
+| --- | --- | --- | --- | --- |
+| gemma4-e2b | repinned, file byte-identical | gemma-4-E2B-it.litertlm | 2.59 GB | [litert-community/gemma-4-E2B-it-litert-lm@2e12bfd8](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/2e12bfd869b2962984f97a1f2a26807316d534cc) |
+| gemma4-e4b | repinned, file byte-identical | gemma-4-E4B-it.litertlm | 3.66 GB | [litert-community/gemma-4-E4B-it-litert-lm@f254b5ba](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/tree/f254b5ba6e36f7d89cc7892e268e9877bc20f0a0) |
+| qwen35-0.8b | new file (needs LiteRT-LM 0.20+) | Qwen3.5-0.8B_mixed48_h1024.litertlm | 486.5 MB | [litert-community/Qwen3.5-0.8B@7c656dc9](https://huggingface.co/litert-community/Qwen3.5-0.8B/tree/7c656dc9e84b135df6b702e54fbe14a05c67abb8) |
+| qwen35-0.8b-vl | rebuilt file, same name | Qwen3.5-0.8B-VL_int8.litertlm | 1.30 GB | [litert-community/Qwen3.5-0.8B@7c656dc9](https://huggingface.co/litert-community/Qwen3.5-0.8B/tree/7c656dc9e84b135df6b702e54fbe14a05c67abb8) |
+| qwen35-2b | added | Qwen3.5-2B_int8.litertlm | 2.12 GB | [litert-community/Qwen3.5-2B@ab919e9d](https://huggingface.co/litert-community/Qwen3.5-2B/tree/ab919e9d348ec29deb9b5c3c9c559dd50a3a147d) |
+| qwen35-2b-vl | added | Qwen3.5-2B-VL_int8.litertlm | 3.15 GB | [litert-community/Qwen3.5-2B@ab919e9d](https://huggingface.co/litert-community/Qwen3.5-2B/tree/ab919e9d348ec29deb9b5c3c9c559dd50a3a147d) |
+| qwen35-4b | added | Qwen3.5-4B_mixed_int4.litertlm | 2.75 GB | [litert-community/Qwen3.5-4B@d1d2c9e9](https://huggingface.co/litert-community/Qwen3.5-4B/tree/d1d2c9e977626705a749a0f36d58d345b4e09215) |
+
+The previous `qwen35-0.8b` file (`Qwen3.5-0.8B_int8.litertlm`) is listed in `REPLACED_MODEL_FILES` and deleted once the new file has downloaded. Existing downloads of `qwen35-0.8b-vl` keep the older file, since a present file counts as downloaded.
+
+Embedding model added: EmbeddingGemma 2 Text 270M, `embeddinggemma-2-text-270m.litertlm`, 164,626,432 B, SHA-256 `2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb`, from [litert-community/embeddinggemma-2-text-270m-litert-lm@9be6e8b9](https://huggingface.co/litert-community/embeddinggemma-2-text-270m-litert-lm/tree/9be6e8b90982095dc05c2bd162e4b954ee4dbac7). Apache-2.0, not gated. Run with LiteRT-LM's `EmbeddingEngine` on the CPU, 512-token input, normalised vectors at the model's default size; queries use `task: search result | query: …` and stored text `title: none | text: …`. None of these models have been tested on a phone yet.

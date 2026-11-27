@@ -40,6 +40,14 @@ class ModelCatalogTest {
         assertTrue(MODEL_DOWNLOAD_SPECS.getValue("gemma2-2b").files.single().url.contains("Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task"))
     }
 
+    @Test fun replacedFilesAreNeverAFileACurrentModelUses() {
+        val current = AVAILABLE_MODELS.map { it.fileName }.toSet()
+        REPLACED_MODEL_FILES.forEach { (modelId, names) ->
+            assertTrue(AVAILABLE_MODELS.any { it.id == modelId })
+            names.forEach { assertFalse("$modelId would delete $it", it in current) }
+        }
+    }
+
     @Test fun checksumsReferToRealSpecFilesAndAreSha256Hex() {
         MODEL_FILE_SHA256.forEach { (modelId, files) ->
             val spec = MODEL_DOWNLOAD_SPECS.getValue(modelId)

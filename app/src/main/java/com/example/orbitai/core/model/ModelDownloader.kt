@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -169,7 +170,7 @@ class ModelDownloader(private val context: Context) {
                     requiresAuth = spec.requiresAuth,
                     expectedSizeBytes = singleFile.sizeBytes,
                     expectedSha256 = checksums[singleFile.relativePath],
-                )
+                ).onEach { if (it.status == DownloadStatus.COMPLETED) deleteReplacedFiles(model) }
             )
             return@flow
         }
@@ -232,6 +233,15 @@ class ModelDownloader(private val context: Context) {
         val target = File(modelDir, model.fileName)
         if (target.isDirectory) target.deleteRecursively() else target.delete()
         deletePartialDownload(model)
+        deleteReplacedFiles(model)
+    }
+
+    /** Removes files an older catalog version downloaded for [model], once they are no longer needed. */
+    private fun deleteReplacedFiles(model: LlmModel) {
+        REPLACED_MODEL_FILES[model.id].orEmpty().forEach { name ->
+            File(modelDir, name).delete()
+            File(modelDir, "$name.tmp").delete()
+        }
     }
 
     /** Bytes already on disk from an interrupted download, used to offer "Resume". */

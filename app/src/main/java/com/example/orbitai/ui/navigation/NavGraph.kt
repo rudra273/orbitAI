@@ -65,7 +65,6 @@ import com.example.orbitai.ui.screens.ToolsSettingsScreen
 import com.example.orbitai.ui.screens.WelcomeScreen
 import com.example.orbitai.ui.theme.*
 import com.example.orbitai.viewmodel.ModesViewModel
-import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
@@ -136,7 +135,6 @@ fun OrbitNavGraph(
     navController:     NavHostController,
     chatViewModel:     ChatViewModel,
     downloadViewModel: DownloadViewModel,
-    appUpdateViewModel: AppUpdateViewModel,
     spacesViewModel:   SpacesViewModel,
     modesViewModel:    ModesViewModel,
     memoryViewModel:   MemoryViewModel,
@@ -158,14 +156,14 @@ fun OrbitNavGraph(
     // People who already finished the welcome see what changed once; new installs start up to date.
     var showWhatsNew by rememberSaveable {
         mutableStateOf(
-            (onboardingStore.hasCompletedWelcome && onboardingStore.lastSeenWhatsNew < com.example.orbitai.feature.update.WhatsNew.VERSION).also {
-                if (!onboardingStore.hasCompletedWelcome) onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.VERSION
+            (onboardingStore.hasCompletedWelcome && onboardingStore.lastSeenWhatsNew < com.example.orbitai.feature.update.WhatsNew.REVISION).also {
+                if (!onboardingStore.hasCompletedWelcome) onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.REVISION
             },
         )
     }
     if (showWhatsNew) {
         com.example.orbitai.feature.update.WhatsNewDialog {
-            onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.VERSION
+            onboardingStore.lastSeenWhatsNew = com.example.orbitai.feature.update.WhatsNew.REVISION
             showWhatsNew = false
         }
     }
@@ -326,7 +324,6 @@ fun OrbitNavGraph(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     downloadViewModel = downloadViewModel,
-                    appUpdateViewModel = appUpdateViewModel,
                     appearance        = appearance,
                     onNavigate        = { navController.navigate(it) },
                     onBack            = { navController.popBackStack() },

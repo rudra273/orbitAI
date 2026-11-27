@@ -9,15 +9,16 @@ import java.io.File
 
 object LlmInferenceEngineFactory {
 
-    fun create(context: Context, model: LlmModel, settings: InferenceSettings): LlmInferenceEngine {
+    /** [forced] runs on that backend only (speed test); otherwise the model's saved "Run on" choice applies. */
+    fun create(context: Context, model: LlmModel, settings: InferenceSettings, forced: HardwareBackend? = null): LlmInferenceEngine {
         if (model.provider == ModelProvider.GEMINI) {
             return GeminiApiEngine(context, settings)
         }
 
         val modelPath = resolveModelPath(context, model)
         return when (model.format) {
-            ModelFormat.TASK -> MediaPipeTaskEngine(context, modelPath, settings)
-            ModelFormat.LITERTLM -> LiteRtLmEngine(context, modelPath, settings)
+            ModelFormat.TASK -> MediaPipeTaskEngine(context, modelPath, settings, plan(context, model, forced))
+            ModelFormat.LITERTLM -> LiteRtLmEngine(context, modelPath, settings, plan(context, model, forced))
             ModelFormat.ONNX_GENAI -> OnnxGenAiEngine(context, model, settings)
         }
     }
@@ -35,8 +36,12 @@ object LlmInferenceEngineFactory {
             return null
         }
         val modelPath = resolveModelPath(context, model)
-        return LiteRtLmEngine(context, modelPath, settings)
+        return LiteRtLmEngine(context, modelPath, settings, plan(context, model, null))
     }
+
+    private fun plan(context: Context, model: LlmModel, forced: HardwareBackend?): BackendPlan =
+        if (forced != null) BackendPlan(supportedBackends(model), BackendPreference.of(forced))
+        else BackendSettingsStore(context).plan(model)
 
     private fun resolveModelPath(context: Context, model: LlmModel): String {
         val modelRoot = File(context.getExternalFilesDir(null), "models/${model.fileName}")

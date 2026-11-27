@@ -13,7 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
@@ -23,14 +22,12 @@ import com.example.orbitai.feature.bubble.OrbitBubbleService
 import com.example.orbitai.ui.navigation.OrbitNavGraph
 import com.example.orbitai.ui.theme.OrbitAITheme
 import com.example.orbitai.viewmodel.ModesViewModel
-import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.ChatViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 import com.example.orbitai.viewmodel.MemoryViewModel
 import com.example.orbitai.viewmodel.SpacesViewModel
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 /** Where a launcher shortcut, the Quick Settings tile or a notification asked the app to open. */
 sealed interface LaunchRequest {
@@ -55,7 +52,6 @@ class MainActivity : ComponentActivity() {
 
     private val chatViewModel:     ChatViewModel     by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
-    private val appUpdateViewModel: AppUpdateViewModel by viewModels()
     private val spacesViewModel:   SpacesViewModel   by viewModels()
     private val modesViewModel:    ModesViewModel    by viewModels()
     private val memoryViewModel:   MemoryViewModel   by viewModels()
@@ -102,13 +98,12 @@ class MainActivity : ComponentActivity() {
                 // ── System bar colours ─────────────────────────────────────
                 // Make status bar and nav bar fully transparent so our deep
                 // space background bleeds to the very edges of the screen.
-                val systemUiController = rememberSystemUiController()
                 SideEffect {
-                    systemUiController.setSystemBarsColor(
-                        color         = Color.Transparent,
-                        darkIcons     = !isDarkTheme,
-                        isNavigationBarContrastEnforced = false,
-                    )
+                    WindowCompat.getInsetsController(window, window.decorView).apply {
+                        isAppearanceLightStatusBars = !isDarkTheme
+                        isAppearanceLightNavigationBars = !isDarkTheme
+                    }
+                    window.isNavigationBarContrastEnforced = false
                 }
 
                 val navController = rememberNavController()
@@ -117,7 +112,6 @@ class MainActivity : ComponentActivity() {
                     navController     = navController,
                     chatViewModel     = chatViewModel,
                     downloadViewModel = downloadViewModel,
-                    appUpdateViewModel = appUpdateViewModel,
                     spacesViewModel   = spacesViewModel,
                     modesViewModel    = modesViewModel,
                     memoryViewModel   = memoryViewModel,
@@ -148,7 +142,6 @@ class MainActivity : ComponentActivity() {
         if (BubbleSettingsStore(this).isFloatingBubbleEnabled) {
             OrbitBubbleService.setAppForeground(this, true)
         }
-        appUpdateViewModel.refreshAfterResume()
     }
 
     override fun onStop() {

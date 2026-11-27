@@ -175,13 +175,14 @@ internal class CallFlowController(
         if (contact !in review.contacts || (review.voice && review.selected != contact)) return
         if (pendingCall != null) return
         val app = ctx.app
-        if (!dialOnly && contact.number.count(Char::isDigit) >= 7 &&
+        val executor = CallExecutor(app)
+        if (executor.canCallDirectly(contact, dialOnly) &&
             androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.CALL_PHONE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             pendingCall = contact
             viewModelScope.launch { _events.emit(ChatUiEvent.RequestCallPermission) }
             return
         }
-        val error = CallExecutor(app).launch(contact, dialOnly)
+        val error = executor.launch(contact, dialOnly)
         val message = if (error == null) "Phone app opened for ${contact.name}." else error
         _uiState.update { it.copy(loadError = error, infoMessage = if (error == null) message else null) }
         if (error == null) dismissCallReview()

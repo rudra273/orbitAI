@@ -105,6 +105,7 @@ fun ModelSettingsScreen(
 ) {
     val progressMap by downloadViewModel.progress.collectAsState()
     val embeddingProgressMap by downloadViewModel.embeddingProgress.collectAsState()
+    val startDownload = rememberModelDownloadAction(downloadViewModel)
 
     var tokenSaved by remember { mutableStateOf(tokenStore.hasToken()) }
     var geminiExpanded by remember { mutableStateOf(false) }
@@ -118,7 +119,7 @@ fun ModelSettingsScreen(
     val reindexRemaining by downloadViewModel.reindexRemaining(activeEmbedderId).collectAsState(0)
 
     val recommendedId = downloadViewModel.recommendedModelId
-    val topPickIds = (listOfNotNull(recommendedId) + listOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b"))
+    val topPickIds = (listOf("qwen35-4b", "gemma4-e4b") + listOfNotNull(recommendedId) + listOf("gemma4-e2b", "onnx-phi3-mini-4k", "onnx-gemma3-4b-it", "onnx-llama3.2-3b", "gemma3-1b"))
         .distinct()
     // Sort top picks based on the order in the set
     val topPickModels = topPickIds.mapNotNull { id -> AVAILABLE_MODELS.find { it.id == id } }
@@ -127,6 +128,8 @@ fun ModelSettingsScreen(
         .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
     val embedModels = AVAILABLE_EMBEDDING_MODELS
         .filter { it.displayName.contains(searchQuery, ignoreCase = true) || it.id.contains(searchQuery, ignoreCase = true) }
+
+    SpeedTestDialog(downloadViewModel)
 
     LazyColumn(
         modifier = Modifier
@@ -278,7 +281,7 @@ fun ModelSettingsScreen(
                                 if (MODEL_DOWNLOAD_SPECS[model.id]?.requiresAuth == true && !tokenStore.hasToken()) {
                                     onNavigateToToken()
                                 } else {
-                                    downloadViewModel.startDownload(model)
+                                    startDownload(model)
                                 }
                             },
                             onDelete = { downloadViewModel.deleteModel(model) },
@@ -286,6 +289,7 @@ fun ModelSettingsScreen(
                             onPause = { downloadViewModel.pauseDownload(model) },
                             fit = downloadViewModel.fitOf(model),
                             isRecommendedForPhone = model.id == recommendedId,
+                            backendControls = { ModelBackendControls(model, downloadViewModel) },
                         )
                         if (index != topPickModels.lastIndex) HairlineDivider()
                     }
@@ -337,13 +341,14 @@ fun ModelSettingsScreen(
                                     if (MODEL_DOWNLOAD_SPECS[model.id]?.requiresAuth == true && !tokenStore.hasToken()) {
                                         onNavigateToToken()
                                     } else {
-                                        downloadViewModel.startDownload(model)
+                                        startDownload(model)
                                     }
                                 },
                                 onDelete = { downloadViewModel.deleteModel(model) },
                                 onCancel = { downloadViewModel.cancelDownload(model) },
                                 onPause = { downloadViewModel.pauseDownload(model) },
                                 fit = downloadViewModel.fitOf(model),
+                                backendControls = { ModelBackendControls(model, downloadViewModel) },
                             )
                             if (index != allModels.lastIndex) HairlineDivider()
                         }
@@ -729,6 +734,7 @@ private fun ModelRow(
     onPause: () -> Unit = {},
     fit: ModelFit = ModelFit.GOOD,
     isRecommendedForPhone: Boolean = false,
+    backendControls: @Composable () -> Unit = {},
 ) {
     var confirmLargeDownload by remember { mutableStateOf(false) }
     if (confirmLargeDownload) {
@@ -877,6 +883,7 @@ private fun ModelRow(
                     fontSize = 11.sp,
                 )
             }
+            if (isInstalled) backendControls()
         }
 
         when {

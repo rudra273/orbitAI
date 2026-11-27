@@ -287,9 +287,6 @@ private fun FlatModeCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (mode.isActive) {
-                    ActiveDot()
-                }
             }
             Text(
                 text = compactPrompt(mode.systemPrompt),
@@ -305,16 +302,6 @@ private fun FlatModeCard(
             }
         }
     }
-}
-
-@Composable
-private fun ActiveDot() {
-    Box(
-        modifier = Modifier
-            .size(7.dp)
-            .clip(CircleShape)
-            .background(ModesActiveGreen),
-    )
 }
 
 @Composable
@@ -388,22 +375,6 @@ private fun BuiltInModeRow(
     com.example.orbitai.ui.components.OrbitListRow(
         title = mode.name,
         subtitle = compactPrompt(mode.systemPrompt),
-        trailing = if (mode.isActive) {
-            {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ActiveDot()
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
-                        tint = Color.Transparent,
-                        modifier = Modifier.size(0.dp),
-                    )
-                }
-            }
-        } else null,
         onClick = onClick,
     )
 }
@@ -558,28 +529,14 @@ private fun ModeEditScreen(
                                 .padding(horizontal = 10.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isActive) ModesActiveGreen
-                                            else ModesInk.copy(alpha = 0.30f)
-                                        ),
-                                )
-                                Text(
-                                    text = if (isActive) "Active" else "Hidden",
-                                    color = if (isActive) ModesActiveGreen
-                                    else ModesInk.copy(alpha = 0.50f),
-                                    fontFamily = ModesMono,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            }
+                            Text(
+                                text = if (isActive) "Active" else "Hidden",
+                                color = if (isActive) ModesActiveGreen
+                                else ModesInk.copy(alpha = 0.50f),
+                                fontFamily = ModesMono,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
                         }
                         Spacer(Modifier.width(6.dp))
                         FlatActionButton(

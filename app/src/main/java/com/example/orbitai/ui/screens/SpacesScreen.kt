@@ -302,13 +302,6 @@ private fun SpaceCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(VioletCore.copy(alpha = if (isActive) 1f else 0.4f)),
-            )
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = space.name,

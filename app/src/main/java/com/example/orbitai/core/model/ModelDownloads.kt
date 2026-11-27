@@ -60,6 +60,11 @@ private fun folderSpec(
     )
 }
 
+/** modelId -> files an earlier catalog version stored for it; deleted when the current file finishes downloading. */
+val REPLACED_MODEL_FILES: Map<String, List<String>> = mapOf(
+    "qwen35-0.8b" to listOf("Qwen3.5-0.8B_int8.litertlm"),
+)
+
 val MODEL_DOWNLOAD_SPECS = mapOf(
     "gemma3-1b-litertlm" to singleFileSpec(
         repo = "litert-community/Gemma3-1B-IT",
@@ -99,23 +104,47 @@ val MODEL_DOWNLOAD_SPECS = mapOf(
         localPath = "gemma-4-E2B-it-int4.litertlm",
         requiresAuth = false,
         sizeBytes = 2_588_147_712L,
-        revision = "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+        revision = "2e12bfd869b2962984f97a1f2a26807316d534cc",
     ),
     "qwen35-0.8b" to singleFileSpec(
         repo = "litert-community/Qwen3.5-0.8B",
-        remotePath = "Qwen3.5-0.8B_int8.litertlm",
-        localPath = "Qwen3.5-0.8B_int8.litertlm",
+        remotePath = "Qwen3.5-0.8B_mixed48_h1024.litertlm",
+        localPath = "Qwen3.5-0.8B_mixed48_h1024.litertlm",
         requiresAuth = false,
-        sizeBytes = 963_184_864L,
-        revision = "03d910d3643b5ef29babed32327bdfad39fd1aef",
+        sizeBytes = 486_539_264L,
+        revision = "7c656dc9e84b135df6b702e54fbe14a05c67abb8",
     ),
     "qwen35-0.8b-vl" to singleFileSpec(
         repo = "litert-community/Qwen3.5-0.8B",
         remotePath = "Qwen3.5-0.8B-VL_int8.litertlm",
         localPath = "Qwen3.5-0.8B-VL_int8.litertlm",
         requiresAuth = false,
-        sizeBytes = 1_302_262_448L,
-        revision = "03d910d3643b5ef29babed32327bdfad39fd1aef",
+        sizeBytes = 1_303_724_032L,
+        revision = "7c656dc9e84b135df6b702e54fbe14a05c67abb8",
+    ),
+    "qwen35-2b" to singleFileSpec(
+        repo = "litert-community/Qwen3.5-2B",
+        remotePath = "Qwen3.5-2B_int8.litertlm",
+        localPath = "Qwen3.5-2B_int8.litertlm",
+        requiresAuth = false,
+        sizeBytes = 2_119_843_840L,
+        revision = "ab919e9d348ec29deb9b5c3c9c559dd50a3a147d",
+    ),
+    "qwen35-2b-vl" to singleFileSpec(
+        repo = "litert-community/Qwen3.5-2B",
+        remotePath = "Qwen3.5-2B-VL_int8.litertlm",
+        localPath = "Qwen3.5-2B-VL_int8.litertlm",
+        requiresAuth = false,
+        sizeBytes = 3_152_429_056L,
+        revision = "ab919e9d348ec29deb9b5c3c9c559dd50a3a147d",
+    ),
+    "qwen35-4b" to singleFileSpec(
+        repo = "litert-community/Qwen3.5-4B",
+        remotePath = "Qwen3.5-4B_mixed_int4.litertlm",
+        localPath = "Qwen3.5-4B_mixed_int4.litertlm",
+        requiresAuth = false,
+        sizeBytes = 2_754_166_784L,
+        revision = "d1d2c9e977626705a749a0f36d58d345b4e09215",
     ),
     "gemma4-e4b" to singleFileSpec(
         repo = "litert-community/gemma-4-E4B-it-litert-lm",
@@ -123,7 +152,7 @@ val MODEL_DOWNLOAD_SPECS = mapOf(
         localPath = "gemma-4-E4B-it-int4.litertlm",
         requiresAuth = false,
         sizeBytes = 3_659_530_240L,
-        revision = "2eee7ac325f20eb8c9ac1d0e972f7c84663062da",
+        revision = "f254b5ba6e36f7d89cc7892e268e9877bc20f0a0",
     ),
     "gemma2-2b" to singleFileSpec(
         repo = "litert-community/Gemma2-2B-IT",

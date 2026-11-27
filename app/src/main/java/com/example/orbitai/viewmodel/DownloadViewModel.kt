@@ -20,6 +20,12 @@ import com.example.orbitai.core.model.DeviceFit
 import com.example.orbitai.core.model.DeviceSpecs
 import com.example.orbitai.core.model.ModelFit
 import com.example.orbitai.core.common.DownloadSettingsStore
+import com.example.orbitai.core.engine.BackendCascade
+import com.example.orbitai.core.engine.BackendPreference
+import com.example.orbitai.core.engine.BackendSettingsStore
+import com.example.orbitai.core.engine.BackendSpeedTest
+import com.example.orbitai.core.engine.HardwareBackend
+import com.example.orbitai.core.engine.SpeedTestResults
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -241,5 +247,65 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         _embeddingProgress.update {
             it + (model.id to DownloadProgress(model.id, status = DownloadStatus.IDLE))
         }
+    }
+
+    // ── Run on (GPU / CPU / NPU) and speed test ──────────────────────────────
+
+    data class SpeedTestState(
+        val modelId: String,
+        val started: Boolean = false,
+        val running: HardwareBackend? = null,
+        val results: SpeedTestResults? = null,
+        val error: String? = null,
+    )
+
+    private val backendSettings = BackendSettingsStore(application)
+    private val speedTest = BackendSpeedTest(application, application.appContainer.llmRepository)
+
+    private val _speedTestState = MutableStateFlow<SpeedTestState?>(null)
+    val speedTestState: StateFlow<SpeedTestState?> = _speedTestState.asStateFlow()
+
+    /** Bumped when a choice or test result changes, so rows re-read them. */
+    private val _backendVersion = MutableStateFlow(0)
+    val backendVersion: StateFlow<Int> = _backendVersion.asStateFlow()
+
+    fun supportedBackends(model: LlmModel): List<HardwareBackend> = com.example.orbitai.core.engine.supportedBackends(model)
+
+    fun backendPreference(model: LlmModel): BackendPreference = backendSettings.preference(model.id)
+
+    fun speedResults(model: LlmModel): SpeedTestResults? = backendSettings.results(model.id)
+
+    fun setBackendPreference(model: LlmModel, preference: BackendPreference) {
+        backendSettings.setPreference(model.id, preference)
+        // Picking a backend gives it a fresh try even if it failed before.
+        preference.backend?.let { BackendCascade(getApplication(), java.io.File(model.fileName).name).forget(it) }
+        _backendVersion.update { it + 1 }
+    }
+
+    fun openSpeedTest(model: LlmModel) {
+        if (_speedTestState.value?.let { it.started && it.results == null && it.error == null } == true) return
+        _speedTestState.value = SpeedTestState(model.id)
+    }
+
+    fun startSpeedTest(model: LlmModel) {
+        _speedTestState.value = SpeedTestState(model.id, started = true)
+        viewModelScope.launch {
+            _speedTestState.value = try {
+                val results = speedTest.run(model) { backend -> _speedTestState.update { it?.copy(running = backend) } }
+                SpeedTestState(model.id, started = true, results = results)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SpeedTestState(model.id, started = true, error = e.message ?: e.javaClass.simpleName)
+            }
+            _backendVersion.update { it + 1 }
+        }
+    }
+
+    /** Closes the dialog unless a test is still running. */
+    fun dismissSpeedTest() {
+        val state = _speedTestState.value ?: return
+        if (state.started && state.results == null && state.error == null) return
+        _speedTestState.value = null
     }
 }

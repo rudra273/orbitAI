@@ -80,7 +80,7 @@ Android notification access can also be revoked from the same screen.
 ### Build & Run
 
 ```sh
-./gradlew installDebug && adb shell monkey -p com.example.orbitai -c android.intent.category.LAUNCHER 1
+./gradlew installDebug && adb shell monkey -p com.orbitai -c android.intent.category.LAUNCHER 1
 ```
 
 To view logs:
@@ -141,7 +141,7 @@ orbitReportEndpoint=YOUR_PRODUCTION_HTTPS_REPORT_ENDPOINT
 
 These are configuration placeholders in this documentation, not working destinations. Release builds refuse missing or invalid configuration. The equivalent environment variables are `ORBIT_SUPPORT_EMAIL`, `ORBIT_PRIVACY_POLICY_URL` and `ORBIT_REPORT_ENDPOINT`. Debug builds work without them, but reports cannot be sent until the endpoint is configured.
 
-See [Play release checklist](docs/play-release-checklist.md) for the report endpoint contract, required policy publication and Play Console steps.
+The public policy is served by the Rosmox site at `/products/orbit-ai/privacy-policy`. The report endpoint is `https://www.rosmox.com/api/orbit/reports`. Orbit sends the confirmed reply excerpt, optional note, source, app version and submission ID. The service returns the matching report ID after Brevo accepts the email. Orbit limits successful submissions to three per app installation per UTC day. An unconfigured build hides the report controls.
 
 Build the signed Play artifact locally:
 
@@ -151,7 +151,9 @@ Build the signed Play artifact locally:
 
 Upload the generated `.aab` from `app/build/outputs/bundle/release/` to Play Console.
 
-For GitHub release builds, also set repository variables `ORBIT_SUPPORT_EMAIL`, `ORBIT_PRIVACY_POLICY_URL` and `ORBIT_REPORT_ENDPOINT`. Add these repository secrets for signing:
+Use `./gradlew bundleQa` for a locally signed QA bundle with AI response reporting disabled. The bundle appears in `app/build/outputs/bundle/qa/` and is for testing before the reporting service is available.
+
+To build the Play bundle with GitHub Actions, set repository variables `ORBIT_SUPPORT_EMAIL`, `ORBIT_PRIVACY_POLICY_URL` and `ORBIT_REPORT_ENDPOINT`. Add these repository secrets for signing:
 
 ```text
 ANDROID_UPLOAD_KEYSTORE_BASE64
@@ -166,7 +168,7 @@ Copy the keystore into `ANDROID_UPLOAD_KEYSTORE_BASE64` on macOS:
 base64 -i ~/android-signing/upload-key.p12 | tr -d '\n' | pbcopy
 ```
 
-Set `ANDROID_UPLOAD_KEY_ALIAS` to `upload-key`. Pushing a tag such as `v1.0.0` will build and upload signed release artifacts.
+Set `ANDROID_UPLOAD_KEY_ALIAS` to `upload-key`. Set `versionName` and increment `versionCode` in `app/build.gradle.kts` for each Play release. Push a matching tag such as `v1.0.0` to build a signed bundle, then download the `signed-play-release` workflow artifact and upload the `.aab` to Play Console.
 
 ### Models
 - Place your LLM and embedding models in the app's external files directory under `models/`.

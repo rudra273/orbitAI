@@ -16,10 +16,22 @@ fun callableNumber(value: String): String? {
 
 data class CallContact(val name: String, val number: String)
 
-class CallExecutor(private val context: Context) {
+class CallExecutor internal constructor(
+    private val context: Context,
+    private val supportsDirectCalls: Boolean,
+) {
+    constructor(context: Context) : this(
+        context,
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CALLING),
+    )
+
+    fun canCallDirectly(contact: CallContact, dialOnly: Boolean): Boolean =
+        supportsDirectCalls && !dialOnly &&
+            (callableNumber(contact.number)?.count(Char::isDigit) ?: 0) >= 7
+
     fun launch(contact: CallContact, dialOnly: Boolean = false): String? {
         val number = callableNumber(contact.number) ?: return "That phone number isn't valid."
-        val direct = !dialOnly && number.count(Char::isDigit) >= 7
+        val direct = canCallDirectly(contact, dialOnly)
         if (direct && ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             return "Phone permission is required. You can open the dialer instead."
         }

@@ -15,7 +15,7 @@ OrbitAI is a single-module Android app (`:app`). Dependencies are managed via a 
 
 ```sh
 # Install & launch on a connected device/emulator
-./gradlew installDebug && adb shell monkey -p com.example.orbitai -c android.intent.category.LAUNCHER 1
+./gradlew installDebug && adb shell monkey -p com.orbitai -c android.intent.category.LAUNCHER 1
 
 # Logs
 adb logcat | grep orbitai   # or filter by tag, e.g. ChatViewModel
@@ -32,7 +32,7 @@ adb logcat | grep orbitai   # or filter by tag, e.g. ChatViewModel
 ./gradlew bundleRelease     # signed .aab (requires keystore.properties — see README)
 ```
 
-Release signing reads `keystore.properties` at the repo root (gitignored). Without it, release builds are unsigned. Version name/code are derived from `ORBIT_RELEASE_VERSION`/`ORBIT_RELEASE_CODE` env vars or `orbitReleaseVersion`/`orbitReleaseCode` gradle properties (see `parseReleaseVersion*` in `app/build.gradle.kts`). CI (`.github/workflows/build-release.yml`) builds unsigned on PRs to `main` and signed releases on `v*` tags.
+Release signing reads `keystore.properties` at the repo root (gitignored). Without it, release builds are unsigned. Set `versionName` and `versionCode` in `app/build.gradle.kts`. The About screen reads the same version name from `BuildConfig`. CI (`.github/workflows/build-release.yml`) builds unsigned bundles on pull requests and signed Play bundles on version tags.
 
 ## Architecture
 
@@ -97,4 +97,4 @@ Lightweight `SharedPreferences` wrappers, one concern each: `TokenStore` (HF tok
 
 - Package layout is `core/*` (engine, model, prompt, database, common) for infrastructure and `feature/*` for user-facing features; UI is `ui/screens`, `ui/navigation`, `ui/theme`; ViewModels in `viewmodel/`.
 - Long-running work runs on `Dispatchers.IO` inside `viewModelScope`; generation cancellation uses the token pattern, not just `Job.cancel()`.
-- The `applicationId`/`namespace` is `com.example.orbitai` (kept as-is despite the `example` prefix — don't rename without cause).
+- The Play application ID is `com.orbitai`. The Kotlin and generated-code namespace is `com.example.orbitai`.

@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -55,6 +56,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DigestScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val settings = remember { DigestSettings(context) }
     val runner = remember { TextActionRunner(context.applicationContext) }
     val scope = rememberCoroutineScope()
@@ -172,8 +174,8 @@ fun DigestScreen(onBack: () -> Unit) {
                             val items = DigestBuffer.shared.snapshot()
                             val model = runner.localModel()
                             when {
-                                items.isEmpty() -> message = context.getString(R.string.digest_nothing)
-                                model == null -> message = context.getString(R.string.digest_needs_model)
+                                items.isEmpty() -> message = resources.getString(R.string.digest_nothing)
+                                model == null -> message = resources.getString(R.string.digest_needs_model)
                                 else -> scope.launch {
                                     running = true
                                     message = null
@@ -184,7 +186,7 @@ fun DigestScreen(onBack: () -> Unit) {
                                     } catch (e: CancellationException) {
                                         throw e
                                     } catch (e: Exception) {
-                                        message = context.getString(R.string.digest_failed, e.message ?: e.javaClass.simpleName)
+                                        message = resources.getString(R.string.digest_failed, e.message ?: e.javaClass.simpleName)
                                     }
                                     running = false
                                 }

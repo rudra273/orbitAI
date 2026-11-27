@@ -1,8 +1,11 @@
 package com.example.orbitai.database
 
-import android.database.sqlite.SQLiteDatabase
+import android.content.Context
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.orbitai.core.database.AppDatabase
 import com.example.orbitai.core.database.CONCISE_MODE_ID
@@ -15,6 +18,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+
+/** Versions 1–12 predate the exported Room schemas. Build from v1 and stop at the fixture's version. */
+internal fun createHistoricalDatabase(
+    context: Context,
+    name: String,
+    version: Int,
+    seed: (SupportSQLiteDatabase) -> Unit,
+) {
+    val callback = object : SupportSQLiteOpenHelper.Callback(version) {
+        override fun onCreate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS `chats` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `modelId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS `messages` (`id` TEXT NOT NULL, `chatId` TEXT NOT NULL, `role` TEXT NOT NULL, `content` TEXT NOT NULL, `timestampMs` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`chatId`) REFERENCES `chats`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_chatId` ON `messages` (`chatId`)")
+            AppDatabase.ALL_MIGRATIONS
+                .takeWhile { it.endVersion <= version }
+                .forEach { it.migrate(db) }
+            seed(db)
+        }
+
+        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) =
+            error("Expected a new migration fixture for $name")
+    }
+    val config = SupportSQLiteOpenHelper.Configuration.builder(context)
+        .name(name)
+        .callback(callback)
+        .build()
+    FrameworkSQLiteOpenHelperFactory().create(config).use { it.writableDatabase }
+}
 
 class MigrationTest {
 
@@ -29,14 +60,9 @@ class MigrationTest {
     fun version1UpgradesThroughEveryMigrationAndKeepsChats() = runBlocking {
         val name = "migration-v1-${UUID.randomUUID()}.db"
         try {
-            context.getDatabasePath(name).parentFile?.mkdirs()
-            SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name), null).use { db ->
-                db.execSQL("CREATE TABLE IF NOT EXISTS `chats` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `modelId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
-                db.execSQL("CREATE TABLE IF NOT EXISTS `messages` (`id` TEXT NOT NULL, `chatId` TEXT NOT NULL, `role` TEXT NOT NULL, `content` TEXT NOT NULL, `timestampMs` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`chatId`) REFERENCES `chats`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_chatId` ON `messages` (`chatId`)")
+            createHistoricalDatabase(context, name, version = 1) { db ->
                 db.execSQL("INSERT INTO chats (id, title, modelId, createdAt) VALUES ('chat', 'Old chat', 'gemma3-1b', 1)")
                 db.execSQL("INSERT INTO messages (id, chatId, role, content, timestampMs) VALUES ('msg', 'chat', 'USER', 'Hello from v1', 2)")
-                db.version = 1
             }
 
             // Room validates the migrated schema against the current entities when it opens.

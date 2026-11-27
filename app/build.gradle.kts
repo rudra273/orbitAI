@@ -17,28 +17,6 @@ val playReportEndpoint = providers.gradleProperty("orbitReportEndpoint")
 fun String.javaStringLiteral() = "\"" + replace("\\", "\\\\")
     .replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
 
-fun parseReleaseVersionName(): String {
-    val rawVersion = System.getenv("ORBIT_RELEASE_VERSION")
-        ?: (findProperty("orbitReleaseVersion") as String?)
-        ?: "1.0.0"
-    return rawVersion.removePrefix("v")
-}
-
-fun parseReleaseVersionCode(versionName: String): Int {
-    val explicitVersionCode = System.getenv("ORBIT_RELEASE_CODE")
-        ?: (findProperty("orbitReleaseCode") as String?)
-    explicitVersionCode?.toIntOrNull()?.let { return it }
-
-    val numericPart = versionName.substringBefore('-')
-    val parts = numericPart.split('.').mapNotNull { it.toIntOrNull() }
-    if (parts.isEmpty()) return 1
-
-    val major = parts.getOrElse(0) { 0 }.coerceAtLeast(0)
-    val minor = parts.getOrElse(1) { 0 }.coerceIn(0, 99)
-    val patch = parts.getOrElse(2) { 0 }.coerceIn(0, 99)
-    return (major * 10_000) + (minor * 100) + patch
-}
-
 android {
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties().apply {
@@ -58,18 +36,17 @@ android {
 
     namespace = "com.example.orbitai"
     compileSdk {
-        version = release(36) {
+        version = release(37) {
             minorApiLevel = 1
         }
     }
 
     defaultConfig {
-        val releaseVersionName = parseReleaseVersionName()
-        applicationId = "com.example.orbitai"
+        applicationId = "com.orbitai"
         minSdk = 35
         targetSdk = 36
-        versionCode = parseReleaseVersionCode(releaseVersionName)
-        versionName = releaseVersionName
+        versionCode = 2
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "SUPPORT_EMAIL", playSupportEmail.javaStringLiteral())
         buildConfigField("String", "PRIVACY_POLICY_URL", playPrivacyPolicyUrl.javaStringLiteral())
@@ -92,11 +69,17 @@ android {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        create("qa") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
+            versionNameSuffix = "-qa"
+            buildConfigField("String", "REPORT_ENDPOINT", "".javaStringLiteral())
         }
     }
 
@@ -162,12 +145,27 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
     dependsOn(validatePlayReleaseConfiguration)
 }
 
+val validateQaSigning = tasks.register("validateQaSigning") {
+    doLast {
+        check(android.buildTypes.getByName("qa").signingConfig != null) {
+            "Set the upload key and its credentials in keystore.properties before building a signed QA bundle."
+        }
+    }
+}
+tasks.matching { it.name == "preQaBuild" }.configureEach {
+    dependsOn(validateQaSigning)
+}
+// LiteRT-LM 0.20+ ships Java 25 class files, so JVM unit tests that load it need a Java 25 runtime.
+tasks.withType<Test>().configureEach {
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+}
+
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.google.genai:google-genai:1.44.0") {
+    implementation("com.google.genai:google-genai:2.6.0") {
         exclude(group = "com.google.protobuf", module = "protobuf-java")
     }
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -180,7 +178,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
-    implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
 
     implementation(libs.mediapipe.llm.inference)
     implementation(libs.litertlm.android)

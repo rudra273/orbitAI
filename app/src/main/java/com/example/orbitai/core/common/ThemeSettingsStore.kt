@@ -37,7 +37,7 @@ class ThemeSettingsStore(context: Context) {
         }
 
     /**
-     * Fresh installs follow the system. Users who picked a theme before 2.0 keep it: the old
+     * Fresh installs follow the system. Users who picked a theme in an earlier build keep it: the old
      * `is_dark_theme` flag becomes an explicit Light or Dark choice.
      */
     private fun themeMode(): ThemeMode = resolveMode(
@@ -46,7 +46,7 @@ class ThemeSettingsStore(context: Context) {
     )
 
     companion object {
-        /** [legacyDark] is the pre-2.0 `is_dark_theme` value, or null if it was never set. */
+        /** [legacyDark] is the previous `is_dark_theme` value, or null if it was never set. */
         fun resolveMode(stored: String?, legacyDark: Boolean?): ThemeMode {
             stored?.let { name -> ThemeMode.entries.firstOrNull { it.name == name }?.let { return it } }
             return when (legacyDark) {

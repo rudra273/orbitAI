@@ -25,6 +25,8 @@ class LlmRepository(
     private var conversationEngine: LlmConversationEngine? = null
     private var currentModelId: String? = null
     private var currentSettings: InferenceSettings? = null
+    private var currentBackendKey: String? = null
+    private val backendSettings = BackendSettingsStore(context)
     private var activeUses = 0
     private val beforeEngineClose = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
@@ -41,9 +43,11 @@ class LlmRepository(
         beforeEngineClose.forEach { runCatching(it) }
     }
 
+    /** Loads [model], reloading when the model, settings or its "Run on" choice changed. [forced] is for the speed test. */
     @Synchronized
-    fun loadModel(model: LlmModel, settings: InferenceSettings) {
-        if (currentModelId == model.id && currentSettings == settings && engine != null) return
+    fun loadModel(model: LlmModel, settings: InferenceSettings, forced: HardwareBackend? = null) {
+        val backendKey = forced?.let { "forced:${it.name}" } ?: backendSettings.loadKey(model.id)
+        if (currentModelId == model.id && currentSettings == settings && currentBackendKey == backendKey && engine != null) return
 
         if (engine != null) notifyEngineClosing()
         engine?.close()
@@ -55,10 +59,11 @@ class LlmRepository(
         conversationEngine = null
         currentModelId = null
         currentSettings = null
+        currentBackendKey = null
 
         val size = MODEL_DOWNLOAD_SPECS[model.id]?.totalSizeBytes?.let { " (${formatModelSize(it)})" }.orEmpty()
         onModelStateChanged("loading ${model.id}$size")
-        val created = LlmInferenceEngineFactory.create(context, model, settings)
+        val created = LlmInferenceEngineFactory.create(context, model, settings, forced)
         engine = created
         onModelStateChanged("${model.id}$size on ${activeBackendLabel()}")
 
@@ -67,6 +72,7 @@ class LlmRepository(
 
         currentModelId = model.id
         currentSettings = settings
+        currentBackendKey = backendKey
     }
 
     fun generateResponseStream(input: InferenceInput, maxDecodedTokens: Int): Flow<String> {
@@ -87,7 +93,8 @@ class LlmRepository(
 
     @Synchronized
     fun isModelLoaded(modelId: String, settings: InferenceSettings) =
-        currentModelId == modelId && currentSettings == settings && engine != null
+        currentModelId == modelId && currentSettings == settings && engine != null &&
+            currentBackendKey == backendSettings.loadKey(modelId)
 
     @Synchronized
     fun beginUse() {
@@ -133,5 +140,6 @@ class LlmRepository(
         conversationEngine = null
         currentModelId = null
         currentSettings = null
+        currentBackendKey = null
     }
 }

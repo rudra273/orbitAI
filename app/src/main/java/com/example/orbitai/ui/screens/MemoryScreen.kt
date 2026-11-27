@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.nativePaint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
@@ -352,7 +353,7 @@ private fun MemoryToggleCard(
                             drawIntoCanvas { canvas ->
                                 if (enabled) {
                                     val paint = Paint().apply {
-                                        asFrameworkPaint().apply {
+                                        nativePaint.apply {
                                             isAntiAlias = true
                                             color       = android.graphics.Color.TRANSPARENT
                                             setShadowLayer(
@@ -563,7 +564,7 @@ private fun MemoryEmptyState(enabled: Boolean) {
                 .drawBehind {
                     drawIntoCanvas { canvas ->
                         val paint = Paint().apply {
-                            asFrameworkPaint().apply {
+                            nativePaint.apply {
                                 isAntiAlias = true
                                 color       = android.graphics.Color.TRANSPARENT
                                 setShadowLayer(

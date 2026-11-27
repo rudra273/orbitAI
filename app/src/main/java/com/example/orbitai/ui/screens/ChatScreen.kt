@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.foundation.verticalScroll
+import com.example.orbitai.feature.reporting.ContentReportRepository
 import com.example.orbitai.feature.prompts.CommandPalette
 import com.example.orbitai.feature.prompts.PaletteItem
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -60,6 +61,7 @@ import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.*
@@ -726,14 +728,8 @@ private fun OnDeviceModelPill(
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(OnDevicePillText),
-            )
             Text(
                 text  = if (isLocal) "On-device" else selectedModel?.displayName ?: "Cloud",
                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
@@ -773,11 +769,11 @@ private fun OnDeviceModelPill(
                     },
                     onClick = { onModelSelected(model); expanded = false },
                     trailingIcon = if (isSelected) ({
-                        Box(
-                            Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(VioletCore)
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint     = VioletCore,
+                            modifier = Modifier.size(16.dp),
                         )
                     }) else null,
                 )
@@ -914,11 +910,11 @@ private fun ComposerSpaceChip(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(if (hasActive) VioletCore else colors.labelTertiary),
+            Icon(
+                Icons.Outlined.FolderOpen,
+                contentDescription = null,
+                tint     = if (hasActive) VioletCore else colors.labelSecondary,
+                modifier = Modifier.size(14.dp),
             )
             Text(
                 text       = label,
@@ -1180,7 +1176,9 @@ private fun MessageBubble(
                     )
                     MessageActionIcon(Icons.Outlined.Share, "Share reply", onClick = share)
                     MessageActionIcon(Icons.Outlined.Alarm, "Remind me about this", onClick = onRemind)
-                    MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
+                    if (ContentReportRepository.isConfigured) {
+                        MessageActionIcon(Icons.Outlined.Flag, "Report reply") { reportedResponse = msg.content }
+                    }
                     if (msg.usedMemories.isNotEmpty()) {
                         var showMemories by remember { mutableStateOf(false) }
                         TextButton(
@@ -1718,14 +1716,8 @@ private fun StatusBanner(text: String, color: Color) {
             .background(color.copy(alpha = 0.08f))
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(color),
-        )
         Text(
             text  = text,
             style = MaterialTheme.typography.labelLarge,

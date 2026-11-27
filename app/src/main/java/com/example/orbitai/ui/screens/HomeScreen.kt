@@ -70,7 +70,6 @@ private val dividerColor @Composable get() = com.example.orbitai.ui.theme.OrbitT
 private val popupSurface @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.surfaceElevated
 private val tagBackground @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accentContainer
 private val Violet @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.accent
-private val Green @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.success
 private val DeleteRed @Composable get() = com.example.orbitai.ui.theme.OrbitTheme.colors.destructive
 
 private val Sans = com.example.orbitai.ui.theme.OrbitUiFont
@@ -532,43 +531,19 @@ private fun ChatRow(
                         modifier = Modifier.padding(top = 2.dp),
                     )
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (isOnDeviceModel(chat.modelId)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Green),
-                            )
-                            Spacer(Modifier.size(6.dp))
-                        }
-
+                    val spaceTag = extractSpaceTag(chat)
+                    if (spaceTag != null) {
                         Text(
-                            text = "${formatChatTimestamp(chatTimestamp(chat))} · ${displayModelName(chat.modelId)}",
+                            text = spaceTag,
                             style = com.example.orbitai.ui.theme.OrbitTheme.typography.caption1,
-                            color = com.example.orbitai.ui.theme.OrbitTheme.colors.labelTertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
+                            color = com.example.orbitai.ui.theme.OrbitTheme.colors.onAccentContainer,
+                            modifier = Modifier
+                                .align(Alignment.End)
+                                .padding(top = 4.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(tagBackground)
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
                         )
-
-                        val spaceTag = extractSpaceTag(chat)
-                        if (spaceTag != null) {
-                            Text(
-                                text = spaceTag,
-                                style = com.example.orbitai.ui.theme.OrbitTheme.typography.caption1,
-                                color = com.example.orbitai.ui.theme.OrbitTheme.colors.onAccentContainer,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(tagBackground)
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                            )
-                        }
                     }
                 }
             }
@@ -789,14 +764,6 @@ private fun previewText(chat: ChatSummary): String {
     val preview = chat.lastMessagePreview?.trim().orEmpty()
     return if (preview.isBlank()) "No messages yet" else preview
 }
-
-private fun displayModelName(modelId: String): String {
-    if (modelId.isBlank()) return "unknown-model"
-    return modelId.lowercase().replace("_", "-")
-}
-
-private fun isOnDeviceModel(modelId: String): Boolean =
-    modelId.isNotBlank() && !modelId.contains("gemini", ignoreCase = true)
 
 private fun extractSpaceTag(chat: ChatSummary): String? {
     val title = chat.title

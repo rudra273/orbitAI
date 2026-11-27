@@ -42,6 +42,7 @@ fun OnboardingScreen(
     onDone: () -> Unit,
 ) {
     BackHandler(onBack = onDone)
+    val startDownload = rememberModelDownloadAction(downloadViewModel)
     val progress by downloadViewModel.progress.collectAsState()
     val model = downloadViewModel.recommendedModelId?.let { id -> AVAILABLE_MODELS.find { it.id == id } }
     val spec = model?.let { MODEL_DOWNLOAD_SPECS[it.id] }
@@ -89,7 +90,7 @@ fun OnboardingScreen(
                                         Text(stringResource(R.string.onboarding_add_token))
                                     }
                                 }
-                                else -> Button(onClick = { downloadViewModel.startDownload(model) }, modifier = Modifier.fillMaxWidth()) {
+                                else -> Button(onClick = { startDownload(model) }, modifier = Modifier.fillMaxWidth()) {
                                     Text(stringResource(R.string.onboarding_download))
                                 }
                             }

@@ -34,10 +34,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,21 +43,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.orbitai.BuildConfig
 import com.example.orbitai.R
 import com.example.orbitai.ui.components.OrbitGroupedCard
 import com.example.orbitai.ui.components.OrbitInsetDivider
 import com.example.orbitai.ui.components.OrbitListRow
 import com.example.orbitai.ui.components.OrbitSectionHeader
-import com.example.orbitai.ui.components.OrbitStatusBadge
 import com.example.orbitai.ui.components.OrbitTopLevelHeader
 import com.example.orbitai.ui.theme.OrbitTheme
-import com.example.orbitai.viewmodel.AppUpdateViewModel
 import com.example.orbitai.viewmodel.DownloadViewModel
 
 @Composable
 fun SettingsScreen(
     downloadViewModel: DownloadViewModel,
-    appUpdateViewModel: AppUpdateViewModel,
     appearance: com.example.orbitai.core.common.Appearance,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
@@ -69,48 +65,8 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { downloadViewModel.refreshStatus() }
 
     val context = LocalContext.current
-    val updateState by appUpdateViewModel.uiState.collectAsState()
     val colors = OrbitTheme.colors
     val spacing = OrbitTheme.spacing
-
-    val versionDescription = remember(
-        updateState.installedVersion,
-        updateState.latestVersion,
-        updateState.isChecking,
-        updateState.isDownloading,
-        updateState.downloadProgress,
-        updateState.isUpdateAvailable,
-        updateState.isReadyToInstall,
-        updateState.errorMessage,
-        updateState.installMessage,
-    ) {
-        val installed = updateState.installedVersion.ifBlank { "Unknown" }
-        when {
-            updateState.isDownloading -> "Installed $installed · Downloading update"
-            updateState.isChecking -> "Installed $installed · Checking for updates"
-            !updateState.installMessage.isNullOrBlank() -> updateState.installMessage.orEmpty()
-            updateState.isUpdateAvailable && !updateState.latestVersion.isNullOrBlank() ->
-                "Installed $installed · New ${updateState.latestVersion} available"
-            !updateState.errorMessage.isNullOrBlank() -> "Installed $installed · Tap to retry"
-            else -> "Installed $installed · Up to date"
-        }
-    }
-    val versionActionLabel = remember(
-        updateState.isChecking,
-        updateState.isDownloading,
-        updateState.downloadProgress,
-        updateState.isUpdateAvailable,
-        updateState.isReadyToInstall,
-        updateState.errorMessage,
-    ) {
-        when {
-            updateState.isDownloading -> "${updateState.downloadProgress}%"
-            updateState.isChecking -> "Checking"
-            updateState.isUpdateAvailable -> "Update"
-            !updateState.errorMessage.isNullOrBlank() -> "Retry"
-            else -> "Current"
-        }
-    }
 
     Scaffold(
         containerColor = colors.background,
@@ -246,27 +202,11 @@ fun SettingsScreen(
             item { OrbitSectionHeader(stringResource(R.string.section_about)) }
             item {
                 OrbitGroupedCard {
-                    val emphasized = updateState.isUpdateAvailable || updateState.isReadyToInstall
                     OrbitListRow(
                         icon = Icons.Default.Tag,
                         title = stringResource(R.string.version),
-                        subtitle = versionDescription,
+                        subtitle = BuildConfig.VERSION_NAME,
                         showChevron = false,
-                        trailing = {
-                            OrbitStatusBadge(
-                                label = versionActionLabel,
-                                containerColor = if (emphasized) colors.successContainer else colors.surfaceInput,
-                                contentColor = if (emphasized) colors.onSuccessContainer else colors.labelSecondary,
-                            )
-                        },
-                        onClick = {
-                            if (updateState.isDownloading) return@OrbitListRow
-                            if (updateState.isUpdateAvailable) {
-                                appUpdateViewModel.openUpdatePage()
-                            } else {
-                                appUpdateViewModel.checkForUpdates()
-                            }
-                        },
                     )
                     OrbitInsetDivider()
                     OrbitListRow(
@@ -292,7 +232,7 @@ fun SettingsScreen(
                     OrbitInsetDivider()
                     OrbitListRow(
                         icon = Icons.Default.NewReleases,
-                        title = "What's new in Orbit ${com.example.orbitai.feature.update.WhatsNew.VERSION}.0",
+                        title = com.example.orbitai.feature.update.WhatsNew.title,
                         subtitle = stringResource(R.string.see_the_headline_features),
                         onClick = { showWhatsNew = true },
                     )

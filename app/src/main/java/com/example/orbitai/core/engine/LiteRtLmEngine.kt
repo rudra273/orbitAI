@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.flow
  * Used by both the main app and the floating bubble service.
  *
  * Features merged from OrbitBubbleLiteRtRuntime:
- * - GPU → CPU automatic fallback
+ * - Backend choice from [BackendPlan] (Auto falls back, a picked backend does not)
  * - Multi-turn conversation support
  * - Structured tool calling
  */
@@ -32,6 +32,7 @@ class LiteRtLmEngine(
     private val context: Context,
     private val modelPath: String,
     private val settings: InferenceSettings,
+    private val plan: BackendPlan,
 ) : LlmInferenceEngine, LlmConversationEngine {
 
     companion object {
@@ -45,18 +46,17 @@ class LiteRtLmEngine(
     val activeBackend: String get() = backendLabel
 
     init {
-        // NPU → GPU → CPU (#40). NPU works only with models compiled for this phone's NPU; others fail fast and are skipped next time.
-        val (created, backend) = BackendCascade(context, java.io.File(modelPath).name)
-            .firstWorking(listOf(HardwareBackend.NPU, HardwareBackend.GPU, HardwareBackend.CPU)) { backend ->
-                Log.d(TAG, "Initializing LiteRT-LM on ${backend.label} for $modelPath")
-                when (backend) {
-                    HardwareBackend.NPU -> createEngine(Backend.NPU(context.applicationInfo.nativeLibraryDir), Backend.GPU())
-                    HardwareBackend.GPU -> createEngine(Backend.GPU(), Backend.GPU())
-                    HardwareBackend.CPU -> createEngine(Backend.CPU(), Backend.CPU())
-                }
+        // NPU (only models built for this chip) → GPU → CPU in Auto; a picked backend never falls back (#40).
+        val loaded = BackendCascade(context, java.io.File(modelPath).name).load(plan) { backend ->
+            Log.d(TAG, "Initializing LiteRT-LM on ${backend.label} for $modelPath")
+            when (backend) {
+                HardwareBackend.NPU -> createEngine(Backend.NPU(context.applicationInfo.nativeLibraryDir), Backend.GPU())
+                HardwareBackend.GPU -> createEngine(Backend.GPU(), Backend.GPU())
+                HardwareBackend.CPU -> createEngine(Backend.CPU(), Backend.CPU())
             }
-        engine = created
-        backendLabel = backend.label
+        }
+        engine = loaded.value
+        backendLabel = loaded.label
     }
 
     // ── LlmInferenceEngine (simple single-turn streaming) ─────────────────────
