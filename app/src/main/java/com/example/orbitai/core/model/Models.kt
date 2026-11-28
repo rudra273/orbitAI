@@ -138,7 +138,7 @@ val AVAILABLE_MODELS = listOf(
     LlmModel(
         id = "qwen35-4b",
         displayName = "Qwen 3.5 4B",
-        fileName = "Qwen3.5-4B_mixed_int4.litertlm",
+        fileName = "Qwen3.5-4B_mixed_int4_gpu_composite_v0200.litertlm",
         description = "Qwen 3.5 · strongest Qwen for phones, text only",
         paramCount = "4B",
         format = ModelFormat.LITERTLM,

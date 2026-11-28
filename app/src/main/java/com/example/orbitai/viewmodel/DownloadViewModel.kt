@@ -27,6 +27,7 @@ import com.example.orbitai.core.engine.BackendSpeedTest
 import com.example.orbitai.core.engine.HardwareBackend
 import com.example.orbitai.core.engine.SpeedTestResults
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -151,6 +152,7 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteModel(model: LlmModel) {
         ModelDownloadWorker.cancel(getApplication(), model.id)
+        getApplication<Application>().appContainer.llmRepository.releaseModel(model.id)
         downloader.deleteModel(model)
         _progress.update {
             it + (model.id to DownloadProgress(model.id, status = DownloadStatus.IDLE))
@@ -287,9 +289,14 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         _speedTestState.value = SpeedTestState(model.id)
     }
 
+    private var speedTestJob: Job? = null
+
     fun startSpeedTest(model: LlmModel) {
+        val previous = speedTestJob
         _speedTestState.value = SpeedTestState(model.id, started = true)
-        viewModelScope.launch {
+        speedTestJob = viewModelScope.launch {
+            // A cancelled test may still be finishing a model load it can't interrupt; wait for it.
+            previous?.cancelAndJoin()
             _speedTestState.value = try {
                 val results = speedTest.run(model) { backend -> _speedTestState.update { it?.copy(running = backend) } }
                 SpeedTestState(model.id, started = true, results = results)
@@ -300,6 +307,12 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
             }
             _backendVersion.update { it + 1 }
         }
+    }
+
+    /** Stops a running test without saving results. A model load already in progress finishes, then is freed. */
+    fun cancelSpeedTest() {
+        speedTestJob?.cancel()
+        _speedTestState.value = null
     }
 
     /** Closes the dialog unless a test is still running. */

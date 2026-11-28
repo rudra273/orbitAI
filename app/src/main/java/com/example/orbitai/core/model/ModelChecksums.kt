@@ -20,7 +20,7 @@ val MODEL_FILE_SHA256: Map<String, Map<String, String>> = mapOf(
         "Qwen3.5-2B-VL_int8.litertlm" to "90ece8de37537b757ef21075a7d17c14bc11ac29793dada058a5be7c3fe03ccc",
     ),
     "qwen35-4b" to mapOf(
-        "Qwen3.5-4B_mixed_int4.litertlm" to "878e5d1926ecc4930e24c62de43a7038edeeb0c57446231086b139892984a5fd",
+        "Qwen3.5-4B_mixed_int4_gpu_composite_v0200.litertlm" to "50bdbc9196d24b427e8b36175bec357dcb5200986f331f5ecd77ded009c187ef",
     ),
     "gemma4-e2b" to mapOf(
         "gemma-4-E2B-it-int4.litertlm" to "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",

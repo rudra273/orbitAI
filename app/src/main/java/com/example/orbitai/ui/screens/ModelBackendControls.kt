@@ -179,7 +179,8 @@ internal fun SpeedTestDialog(viewModel: DownloadViewModel) {
                     running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Text(
-                            stringResource(R.string.speed_test_running, current.running?.label.orEmpty()),
+                            current.running?.let { stringResource(R.string.speed_test_running, it.label) }
+                                ?: stringResource(R.string.speed_test_preparing),
                             color = colors.labelPrimary, fontFamily = OrbitUiFont, fontSize = 14.sp,
                         )
                     }
@@ -201,9 +202,15 @@ internal fun SpeedTestDialog(viewModel: DownloadViewModel) {
                 }
             }
         },
-        dismissButton = if (!current.started) {
-            { TextButton(onClick = { viewModel.dismissSpeedTest() }) { Text(stringResource(R.string.cancel), fontFamily = OrbitUiFont, color = colors.labelPrimary) } }
-        } else null,
+        dismissButton = when {
+            !current.started -> {
+                { TextButton(onClick = { viewModel.dismissSpeedTest() }) { Text(stringResource(R.string.cancel), fontFamily = OrbitUiFont, color = colors.labelPrimary) } }
+            }
+            running -> {
+                { TextButton(onClick = { viewModel.cancelSpeedTest() }) { Text(stringResource(R.string.cancel), fontFamily = OrbitUiFont, color = colors.destructive) } }
+            }
+            else -> null
+        },
         containerColor = colors.surface,
         shape = RoundedCornerShape(14.dp),
     )

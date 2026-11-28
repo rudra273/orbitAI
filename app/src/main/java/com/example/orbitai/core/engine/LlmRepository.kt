@@ -118,6 +118,12 @@ class LlmRepository(
         return true
     }
 
+    /** Closes the engine if [modelId] is the loaded model, so its file is no longer held open. */
+    @Synchronized
+    fun releaseModel(modelId: String) {
+        if (currentModelId == modelId) close()
+    }
+
     /** Hardware backend of the loaded engine (e.g. "GPU", "CPU"), or the engine type for non-LiteRT models. */
     @Synchronized
     fun activeBackendLabel(): String? = when (val current = engine) {

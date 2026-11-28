@@ -18,7 +18,7 @@ object LlmInferenceEngineFactory {
         val modelPath = resolveModelPath(context, model)
         return when (model.format) {
             ModelFormat.TASK -> MediaPipeTaskEngine(context, modelPath, settings, plan(context, model, forced))
-            ModelFormat.LITERTLM -> LiteRtLmEngine(context, modelPath, settings, plan(context, model, forced))
+            ModelFormat.LITERTLM -> LiteRtLmEngine(context, modelPath, settings, plan(context, model, forced), model.supportsVision)
             ModelFormat.ONNX_GENAI -> OnnxGenAiEngine(context, model, settings)
         }
     }
@@ -36,7 +36,7 @@ object LlmInferenceEngineFactory {
             return null
         }
         val modelPath = resolveModelPath(context, model)
-        return LiteRtLmEngine(context, modelPath, settings, plan(context, model, null))
+        return LiteRtLmEngine(context, modelPath, settings, plan(context, model, null), model.supportsVision)
     }
 
     private fun plan(context: Context, model: LlmModel, forced: HardwareBackend?): BackendPlan =

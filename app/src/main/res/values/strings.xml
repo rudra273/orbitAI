@@ -389,4 +389,5 @@
     <string name="backend_not_tested">not tested</string>
     <string name="backend_fastest">%1$s fastest</string>
     <string name="backend_auto_uses">Auto uses %1$s on this phone.</string>
+    <string name="speed_test_preparing">Getting ready…</string>
 </resources>

@@ -234,6 +234,15 @@ class ModelDownloader(private val context: Context) {
         if (target.isDirectory) target.deleteRecursively() else target.delete()
         deletePartialDownload(model)
         deleteReplacedFiles(model)
+        deleteEngineCaches(model.fileName)
+        REPLACED_MODEL_FILES[model.id].orEmpty().forEach(::deleteEngineCaches)
+    }
+
+    /** Removes the caches LiteRT-LM writes to the cache dir for a model file (e.g. "<file>.xnnpack_cache"). */
+    private fun deleteEngineCaches(modelFileName: String) {
+        context.cacheDir.listFiles()
+            ?.filter { it.name.startsWith(modelFileName) }
+            ?.forEach { it.deleteRecursively() }
     }
 
     /** Removes files an older catalog version downloaded for [model], once they are no longer needed. */

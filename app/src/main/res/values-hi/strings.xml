@@ -389,4 +389,5 @@
     <string name="backend_not_tested">जांचा नहीं गया</string>
     <string name="backend_fastest">%1$s सबसे तेज़</string>
     <string name="backend_auto_uses">इस फ़ोन पर ऑटो %1$s इस्तेमाल करता है।</string>
+    <string name="speed_test_preparing">तैयारी हो रही है…</string>
 </resources>

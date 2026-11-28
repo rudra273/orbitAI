@@ -33,10 +33,18 @@ class LiteRtLmEngine(
     private val modelPath: String,
     private val settings: InferenceSettings,
     private val plan: BackendPlan,
+    private val supportsVision: Boolean,
 ) : LlmInferenceEngine, LlmConversationEngine {
 
     companion object {
         private const val TAG = "LiteRtLmEngine"
+
+        /** Text-only files have no vision encoder, and LiteRT-LM refuses to load them with a vision backend set. */
+        internal fun visionBackendFor(supportsVision: Boolean, backend: HardwareBackend): Backend? = when {
+            !supportsVision -> null
+            backend == HardwareBackend.CPU -> Backend.CPU()
+            else -> Backend.GPU()
+        }
     }
 
     private var engine: Engine? = null
@@ -49,10 +57,11 @@ class LiteRtLmEngine(
         // NPU (only models built for this chip) → GPU → CPU in Auto; a picked backend never falls back (#40).
         val loaded = BackendCascade(context, java.io.File(modelPath).name).load(plan) { backend ->
             Log.d(TAG, "Initializing LiteRT-LM on ${backend.label} for $modelPath")
+            val vision = visionBackendFor(supportsVision, backend)
             when (backend) {
-                HardwareBackend.NPU -> createEngine(Backend.NPU(context.applicationInfo.nativeLibraryDir), Backend.GPU())
-                HardwareBackend.GPU -> createEngine(Backend.GPU(), Backend.GPU())
-                HardwareBackend.CPU -> createEngine(Backend.CPU(), Backend.CPU())
+                HardwareBackend.NPU -> createEngine(Backend.NPU(context.applicationInfo.nativeLibraryDir), vision)
+                HardwareBackend.GPU -> createEngine(Backend.GPU(), vision)
+                HardwareBackend.CPU -> createEngine(Backend.CPU(), vision)
             }
         }
         engine = loaded.value
@@ -160,7 +169,7 @@ class LiteRtLmEngine(
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    private fun createEngine(textBackend: Backend, visionBackend: Backend): Engine {
+    private fun createEngine(textBackend: Backend, visionBackend: Backend?): Engine {
         val engineConfig = EngineConfig(
             modelPath = modelPath,
             backend = textBackend,

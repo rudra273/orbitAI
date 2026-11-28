@@ -63,6 +63,7 @@ private fun folderSpec(
 /** modelId -> files an earlier catalog version stored for it; deleted when the current file finishes downloading. */
 val REPLACED_MODEL_FILES: Map<String, List<String>> = mapOf(
     "qwen35-0.8b" to listOf("Qwen3.5-0.8B_int8.litertlm"),
+    "qwen35-4b" to listOf("Qwen3.5-4B_mixed_int4.litertlm"),
 )
 
 val MODEL_DOWNLOAD_SPECS = mapOf(
@@ -140,10 +141,10 @@ val MODEL_DOWNLOAD_SPECS = mapOf(
     ),
     "qwen35-4b" to singleFileSpec(
         repo = "litert-community/Qwen3.5-4B",
-        remotePath = "Qwen3.5-4B_mixed_int4.litertlm",
-        localPath = "Qwen3.5-4B_mixed_int4.litertlm",
+        remotePath = "Qwen3.5-4B_mixed_int4_gpu_composite_v0200.litertlm",
+        localPath = "Qwen3.5-4B_mixed_int4_gpu_composite_v0200.litertlm",
         requiresAuth = false,
-        sizeBytes = 2_754_166_784L,
+        sizeBytes = 2_698_231_808L,
         revision = "d1d2c9e977626705a749a0f36d58d345b4e09215",
     ),
     "gemma4-e4b" to singleFileSpec(
